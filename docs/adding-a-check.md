@@ -35,7 +35,7 @@ else owns, it is a reconciler and doesn't belong here.
    blocking case and the nearest case that must _not_ fire. Tests stay hermetic.
 5. **Docs.** Add `docs/checks/<name>.md` (OKF `type: Library`,
    `resource: src/checks/<name>.ts`) documenting every rule, and link it from
-   [`docs/checks/index.md`](checks/index.md). Update the planned-checks table in the README and
+   [`docs/checks/index.md`](checks/index.md). Update the checks table in the README and
    trim any "planned" wording the check just made obsolete.
 
 ## Rules every check obeys

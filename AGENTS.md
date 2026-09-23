@@ -98,9 +98,10 @@ something.
   [bot-automerge](.github/workflows/bot-automerge.yml). bot-automerge is safe
   only while merge-safety and the CI jobs are required checks on the default
   branch.
-- **Self-consumption is a follow-up.** This repo can't gate itself with
-  `pr-policy` until the first release and the distribution wrapper exist. See
-  [docs/distribution.md](docs/distribution.md).
+- **Self-consumption:** [pr-policy.yml](.github/workflows/pr-policy.yml) runs
+  the released `rmartz/pr-policy-action` on this repo's PRs, and `pr-policy` is
+  a required check. A check change gates this repo only after it ships through
+  the Action. See [docs/distribution.md](docs/distribution.md).
 
 ## Common commands
 

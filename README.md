@@ -21,6 +21,12 @@ required-status name.
 The design, and why this is separate from `merge-safety` and `pr-lifecycle`, is
 in [docs/decisions.md](docs/decisions.md).
 
+## Using it
+
+Add the [`rmartz/pr-policy-action`](https://github.com/rmartz/pr-policy-action)
+caller workflow and require the `pr-policy` status on your default branch. Setup
+is in its [consumer guide](https://github.com/rmartz/pr-policy-action/blob/main/docs/consuming.md).
+
 ## Library and CLI
 
 Every check is importable. The `ai-pr-policy` CLI is a thin wrapper around them:

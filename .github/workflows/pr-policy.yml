@@ -1,0 +1,38 @@
+name: pr-policy
+
+# This repo's own policy gate, through the exact caller every consumer uses
+# (rmartz/pr-policy-action docs/consuming.md). The `@<sha>` pin is bumped by
+# Dependabot's github-actions ecosystem, so a new pr-policy release gates this repo
+# once the Action re-releases with it — this repo is judged by the released
+# policy, never by the code under review.
+#
+# pull_request_target (not pull_request) so Dependabot and fork PRs still get a
+# token that can post the check-run and label. Safe because nothing checks out or
+# runs PR code: the CLI reads the PR through the API.
+#
+# The job is deliberately NOT named `pr-policy`: the CLI posts a check-run with
+# exactly that name, which the default-branch ruleset requires.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+
+permissions:
+  checks: write # post the pr-policy check-run
+  pull-requests: write # write the labels pr-policy owns (CI approval needed)
+  contents: read # read changed files at the merge base and head
+  packages: read # install the CLI from GitHub Packages
+
+concurrency:
+  group: pr-policy-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-policy:
+    name: pr-policy (evaluate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: rmartz/pr-policy-action@38f5acc49575fafddc3874acd91f8aea65f8ea7a # v1.0.0
+        with:
+          pr: ${{ github.event.pull_request.number }}
