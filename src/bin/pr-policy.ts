@@ -5,7 +5,8 @@ import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { evaluatePolicy } from '../evaluate.js';
 import { parseFacts } from '../facts.js';
-import { applyLabelEdits, gatherFacts, postCheckRun } from '../github/pull-request.js';
+import { postCheckRun } from '../github/check-run.js';
+import { applyLabelEdits, gatherFacts } from '../github/pull-request.js';
 import { resolveRepoTarget } from '../lib/github.js';
 
 const USAGE = `Usage:
@@ -16,7 +17,7 @@ const USAGE = `Usage:
          apply the label edits the checks planned. --json prints the
          evaluation instead and changes nothing.
 --facts  Evaluate an offline JSON facts document ("-" reads stdin) and print
-         the evaluation. Exits 1 when it is a failure.`;
+         the evaluation. Exits 1 only on "failure" ("pending" exits 0).`;
 
 async function readInput(path: string): Promise<string> {
   if (path !== '-') return readFile(path, 'utf8');
@@ -49,7 +50,7 @@ async function main(argv: readonly string[]): Promise<number> {
   if (values.facts !== undefined) {
     const evaluation = await evaluatePolicy(parseFacts(await readInput(values.facts)));
     console.log(JSON.stringify(evaluation, null, 2));
-    return evaluation.conclusion === 'failure' ? 1 : 0;
+    return evaluation.outcome === 'failure' ? 1 : 0;
   }
 
   const pr = Number(values.pr);
@@ -71,7 +72,7 @@ async function main(argv: readonly string[]): Promise<number> {
   }
   await applyLabelEdits(target, evaluation);
   await postCheckRun(target, headSha, evaluation);
-  console.log(`${repo}#${pr}: ${evaluation.conclusion} — ${evaluation.title}`);
+  console.log(`${repo}#${pr}: ${evaluation.outcome} — ${evaluation.title}`);
   return 0;
 }
 

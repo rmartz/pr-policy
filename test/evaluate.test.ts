@@ -8,46 +8,59 @@ const pr: PullRequestFacts = {
   labels: [],
   changedFiles: ['src/a.ts'],
   workflowChanges: [],
+  manifestChanges: [],
 };
 
 function stubCheck(name: string, findings: Finding[], labelsToAdd: string[] = []): PolicyCheck {
   return { name, evaluate: async () => ({ findings, labelsToAdd }) };
 }
 
+const info: Finding = { check: 'a', message: 'fyi', effect: 'info' };
+const hold: Finding = { check: 'b', message: 'waiting on a human', effect: 'hold' };
+const block: Finding = { check: 'c', message: 'bad title', effect: 'block' };
+
 describe('buildReport', () => {
   it('is success with no findings', () => {
     const report = buildReport([]);
-    expect(report.conclusion).toBe('success');
+    expect(report.outcome).toBe('success');
     expect(report.summary).toBe('No policy findings.');
   });
 
-  it('stays success when every finding is non-blocking', () => {
-    const report = buildReport([{ check: 'a', message: 'fyi', blocking: false }]);
-    expect(report.conclusion).toBe('success');
+  it('stays success when every finding is informational', () => {
+    const report = buildReport([info]);
+    expect(report.outcome).toBe('success');
     expect(report.summary).toContain('**a**: fyi');
   });
 
-  it('is failure when any finding blocks, and counts only blocking findings', () => {
-    const report = buildReport([
-      { check: 'a', message: 'fyi', blocking: false },
-      { check: 'b', message: 'bad title', blocking: true },
-    ]);
-    expect(report.conclusion).toBe('failure');
+  it('titles a success with its headline finding when there is one', () => {
+    const report = buildReport([info, { ...info, message: 'signed off', headline: true }]);
+    expect(report.title).toBe('signed off');
+  });
+
+  it('is pending, not failure, when the only gate is a hold', () => {
+    const report = buildReport([info, hold]);
+    expect(report.outcome).toBe('pending');
+    expect(report.title).toBe('Waiting on 1 human sign-off');
+  });
+
+  it('is failure when anything blocks, even alongside a hold', () => {
+    const report = buildReport([hold, block]);
+    expect(report.outcome).toBe('failure');
     expect(report.title).toBe('1 blocking policy finding');
   });
 });
 
 describe('evaluatePolicy', () => {
-  it('passes a PR that touches no workflow file', async () => {
-    expect((await evaluatePolicy(pr)).conclusion).toBe('success');
+  it('passes a well-titled PR that touches no workflow file', async () => {
+    expect((await evaluatePolicy(pr)).outcome).toBe('success');
   });
 
   it('folds every check into one report, in check order', async () => {
     const report = await evaluatePolicy(pr, [
-      stubCheck('first', [{ check: 'first', message: 'one', blocking: false }]),
-      stubCheck('second', [{ check: 'second', message: 'two', blocking: true }]),
+      stubCheck('first', [{ ...info, check: 'first' }]),
+      stubCheck('second', [{ ...block, check: 'second' }]),
     ]);
-    expect(report.conclusion).toBe('failure');
+    expect(report.outcome).toBe('failure');
     expect(report.findings.map((finding) => finding.check)).toEqual(['first', 'second']);
   });
 

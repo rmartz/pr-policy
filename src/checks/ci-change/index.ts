@@ -41,26 +41,30 @@ export function decideCiChange(
     const note: Finding = {
       check: CI_CHANGE_CHECK,
       message: 'Workflow changes only add coverage or are maintenance. No sign-off needed.',
-      blocking: false,
+      effect: 'info',
     };
     return { findings: [note], labelsToAdd, labelsToRemove };
   }
 
+  // Unsigned is a `hold`, not a `block`: nothing is broken, the PR is waiting on
+  // a human. Red would read as a failing build and send it round a fix loop that
+  // cannot clear it (docs/decisions.md).
   const headline: Finding = signedOff
     ? {
         check: CI_CHANGE_CHECK,
-        message: `CI loosening signed off with \`${CI_CHANGE_APPROVED_LABEL}\`.`,
-        blocking: false,
+        message: `CI loosening signed off with \`${CI_CHANGE_APPROVED_LABEL}\``,
+        effect: 'info',
+        headline: true,
       }
     : {
         check: CI_CHANGE_CHECK,
-        message: `This PR loosens CI. A human must review the change and apply \`${CI_CHANGE_APPROVED_LABEL}\`; no code change clears this. Ambiguous indicators are treated as loosening because a miss skips the sign-off entirely.`,
-        blocking: true,
+        message: `This PR loosens CI and is waiting for a human to review the change and apply \`${CI_CHANGE_APPROVED_LABEL}\`. No code change clears this. Ambiguous indicators are treated as loosening because a miss skips the sign-off entirely.`,
+        effect: 'hold',
       };
   const evidence = classification.indicators.map((indicator): Finding => ({
     check: CI_CHANGE_CHECK,
     message: indicatorMessage(indicator),
-    blocking: false,
+    effect: 'info',
   }));
   return { findings: [headline, ...evidence], labelsToAdd, labelsToRemove };
 }

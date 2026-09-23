@@ -63,7 +63,20 @@ describe('gatherFacts', () => {
     await expect(gatherFacts(target)).rejects.toThrow('could not read .github/workflows/ci.yml');
   });
 
-  it('skips the merge-base lookup when no workflow file changed', async () => {
+  it('reads changed dependency manifests on both sides', async () => {
+    responses.set(
+      'repos/o/r/pulls/7/files',
+      JSON.stringify({ filename: 'package.json', status: 'modified' }),
+    );
+    responses.set('repos/o/r/contents/package.json?ref=base1', '{"a":1}');
+    responses.set('repos/o/r/contents/package.json?ref=head1', '{"a":2}');
+    const { facts } = await gatherFacts(target);
+    expect(facts.manifestChanges).toEqual([
+      { path: 'package.json', baseText: '{"a":1}', headText: '{"a":2}' },
+    ]);
+  });
+
+  it('skips the merge-base lookup when no workflow file or manifest changed', async () => {
     responses.delete('repos/o/r/compare/main...head1');
     responses.set(
       'repos/o/r/pulls/7/files',

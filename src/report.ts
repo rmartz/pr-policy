@@ -1,29 +1,52 @@
-import type { Finding } from './policy.js';
+import type { Finding, FindingEffect } from './policy.js';
 
-export type CheckRunConclusion = 'success' | 'failure';
+/**
+ * The overall result of one evaluation. `pending` posts the check-run as
+ * `in_progress` (no conclusion), so a PR waiting on a human sign-off shows as
+ * waiting rather than as a failing build; the required check still holds the
+ * merge until a later run completes it.
+ */
+export const POLICY_OUTCOMES = ['success', 'pending', 'failure'] as const;
+export type PolicyOutcome = (typeof POLICY_OUTCOMES)[number];
 
 /** The body of the one `pr-policy` check-run. */
 export interface CheckRunReport {
-  conclusion: CheckRunConclusion;
+  outcome: PolicyOutcome;
   title: string;
   summary: string;
   findings: readonly Finding[];
 }
 
+const ICONS: Record<FindingEffect, string> = { block: '❌', hold: '⏳', info: 'ℹ️' };
+
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`;
+}
+
 /**
- * Fold every check's findings into the single check-run. Any blocking finding
- * makes it `failure`; non-blocking findings are listed but never turn it red.
+ * Fold every check's findings into the single check-run. Any `block` finding
+ * makes it `failure`; otherwise any `hold` makes it `pending`; otherwise it is
+ * `success`. A fixable problem outranks a pending sign-off, so the author sees
+ * the thing they can act on.
  */
 export function buildReport(findings: readonly Finding[]): CheckRunReport {
-  const blocking = findings.filter((finding) => finding.blocking);
-  const conclusion = blocking.length > 0 ? 'failure' : 'success';
-  const title =
-    blocking.length > 0
-      ? `${blocking.length} blocking policy finding${blocking.length === 1 ? '' : 's'}`
-      : 'All PR policy checks pass';
+  const blocks = findings.filter((finding) => finding.effect === 'block');
+  const holds = findings.filter((finding) => finding.effect === 'hold');
+  const headline = findings.find((finding) => finding.headline);
+
+  let outcome: PolicyOutcome = 'success';
+  let title = headline?.message ?? 'All PR policy checks pass';
+  if (blocks.length > 0) {
+    outcome = 'failure';
+    title = plural(blocks.length, 'blocking policy finding');
+  } else if (holds.length > 0) {
+    outcome = 'pending';
+    title = `Waiting on ${plural(holds.length, 'human sign-off')}`;
+  }
+
   const lines = findings.map(
-    (finding) => `- ${finding.blocking ? '❌' : 'ℹ️'} **${finding.check}**: ${finding.message}`,
+    (finding) => `- ${ICONS[finding.effect]} **${finding.check}**: ${finding.message}`,
   );
   const summary = lines.length > 0 ? lines.join('\n') : 'No policy findings.';
-  return { conclusion, title, summary, findings };
+  return { outcome, title, summary, findings };
 }

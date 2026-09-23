@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: What pr-policy is
-description: The suite of read-only PR content classifiers behind the single blocking pr-policy check-run — what each check judges, what it may write, and where it sits relative to merge-safety and pr-lifecycle.
+description: The suite of read-only PR content classifiers behind the single required pr-policy check-run — what each check judges, what it may write, and where it sits relative to merge-safety and pr-lifecycle.
 tags: [pr-policy, overview, merge-gate]
 ---
 
@@ -17,13 +17,13 @@ folded into **one** [`pr-policy` check-run](check-run-contract.md).
 
 1. **Gather facts** about the PR's current content (`PullRequestFacts` in
    `src/policy.ts`): title, labels, changed paths, and both sides of every
-   changed workflow file.
+   changed workflow file and dependency manifest.
 2. **Run every registered check** (`CHECKS` in `src/checks/index.ts`). Each one
-   returns zero or more findings. A finding is either **blocking** or
-   informational.
-3. **Build one report** (`buildReport` in `src/report.ts`). Any blocking finding
-   makes the check-run `failure`. Otherwise it is `success`, and informational
-   findings are listed in the summary.
+   returns zero or more findings, each a **block** (fixable problem), a
+   **hold** (waiting on a human), or **info**.
+3. **Build one report** (`buildReport` in `src/report.ts`). Any block makes the
+   check-run `failure`; otherwise any hold makes it pending; otherwise it is
+   `success`. See [check-run-contract.md](check-run-contract.md).
 4. **Post the check-run**, and write any labels a check owns outright.
 
 `ai-pr-policy evaluate --pr <n>` runs all four against a live PR (the plumbing
