@@ -15,7 +15,7 @@ Documentation for `@rmartz/pr-policy`, written in
 - [Adding a policy check](adding-a-check.md): the module, registration, tests,
   and docs a new check needs.
 - [How pr-policy reaches consuming repos](distribution.md): the package, the
-  planned composite-Action wrapper, and why it needs `pull_request_target`.
+  `rmartz/pr-policy-action` wrapper, and how this repo gates itself.
 - [Design decisions](decisions.md): settled choices and the questions still
   open.
 - [The OKF documentation format](okf-format.md): how these pages are structured

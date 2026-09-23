@@ -29,7 +29,8 @@ folded into **one** [`pr-policy` check-run](check-run-contract.md).
 `ai-pr-policy evaluate --pr <n>` runs all four against a live PR (the plumbing
 is in `src/github/pull-request.ts`); `--facts` runs steps 2–3 offline. The
 registered checks are listed in [checks/index.md](checks/index.md). Consumers
-will run it through a pinned Action: see [distribution.md](distribution.md).
+run it through the `rmartz/pr-policy-action` Action: see
+[distribution.md](distribution.md).
 
 ## Where it sits in the fleet
 
