@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why it is read-only and separate from merge-safety and pr-lifecycle, how it relates to ci-change-guard, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why an unsigned CI loosening is red, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -52,27 +52,34 @@ See [distribution.md](distribution.md). The composite-Action wrapper follows
 `repo-hygiene-action` and `bot-automerge-action`, which replaced the fleet's
 reusable workflows.
 
-## Open
-
-### Retiring rmartz/ci-change-guard
+### CI-change check ported from ci-change-guard
 
 `rmartz/ci-change-guard` was scaffolded for check 1 before #302 was rescoped
-into this suite. It already has a structural workflow classifier with per-rule
-tests. **Proposed:** port its classifier as the CI-change check here, then
-archive it. Its settled policies carry over:
+into this suite. Its classifier and per-rule tests were ported here as the
+[`ci-change` check](checks/ci-change.md), and that repo is retired. Its settled
+policies carried over:
 
 - **Label removal:** reconcile `CI approval needed` to the current head while no
   one has signed off. Never remove it once `CI change approved` is present; it
-  stays as the audit record.
+  stays as the audit record. A loosening pushed _after_ sign-off is still
+  covered by it, because the gate reads the label; the check's findings still
+  show it. Closing that gap is a gate-model change, not a change here.
 - **`/review` defers entirely** for the classification. Composition judgments
-  (a loosening must stand alone) stay with the review.
+  (a loosening must stand alone, CI changes are `ci`-typed) stay with the review
+  until the title check lands.
 
-### Red vs. neutral for an unsigned CI loosening
+### An unsigned CI loosening is red, not neutral
 
-`ci-change-guard` posted `neutral`, not `failure`, for an unsigned loosening. A
-red check can send the coordinator into a fix loop that can't clear it, because
-only a human label clears it. #302 makes `pr-policy` a required, red-on-violation
-check. That is right for title findings, which a fix pass _can_ clear. For the
-CI finding, the coordinator's routing must learn that a `pr-policy` failure
-whose only blocking finding is the CI gate is waiting on a human, not a fix.
-Settle this with check 1.
+`ci-change-guard` posted `neutral` so the coordinator wouldn't route an
+unsigned loosening into a fix loop that only a human label can clear. Here the
+single `pr-policy` check-run is a required status, so red is what holds the
+merge (#302). The blocking finding says outright that no code change clears it.
+
+## Open
+
+### Coordinator routing on a human-gated red
+
+The coordinator's routing must learn that a `pr-policy` failure whose only
+blocking finding is the CI gate waits on a human, not a fix pass. That change
+belongs in the coordinator, keyed off the `CI approval needed` label (already
+parked by `GATE_CI_APPROVAL`), not in this package.

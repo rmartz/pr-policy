@@ -1,7 +1,7 @@
 {
   "name": "@rmartz/pr-policy",
   "version": "0.0.0",
-  "description": "Read-only PR content classifiers — CI-change classification, title-type rules, and more — reported as one blocking pr-policy check-run. Distributed as a pinned Action kept current by Dependabot.",
+  "description": "Read-only PR content classifiers \u2014 CI-change classification, title-type rules, and more \u2014 reported as one blocking pr-policy check-run. Distributed as a pinned Action kept current by Dependabot.",
   "keywords": [
     "pr-policy",
     "pull-request",
@@ -48,6 +48,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify:release-notes": "node scripts/verify-changelog-render.mjs"
+  },
+  "dependencies": {
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@semantic-release/release-notes-generator": "^14.1.1",

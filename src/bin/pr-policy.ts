@@ -1,18 +1,22 @@
 #!/usr/bin/env node
+// Thin CLI over the policy suite. All judgment lives in the library; this only
+// parses arguments and talks to `gh`.
 import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { evaluatePolicy } from '../evaluate.js';
 import { parseFacts } from '../facts.js';
+import { applyLabelEdits, gatherFacts, postCheckRun } from '../github/pull-request.js';
+import { resolveRepoTarget } from '../lib/github.js';
 
-const USAGE = `Usage: ai-pr-policy evaluate --facts <path|->
+const USAGE = `Usage:
+  ai-pr-policy evaluate --pr <n> [--repo <owner/repo>] [--json]
+  ai-pr-policy evaluate --facts <path|->
 
-Evaluate every policy check against a PR described by a JSON facts file
-({ "title": string, "labels": string[], "changedFiles": string[] }; "-" reads
-stdin) and print the pr-policy check-run report as JSON. Exits 1 when the report
-is a failure.
-
-Posting the check-run against a live PR arrives with the first check; see
-docs/overview.md.`;
+--pr     Evaluate a live PR, post the pr-policy check-run on its head, and
+         apply the label edits the checks planned. --json prints the
+         evaluation instead and changes nothing.
+--facts  Evaluate an offline JSON facts document ("-" reads stdin) and print
+         the evaluation. Exits 1 when it is a failure.`;
 
 async function readInput(path: string): Promise<string> {
   if (path !== '-') return readFile(path, 'utf8');
@@ -25,15 +29,50 @@ async function main(argv: readonly string[]): Promise<number> {
   const { values, positionals } = parseArgs({
     args: [...argv],
     allowPositionals: true,
-    options: { facts: { type: 'string' }, help: { type: 'boolean', short: 'h' } },
+    options: {
+      facts: { type: 'string' },
+      pr: { type: 'string' },
+      repo: { type: 'string' },
+      json: { type: 'boolean' },
+      help: { type: 'boolean', short: 'h' },
+    },
   });
-  if (values.help || positionals[0] !== 'evaluate' || values.facts === undefined) {
+  if (values.help) {
     console.log(USAGE);
-    return values.help ? 0 : 2;
+    return 0;
   }
-  const report = await evaluatePolicy(parseFacts(await readInput(values.facts)));
-  console.log(JSON.stringify(report, null, 2));
-  return report.conclusion === 'failure' ? 1 : 0;
+  if (positionals[0] !== 'evaluate') {
+    console.error(USAGE);
+    return 2;
+  }
+
+  if (values.facts !== undefined) {
+    const evaluation = await evaluatePolicy(parseFacts(await readInput(values.facts)));
+    console.log(JSON.stringify(evaluation, null, 2));
+    return evaluation.conclusion === 'failure' ? 1 : 0;
+  }
+
+  const pr = Number(values.pr);
+  if (!Number.isInteger(pr) || pr <= 0) {
+    console.error(USAGE);
+    return 2;
+  }
+  const repo = await resolveRepoTarget({ repo: values.repo });
+  if (!repo) {
+    console.error('Could not resolve owner/repo — pass --repo <owner/repo>.');
+    return 2;
+  }
+  const target = { repo, pr };
+  const { facts, headSha } = await gatherFacts(target);
+  const evaluation = await evaluatePolicy(facts);
+  if (values.json) {
+    console.log(JSON.stringify(evaluation, null, 2));
+    return 0;
+  }
+  await applyLabelEdits(target, evaluation);
+  await postCheckRun(target, headSha, evaluation);
+  console.log(`${repo}#${pr}: ${evaluation.conclusion} — ${evaluation.title}`);
+  return 0;
 }
 
 try {

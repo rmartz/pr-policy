@@ -1,0 +1,73 @@
+import { describe, expect, it } from 'vitest';
+import type { Classification } from '../../../src/checks/ci-change/classify.js';
+import { decideCiChange } from '../../../src/checks/ci-change/index.js';
+import { looseningIndicator } from '../../../src/checks/ci-change/indicators.js';
+import { CI_APPROVAL_NEEDED_LABEL, CI_CHANGE_APPROVED_LABEL } from '../../../src/contract.js';
+
+const LOOSENING: Classification = {
+  verdict: 'loosening',
+  indicators: [
+    looseningIndicator(
+      'job-removed',
+      '.github/workflows/ci.yml',
+      'jobs.test',
+      'Job `test` was removed.',
+    ),
+  ],
+};
+const TIGHTENING: Classification = { verdict: 'tightening', indicators: [] };
+const NO_CHANGE: Classification = { verdict: 'no-change', indicators: [] };
+
+const blocking = (labels: string[], classification: Classification) =>
+  decideCiChange(classification, labels).findings.some((finding) => finding.blocking);
+
+describe('decideCiChange — labels', () => {
+  it('applies the gate label to an unlabelled loosening', () => {
+    expect(decideCiChange(LOOSENING, ['DevOps']).labelsToAdd).toEqual([CI_APPROVAL_NEEDED_LABEL]);
+  });
+
+  it('does not re-apply a gate label the PR already carries', () => {
+    expect(decideCiChange(LOOSENING, [CI_APPROVAL_NEEDED_LABEL]).labelsToAdd).toEqual([]);
+  });
+
+  it('removes a stale gate label once the loosening is gone and nobody has signed off', () => {
+    expect(decideCiChange(TIGHTENING, [CI_APPROVAL_NEEDED_LABEL]).labelsToRemove).toEqual([
+      CI_APPROVAL_NEEDED_LABEL,
+    ]);
+  });
+
+  it('keeps the gate label once a human has signed off, as the audit record', () => {
+    const labels = [CI_APPROVAL_NEEDED_LABEL, CI_CHANGE_APPROVED_LABEL];
+    expect(decideCiChange(TIGHTENING, labels).labelsToRemove).toEqual([]);
+  });
+
+  it('never applies the human sign-off label', () => {
+    for (const classification of [LOOSENING, TIGHTENING, NO_CHANGE]) {
+      expect(decideCiChange(classification, []).labelsToAdd).not.toContain(
+        CI_CHANGE_APPROVED_LABEL,
+      );
+    }
+  });
+});
+
+describe('decideCiChange — findings', () => {
+  it('blocks an unsigned loosening and lists every indicator', () => {
+    const { findings } = decideCiChange(LOOSENING, []);
+    expect(blocking([], LOOSENING)).toBe(true);
+    expect(findings.some((finding) => finding.message.includes('jobs.test'))).toBe(true);
+  });
+
+  it('stops blocking once a human applies the sign-off label', () => {
+    expect(blocking([CI_APPROVAL_NEEDED_LABEL, CI_CHANGE_APPROVED_LABEL], LOOSENING)).toBe(false);
+  });
+
+  it('reports a tightening without blocking', () => {
+    const { findings } = decideCiChange(TIGHTENING, []);
+    expect(findings).toHaveLength(1);
+    expect(blocking([], TIGHTENING)).toBe(false);
+  });
+
+  it('reports nothing when no workflow file changed', () => {
+    expect(decideCiChange(NO_CHANGE, []).findings).toEqual([]);
+  });
+});

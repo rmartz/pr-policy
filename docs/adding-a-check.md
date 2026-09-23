@@ -8,7 +8,9 @@ tags: [pr-policy, checks, contributing]
 # Adding a policy check
 
 A check is a `PolicyCheck` (`src/policy.ts`): a `name` and an async `evaluate`
-that turns `PullRequestFacts` into findings.
+that turns `PullRequestFacts` into a `CheckResult`: findings, plus edits to any
+label the check owns outright. [ci-change](checks/ci-change.md) is the reference
+implementation.
 
 ## Before you start
 
@@ -20,18 +22,20 @@ else owns, it is a reconciler and doesn't belong here.
 
 ## Steps
 
-1. **Module.** Create `src/checks/<name>.ts` exporting the check. Split rule
-   families into sibling modules before the file approaches its cap.
+1. **Module.** Create `src/checks/<name>.ts` exporting the check, or a
+   `src/checks/<name>/` directory (like `ci-change/`) once it has several rule
+   modules. Split before a file approaches its cap.
 2. **Register.** Add it to `CHECKS` in `src/checks/index.ts`. Array order is
    report order.
 3. **Facts.** If the check needs input beyond `PullRequestFacts`, extend the
-   interface and the fact gathering. Keep every field a property of current
-   content.
+   interface, `gatherFacts` (`src/github/pull-request.ts`), and `parseFacts`
+   (`src/facts.ts`). Keep every field a property of current content, and make
+   gathering fail closed: a read error must not look like "nothing changed".
 4. **Tests.** Add `test/checks/<name>.test.ts` with one `it` per rule. Cover the
    blocking case and the nearest case that must _not_ fire. Tests stay hermetic.
 5. **Docs.** Add `docs/checks/<name>.md` (OKF `type: Library`,
-   `resource: src/checks/<name>.ts`) documenting every rule, and link it from a
-   `docs/checks/index.md`. Update the planned-checks table in the README and
+   `resource: src/checks/<name>.ts`) documenting every rule, and link it from
+   [`docs/checks/index.md`](checks/index.md). Update the planned-checks table in the README and
    trim any "planned" wording the check just made obsolete.
 
 ## Rules every check obeys
