@@ -16,7 +16,8 @@ folded into **one** [`pr-policy` check-run](check-run-contract.md).
 ## How a PR is evaluated
 
 1. **Gather facts** about the PR's current content (`PullRequestFacts` in
-   `src/policy.ts`).
+   `src/policy.ts`): title, labels, changed paths, and both sides of every
+   changed workflow file.
 2. **Run every registered check** (`CHECKS` in `src/checks/index.ts`). Each one
    returns zero or more findings. A finding is either **blocking** or
    informational.
@@ -25,9 +26,10 @@ folded into **one** [`pr-policy` check-run](check-run-contract.md).
    findings are listed in the summary.
 4. **Post the check-run**, and write any labels a check owns outright.
 
-Steps 1–3 exist today and run offline through `ai-pr-policy evaluate --facts`.
-Step 4 needs the GitHub plumbing, which lands with the first check. The
-distribution wrapper comes after that: see [distribution.md](distribution.md).
+`ai-pr-policy evaluate --pr <n>` runs all four against a live PR (the plumbing
+is in `src/github/pull-request.ts`); `--facts` runs steps 2–3 offline. The
+registered checks are listed in [checks/index.md](checks/index.md). Consumers
+will run it through a pinned Action: see [distribution.md](distribution.md).
 
 ## Where it sits in the fleet
 

@@ -29,8 +29,9 @@ behind a single status for the same reason.
 
 ## `CI approval needed`: the CI merge-gate label
 
-Owned by the CI-change check (planned). It is applied when a workflow change is
-classified as loosening or ambiguous. The coordinator's gate model already parks
+Owned by the [CI-change check](checks/ci-change.md). It is applied when a
+workflow change is classified as loosening or ambiguous, and it stays on after
+sign-off as the audit record. The coordinator's gate model already parks
 a PR carrying it until `CI change approved` is also present. While it is present
 without the sign-off, the CI-change check reports a blocking finding.
 

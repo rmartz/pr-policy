@@ -58,6 +58,29 @@ Invariants that hold whatever a future change looks like:
 - **Content, not history.** A check's input is the PR's current content. If a
   rule needs review history, it belongs to the lifecycle reconciler.
 
+## Adding a CI-change indicator
+
+1. Add its name to `LOOSENING_INDICATORS` or `AMBIGUOUS_INDICATORS` in
+   `src/checks/ci-change/indicators.ts`.
+2. Implement the detector in the rule module that owns that part of the
+   document: `workflow-rules.ts` (`on:` and top-level blocks), `job-rules.ts`,
+   `step-rules.ts`, or `common-rules.ts` (a field that reads the same on a job
+   and a step).
+3. Add an `it` for it in `test/checks/ci-change/`, mutating the shared fixture,
+   plus the tightening counterpart that must _not_ fire it.
+4. Add its row to [docs/checks/ci-change.md](docs/checks/ci-change.md).
+
+**Don't narrow the containment backstop** to silence an `unclassified-change`.
+Add a named rule instead: it gives a specific, actionable indicator.
+
+## The vendored `src/lib/` is a traceable fork
+
+`src/lib/github.ts` and `src/lib/bounded-subprocess.ts` are copied from
+`@rmartz/github` and `@rmartz/agent-runtime`, as merge-safety and repo-hygiene
+do, so the only runtime dependency is the YAML parser. Shell out only through
+them. When you touch either file, check upstream for transport or rate-limit
+fixes and port them across.
+
 ## Repository conformance
 
 This repo follows the shared

@@ -3,10 +3,15 @@ import { evaluatePolicy } from '../src/evaluate.js';
 import type { Finding, PolicyCheck, PullRequestFacts } from '../src/policy.js';
 import { buildReport } from '../src/report.js';
 
-const pr: PullRequestFacts = { title: 'feat: add a thing', labels: [], changedFiles: ['src/a.ts'] };
+const pr: PullRequestFacts = {
+  title: 'feat: add a thing',
+  labels: [],
+  changedFiles: ['src/a.ts'],
+  workflowChanges: [],
+};
 
-function stubCheck(name: string, findings: Finding[]): PolicyCheck {
-  return { name, evaluate: async () => findings };
+function stubCheck(name: string, findings: Finding[], labelsToAdd: string[] = []): PolicyCheck {
+  return { name, evaluate: async () => ({ findings, labelsToAdd }) };
 }
 
 describe('buildReport', () => {
@@ -33,7 +38,7 @@ describe('buildReport', () => {
 });
 
 describe('evaluatePolicy', () => {
-  it('passes with no registered checks', async () => {
+  it('passes a PR that touches no workflow file', async () => {
     expect((await evaluatePolicy(pr)).conclusion).toBe('success');
   });
 
@@ -44,5 +49,11 @@ describe('evaluatePolicy', () => {
     ]);
     expect(report.conclusion).toBe('failure');
     expect(report.findings.map((finding) => finding.check)).toEqual(['first', 'second']);
+  });
+
+  it('collects the label edits every check planned', async () => {
+    const report = await evaluatePolicy(pr, [stubCheck('first', [], ['owned label'])]);
+    expect(report.labelsToAdd).toEqual(['owned label']);
+    expect(report.labelsToRemove).toEqual([]);
   });
 });
