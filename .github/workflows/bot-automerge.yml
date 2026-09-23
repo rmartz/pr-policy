@@ -1,0 +1,39 @@
+name: bot-automerge
+
+# Enables GitHub-native auto-merge for trusted bot PRs (Dependabot patch/minor,
+# release-please releases) via the rmartz/bot-automerge-action composite Action
+# (the successor to the reusable bot-automerge.yml workflow). A composite Action
+# can't declare its own triggers or use `secrets: inherit`, so this caller owns
+# the pull_request_target trigger and the write scopes. The `@<sha>` pin is kept
+# current by Dependabot's github-actions ecosystem.
+#
+# SAFE ONLY BECAUSE merge-safety AND THE CI JOBS ARE REQUIRED STATUS CHECKS on the
+# default-branch ruleset: `gh pr merge --auto` merges immediately on a repo with no
+# required checks (repository checklist § Automated bot-PR merge).
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, labeled]
+
+permissions:
+  contents: write # enable GitHub-native auto-merge on the PR
+  pull-requests: write # read PR metadata + turn on auto-merge
+  packages: read # install the CLI from GitHub Packages
+
+jobs:
+  bot-automerge:
+    # Skip the job outright on PRs the CLI could never trust, so a human PR shows a
+    # free `skipped` instead of checking out and installing the CLI just to no-op.
+    # The three conditions mirror the CLI's own detectBotPrType exactly —
+    # Dependabot by author, release-please by branch prefix OR pending label — so
+    # nothing eligible is skipped.
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]'
+      || startsWith(github.event.pull_request.head.ref, 'release-please--')
+      || contains(github.event.pull_request.labels.*.name, 'autorelease: pending')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: rmartz/bot-automerge-action@6b484624a7a46f3bc6da3f52bf584c27f82ffd4d # v1.1.0
+        with:
+          pr: ${{ github.event.pull_request.number }}

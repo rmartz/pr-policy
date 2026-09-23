@@ -1,0 +1,51 @@
+name: Release
+
+# Automatic releases, tag/npm-as-source-of-truth (Option B, modeled on rmartz/envctl
+# and rmartz/repo-hygiene). semantic-release runs on every push to main: it analyzes
+# the conventional-commit subjects since the last vX.Y.Z tag, computes the next
+# version, publishes @rmartz/pr-policy to GitHub Packages, creates the git tag +
+# GitHub Release, and comments on released PRs/issues.
+#
+# There is deliberately NO @semantic-release/git plugin: package.json is never bumped
+# back to main (it stays a placeholder — see its "version" field), so the released
+# version lives ONLY in the git tag. Consumers never read package.json either: the
+# distribution wrapper pins a released version (docs/distribution.md). Only the
+# built-in GITHUB_TOKEN is used — no PAT, no commit-back to a protected branch. See
+# AGENTS.md.
+#
+# Staying on 0.x: while pre-1.0, a breaking change is capped at a MINOR bump (see the
+# `{ "breaking": true, "release": "minor" }` rule in .releaserc.json) so an accidental
+# `!` cannot auto-jump to 1.0.0. Cutting 1.0.0 is a deliberate manual act at go-live,
+# after which that cap rule is removed and breaking → major resumes.
+
+on:
+  push:
+    branches: [main]
+
+# Serialize releases so two pushes can't publish concurrently.
+concurrency: release
+
+permissions:
+  contents: write # create tags and GitHub releases
+  packages: write # publish to GitHub Packages
+  issues: write # semantic-release comments on released issues
+  pull-requests: write # semantic-release comments on released PRs
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # semantic-release needs full history + tags
+          persist-credentials: false # authenticates via GITHUB_TOKEN below
+      - uses: ./.github/actions/setup
+      - run: pnpm run build
+      - run: pnpm exec semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # @semantic-release/npm authenticates to the publishConfig registry
+          # (GitHub Packages) with this token; GITHUB_TOKEN has packages:write.
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}

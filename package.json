@@ -1,0 +1,74 @@
+{
+  "name": "@rmartz/pr-policy",
+  "version": "0.0.0",
+  "description": "Read-only PR content classifiers — CI-change classification, title-type rules, and more — reported as one blocking pr-policy check-run. Distributed as a pinned Action kept current by Dependabot.",
+  "keywords": [
+    "pr-policy",
+    "pull-request",
+    "github-actions",
+    "check-run",
+    "merge-gate",
+    "conventional-commits"
+  ],
+  "homepage": "https://github.com/rmartz/pr-policy#readme",
+  "bugs": {
+    "url": "https://github.com/rmartz/pr-policy/issues"
+  },
+  "type": "module",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "ai-pr-policy": "./dist/bin/pr-policy.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rmartz/pr-policy.git"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify:release-notes": "node scripts/verify-changelog-render.mjs"
+  },
+  "devDependencies": {
+    "@semantic-release/release-notes-generator": "^14.1.1",
+    "@types/node": "^26.6.2",
+    "@typescript-eslint/eslint-plugin": "^8.70.0",
+    "@typescript-eslint/parser": "^8.70.0",
+    "@vitest/coverage-v8": "^5.0.1",
+    "conventional-changelog-conventionalcommits": "^9.3.1",
+    "eslint": "^10.11.0",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-import": "^2.32.0",
+    "prettier": "^3.9.8",
+    "semantic-release": "^25.0.9",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "esbuild": ">=0.28.1"
+    }
+  }
+}
