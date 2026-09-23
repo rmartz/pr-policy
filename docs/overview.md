@@ -43,3 +43,5 @@ run it through the `rmartz/pr-policy-action` Action: see
 The three are independent. None imports another or reads another's outputs.
 They meet only in the consumer's ruleset, where each is a required check. The
 boundary reasoning is in [decisions.md](decisions.md).
+
+<!-- pr-policy live test: no workflow change -->
