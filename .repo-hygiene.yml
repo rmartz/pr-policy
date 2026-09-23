@@ -1,0 +1,54 @@
+# @rmartz/repo-hygiene check configuration for this repo.
+# Each section under `checks` is read by the check of that name; `severity`
+# overrides that check's findings. This repo consumes repo-hygiene through the
+# composite-Action caller (.github/workflows/repo-hygiene.yml), which names the
+# checks below and points them at this config.
+#
+# Every enabled check carries an explicit `severity: error` so each genuinely
+# gates (repository checklist § Repo hygiene); file-caps expresses its error tier
+# per glob instead. A new repo has no backlog to ramp through, so there is no
+# `warn` stage.
+#
+# docs/ is an OKF bundle — see docs/okf-format.md.
+checks:
+  conflict-markers:
+    severity: error
+  action-pins:
+    severity: error
+  package-pins:
+    severity: error
+  # Intra-repo Markdown link integrity for docs pages.
+  docs-links:
+    severity: error
+    roots: [docs]
+    exempt: []
+    anchors: true
+    anchorExempt: []
+  # Every AGENTS.md has a companion CLAUDE.md (a bare `@AGENTS.md` import) and
+  # vice versa.
+  md-pairing:
+    severity: error
+    wrapper: true
+  # OKF docs-frontmatter conformance. This repo documents code, so it uses the
+  # curated type vocabulary; `Reference` (concept/guide pages) joins the defaults
+  # and is resource-exempt alongside `Design`. OKF-reserved index.md / log.md are
+  # skipped automatically.
+  okf:
+    severity: error
+    types: [Skill, Script, Library, Design, Reference]
+    resourceExemptTypes: [Design, Reference]
+  okf-index:
+    severity: error
+  # Per-glob size caps. Each policy check is meant to live in its own small
+  # module under src/checks/, so the caps sit below the eslint max-lines ceiling:
+  # a check file that grows past the warn line wants to be split, not re-capped.
+  # No `severity` override here: file-caps carries its own two tiers, and a
+  # blanket severity would promote the advisory warn tier to a hard error.
+  file-caps:
+    overrides:
+      - glob: 'src/**/*.ts'
+        lines: { warn: 300, error: 480 }
+        bytes: { warn: 16KB, error: 24KB }
+      - glob: 'docs/**/*.md'
+        lines: { warn: 500, error: 700 }
+        bytes: { warn: 32KB, error: 48KB }

@@ -1,0 +1,31 @@
+name: Repo Hygiene
+
+# @rmartz/repo-hygiene quality gates, run via the rmartz/repo-hygiene-action
+# composite Action (the successor to the reusable hygiene.yml workflow). The
+# `@<sha>` pin is kept current by Dependabot's github-actions ecosystem, so new
+# checks and fixes propagate with no edit here. Per-check settings — every check
+# at `severity: error` — live in .repo-hygiene.yml.
+#
+# `checks` is explicit because the Action's default runs only the default-on set
+# (conflict-markers, action-pins); the rest are opt-in.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  hygiene:
+    name: Hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: rmartz/repo-hygiene-action@12245f5aae730c8ae0dfa5851c0320335ad0c96c # v2.0.0
+        with:
+          checks: conflict-markers action-pins package-pins docs-links md-pairing okf okf-index file-caps
+          config: .repo-hygiene.yml

@@ -1,0 +1,51 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      # CI tooling never reaches the shipped artifact, so a GHA bump is a
+      # release-less `chore` (without this override it would fall through to `fix`).
+      prefix: chore
+      include: scope
+    groups:
+      # Catch-all, majors included (repository checklist default).
+      github-actions:
+        patterns:
+          - '*'
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      # Split by dependency type (rmartz/ai#82): a production bump ships to
+      # users, so it is a `fix` that cuts a release; a dev-dependency bump never
+      # reaches the shipped artifact, so it is a release-less `chore`.
+      prefix: fix
+      prefix-development: chore
+      include: scope
+    ignore:
+      # The conventionalcommits preset major is coupled to conventional-changelog-writer,
+      # which we do not depend on directly — semantic-release ships it transitively. A
+      # preset major that outruns that writer cannot render (it broke every push to
+      # rmartz/merge-safety's main when a bump took it 8 -> 10). Hold at the current
+      # major until semantic-release upgrades its writer, then bump the preset major
+      # deliberately alongside it. Minor/patch updates still flow. The Release notes
+      # render CI guard is the backstop.
+      - dependency-name: conventional-changelog-conventionalcommits
+        update-types: [version-update:semver-major]
+    groups:
+      # Prettier isolated into its own group (a recorded case-by-case call) so a
+      # reformatting bump can't hide in the catch-all — a Prettier minor can
+      # reformat the whole tree.
+      prettier:
+        patterns:
+          - 'prettier'
+      # Catch-all groups, majors included (repository checklist default).
+      dev-dependencies:
+        dependency-type: development
+        exclude-patterns:
+          - 'prettier'
+      production-dependencies:
+        dependency-type: production
