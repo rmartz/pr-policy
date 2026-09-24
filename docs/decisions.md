@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, why an own-CI change is never forced to ci, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -90,10 +90,29 @@ expressed as findings rather than a rewrite: a functional title's `!` must agree
 with `breaking change` / `hotfix` in both directions, and `breaking change` on a
 non-functional type blocks. release-please release PRs are exempt.
 
-The difference: a workflow change needs the `ci` type only when it is
-**substantive**. A pure action-pin bump or comment-only edit keeps its Dependabot
-`chore` type. Otherwise every Dependabot `github-actions` PR in the fleet would
-block, and the checklist deliberately gives those PRs `chore`.
+The difference: only a **substantive** workflow change counts as CI. A pure
+action-pin bump or comment-only edit keeps its Dependabot `chore` type.
+Otherwise every Dependabot `github-actions` PR in the fleet would be flagged, and
+the checklist deliberately gives those PRs `chore`.
+
+### An own-CI change is never forced to `ci`
+
+The title check used to block any substantive workflow change that wasn't
+`ci`-typed or bundled on a functional type with `breaking change`. Both options
+were wrong in an action or reusable-workflow repo, where the workflow is the
+product: `ci` suppressed the release (storybook-ci#36 shipped to no one) and
+`breaking change` cut a spurious major. rmartz/dotfiles#1581 changed the fleet
+policy, and this check followed in #11:
+
+- A `workflow_call`-only workflow is shipped product code, and the title check
+  ignores it. The trigger alone decides this. See
+  [checks/title.md](checks/title.md).
+- The coordinator's sibling-rebase signal is now path-based, so the `ci` type no
+  longer carries it. An own-CI change on a non-release type gets an `info`
+  recommendation, never a block. The `breaking change` bundling escape is
+  retired.
+- A release type is never told to retitle to `ci`. This covers the
+  linter/formatter-bump rule too.
 
 ## Open
 
