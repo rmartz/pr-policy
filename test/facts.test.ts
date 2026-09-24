@@ -9,6 +9,7 @@ describe('parseFacts', () => {
       labels: ['UI'],
       changedFiles: ['a.ts'],
       workflowChanges: [],
+      manifestChanges: [],
     });
   });
 

@@ -5,18 +5,19 @@ that on every PR, statically, from the PR's diff, title, and changed paths. It
 doesn't rely on a reviewer remembering to check.
 
 Each policy rule is a small read-only classifier. All of them report into **one**
-`pr-policy` check-run, which the consumer's ruleset requires. A blocking finding
-turns it red and holds the merge. Adding a rule later never adds a new
-required-status name.
+`pr-policy` check-run, which the consumer's ruleset requires. A fixable problem
+(a bad title) turns it red; a PR waiting on a human sign-off shows it as
+pending, not failing. Either holds the merge. Adding a rule later never adds a
+new required-status name.
 
 ## Checks
 
-| Check                                                           | Blocks when                                                                                                                                                                      |
-| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **CI-change classification** ([docs](docs/checks/ci-change.md)) | A `.github/workflows/**` change loosens CI (a removed job, `continue-on-error`, a narrowed trigger, …) and no human has applied `CI change approved`. Owns `CI approval needed`. |
-| Title-type rules (next)                                         | The squash title isn't a valid Conventional Commit, puts `!` on a non-functional type, or types a workflow change as anything but `ci` without the `breaking change` label.      |
-| Domain labels (backlog)                                         | Never blocks. Additive path-glob → domain-label map.                                                                                                                             |
-| Milestone inheritance (backlog)                                 | Never blocks. Issue → PR milestone.                                                                                                                                              |
+| Check                                                           | Blocks when                                                                                                                                                                                         |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CI-change classification** ([docs](docs/checks/ci-change.md)) | A `.github/workflows/**` change loosens CI (a removed job, `continue-on-error`, a narrowed trigger, …) and no human has applied `CI change approved` (shows as pending). Owns `CI approval needed`. |
+| **Title-type rules** ([docs](docs/checks/title.md))             | The squash title isn't a valid Conventional Commit, puts `!` on a non-functional type, or types a workflow change as anything but `ci` without the `breaking change` label.                         |
+| Domain labels (backlog)                                         | Never blocks. Additive path-glob → domain-label map.                                                                                                                                                |
+| Milestone inheritance (backlog)                                 | Never blocks. Issue → PR milestone.                                                                                                                                                                 |
 
 The design, and why this is separate from `merge-safety` and `pr-lifecycle`, is
 in [docs/decisions.md](docs/decisions.md).

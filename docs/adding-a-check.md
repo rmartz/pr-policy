@@ -32,7 +32,7 @@ else owns, it is a reconciler and doesn't belong here.
    (`src/facts.ts`). Keep every field a property of current content, and make
    gathering fail closed: a read error must not look like "nothing changed".
 4. **Tests.** Add `test/checks/<name>.test.ts` with one `it` per rule. Cover the
-   blocking case and the nearest case that must _not_ fire. Tests stay hermetic.
+   gating case and the nearest case that must _not_ fire. Tests stay hermetic.
 5. **Docs.** Add `docs/checks/<name>.md` (OKF `type: Library`,
    `resource: src/checks/<name>.ts`) documenting every rule, and link it from
    [`docs/checks/index.md`](checks/index.md). Update the checks table in the README and
@@ -41,10 +41,12 @@ else owns, it is a reconciler and doesn't belong here.
 ## Rules every check obeys
 
 - **Report into the one check-run.** Never post a separate check-run.
-- **Blocking means actionable.** Say in the finding message exactly what would
-  clear it: a title edit, a human label, a code change.
+- **Pick the right effect.** `block` only for something the author can fix;
+  `hold` for anything that waits on a human act, so the PR shows as pending
+  rather than broken; `info` for context. Say in the message exactly what clears
+  it: a title edit, a human label, a code change.
 - **Deterministic.** The same content always yields the same findings. No LLM
   judgment, and no network beyond reading the PR itself.
-- **Err toward blocking when a miss is costly.** If a false positive costs a
+- **Err toward gating when a miss is costly.** If a false positive costs a
   human one look and a false negative bypasses a gate, make the check
   trigger-happy, and fix false positives by adding a named rule.

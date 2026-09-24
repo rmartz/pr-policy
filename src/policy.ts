@@ -22,14 +22,33 @@ export interface PullRequestFacts {
   changedFiles: readonly string[];
   /** Both sides of every changed `.github/workflows/**` file. */
   workflowChanges: readonly FileChange[];
+  /** Both sides of every changed dependency manifest (`package.json`, `requirements*.txt`). */
+  manifestChanges: readonly FileChange[];
 }
+
+/**
+ * What a finding does to the `pr-policy` check-run:
+ *
+ * - `block` — red (`failure`). The author can fix it (a title edit, a code
+ *   change), so it reads correctly as "this PR has a problem".
+ * - `hold` — pending (`in_progress`). Nothing is broken; the PR is waiting on a
+ *   human act, such as applying a sign-off label. Posting it red would read as a
+ *   broken build and invite a fix pass that cannot clear it.
+ * - `info` — listed in the summary, never gates.
+ */
+export const FINDING_EFFECTS = ['block', 'hold', 'info'] as const;
+export type FindingEffect = (typeof FINDING_EFFECTS)[number];
 
 /** One policy observation, attributed to the check that produced it. */
 export interface Finding {
   check: string;
   message: string;
-  /** A blocking finding turns the `pr-policy` check-run red. */
-  blocking: boolean;
+  effect: FindingEffect;
+  /**
+   * A short line that can stand as the check-run title when nothing gates —
+   * e.g. "CI loosening signed off". The first headline wins.
+   */
+  headline?: boolean;
 }
 
 /**

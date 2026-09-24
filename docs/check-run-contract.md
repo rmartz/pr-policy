@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: The check-run and label contract
-description: The external names pr-policy is bound to — the pr-policy check-run, CI approval needed, and CI change approved — what red and green mean, and why there is exactly one check-run.
+description: The external names pr-policy is bound to — the pr-policy check-run, CI approval needed, and CI change approved — what its failure, pending, and success states mean, and why there is exactly one check-run.
 tags: [pr-policy, contract, labels, check-run]
 ---
 
@@ -18,9 +18,28 @@ The one check-run this package posts. Consumers mark it a **required status
 check** on the default-branch ruleset, and match it by literal name. That's why
 the name is frozen from `v0.1.0`.
 
-- **`success`**: no check produced a blocking finding.
-- **`failure`**: at least one did. The summary lists every finding, attributed
-  to the check that produced it.
+Each finding has an **effect** (`src/policy.ts`), and the strongest one sets the
+check-run's state:
+
+| Effect  | Meaning                                 | Check-run state                         |
+| ------- | --------------------------------------- | --------------------------------------- |
+| `block` | A problem the author can fix (a title). | `completed` / `failure` (red)           |
+| `hold`  | Waiting on a human act (a sign-off).    | `in_progress`, no conclusion (pending)  |
+| `info`  | Context only.                           | doesn't gate; `success` if nothing else |
+
+A `block` outranks a `hold`, so the author sees what they can act on. The
+summary lists every finding, attributed to its check.
+
+**Why a hold is pending, not red.** Nothing is broken while a PR waits for a
+sign-off. A red check reads as a failing build to people and to every routing
+rule that scans for failures, and would send the PR round a fix pass that
+cannot clear it. A required check that is `in_progress` still holds the merge.
+
+A pending run is never completed by the job that posted it. The next evaluation
+of the same head **updates** that run instead of creating another, so no
+orphaned pending run sits beside the real verdict. GitHub marks a run that stays
+incomplete for 14 days as `stale`; that still holds the merge, and the next
+event on the PR posts a fresh run.
 
 There is exactly **one** check-run, however many checks the suite grows. A new
 check reports into it rather than posting its own, so adding a check never
@@ -33,7 +52,8 @@ Owned by the [CI-change check](checks/ci-change.md). It is applied when a
 workflow change is classified as loosening or ambiguous, and it stays on after
 sign-off as the audit record. The coordinator's gate model already parks
 a PR carrying it until `CI change approved` is also present. While it is present
-without the sign-off, the CI-change check reports a blocking finding.
+without the sign-off, the CI-change check reports a `hold`, leaving `pr-policy`
+pending.
 
 ## `CI change approved`: the human sign-off
 

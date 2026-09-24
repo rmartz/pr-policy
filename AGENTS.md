@@ -55,6 +55,8 @@ Invariants that hold whatever a future change looks like:
   (rmartz/ai-tools#306).
 - **Never `CI change approved`.** This package never applies it. That label is
   the human act the CI gate exists to require.
+- **Waiting on a human is a `hold`, never a `block`.** A human-gated finding
+  leaves `pr-policy` pending; red is reserved for problems the author can fix.
 - **Content, not history.** A check's input is the PR's current content. If a
   rule needs review history, it belongs to the lifecycle reconciler.
 

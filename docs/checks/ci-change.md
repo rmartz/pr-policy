@@ -14,15 +14,18 @@ The `ci-change` check (`src/checks/ci-change/`) classifies a PR's
 
 ## What it reports
 
-| Verdict               | Findings                                              | `CI approval needed`                                  |
-| --------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
-| No workflow change    | none                                                  | removed if stale and unsigned                         |
-| Tightening            | one informational note                                | removed if stale and unsigned                         |
-| Loosening, unsigned   | one **blocking** finding, plus one note per indicator | applied                                               |
-| Loosening, signed off | informational only                                    | kept (never removed once `CI change approved` is set) |
+| Verdict               | Findings                                                    | `CI approval needed`                                  |
+| --------------------- | ----------------------------------------------------------- | ----------------------------------------------------- |
+| No workflow change    | none                                                        | removed if stale and unsigned                         |
+| Tightening            | one informational note                                      | removed if stale and unsigned                         |
+| Loosening, unsigned   | one **hold** (pending) finding, plus one note per indicator | applied                                               |
+| Loosening, signed off | informational only                                          | kept (never removed once `CI change approved` is set) |
 
-Applying `CI change approved` re-runs the check (`labeled`) and clears the
-blocking finding. Why the label freezes once signed off is in
+An unsigned loosening leaves `pr-policy` **pending**, not failed: nothing is
+broken, the PR is waiting on a person (see
+[check-run-contract.md](../check-run-contract.md)). Applying `CI change approved`
+re-runs the check (`labeled`), releases the hold, and titles the check-run
+"CI loosening signed off". Why the label freezes once signed off is in
 [decisions.md](../decisions.md).
 
 Workflow files are read at the **merge base** and the head. If a side the file

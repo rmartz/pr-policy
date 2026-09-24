@@ -20,3 +20,13 @@ export const CI_APPROVAL_NEEDED_LABEL = 'CI approval needed';
  * applies it.
  */
 export const CI_CHANGE_APPROVED_LABEL = 'CI change approved';
+
+/**
+ * Labels the title check reads and never writes. They belong to the review and
+ * release flow: `breaking change` is the source of truth for a breaking PR,
+ * `hotfix` implies one, and release-please marks its release PRs with
+ * `autorelease: pending`.
+ */
+export const BREAKING_CHANGE_LABEL = 'breaking change';
+export const HOTFIX_LABEL = 'hotfix';
+export const RELEASE_PLEASE_PENDING_LABEL = 'autorelease: pending';

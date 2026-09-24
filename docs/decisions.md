@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why an unsigned CI loosening is red, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -33,8 +33,8 @@ The squash merge uses the PR title, so the title is the commit subject that
 reaches `main`. Today `merge-pr.py` rewrites it at merge time. Once pr-lifecycle
 arms native auto-merge, no merge-time step is left to do that. Renaming the PR
 here would rewrite author-owned text and re-trigger CI. So the title check stays
-red until the author (or `/fix-review`) fixes the title. Port the predicate from
-`lib/breaking_title.py`; don't reinvent it.
+red until the author (or `/fix-review`) fixes the title. See
+[checks/title.md](checks/title.md).
 
 ### Not part of merge-safety
 
@@ -64,22 +64,43 @@ policies carried over:
   stays as the audit record. A loosening pushed _after_ sign-off is still
   covered by it, because the gate reads the label; the check's findings still
   show it. Closing that gap is a gate-model change, not a change here.
-- **`/review` defers entirely** for the classification. Composition judgments
-  (a loosening must stand alone, CI changes are `ci`-typed) stay with the review
-  until the title check lands.
+- **`/review` defers entirely** for the classification, and now for title
+  typing too (the title check owns `ci`-typing and the breaking-marker rules).
+  The composition judgment that a loosening must stand alone stays with the
+  review.
 
-### An unsigned CI loosening is red, not neutral
+### Waiting on a sign-off is pending, not red
 
-`ci-change-guard` posted `neutral` so the coordinator wouldn't route an
-unsigned loosening into a fix loop that only a human label can clear. Here the
-single `pr-policy` check-run is a required status, so red is what holds the
-merge (#302). The blocking finding says outright that no code change clears it.
+Findings carry an effect: `block`, `hold`, or `info`. An unsigned CI loosening
+is a `hold`, so `pr-policy` is posted `in_progress` (pending) while the PR waits
+for `CI change approved`. Red is reserved for problems the author can fix, like
+a bad title.
+
+This replaced an interim design where an unsigned loosening posted `failure`.
+Red read as a broken build, and would have sent the PR round a fix pass that
+can't clear a human gate. `ci-change-guard` had avoided that with `neutral`,
+but a `neutral` conclusion **passes** a required check, which would have let the
+loosening merge unsigned. Pending avoids both: it reads as waiting, and a
+required check that isn't complete still holds the merge.
+
+### Title rules: what was ported, and one deliberate difference
+
+The title check ports dotfiles' predicate, with the `!` ↔ label reconciliation
+expressed as findings rather than a rewrite: a functional title's `!` must agree
+with `breaking change` / `hotfix` in both directions, and `breaking change` on a
+non-functional type blocks. release-please release PRs are exempt.
+
+The difference: a workflow change needs the `ci` type only when it is
+**substantive**. A pure action-pin bump or comment-only edit keeps its Dependabot
+`chore` type. Otherwise every Dependabot `github-actions` PR in the fleet would
+block, and the checklist deliberately gives those PRs `chore`.
 
 ## Open
 
-### Coordinator routing on a human-gated red
+### How the coordinator treats a pending `pr-policy`
 
-The coordinator's routing must learn that a `pr-policy` failure whose only
-blocking finding is the CI gate waits on a human, not a fix pass. That change
-belongs in the coordinator, keyed off the `CI approval needed` label (already
-parked by `GATE_CI_APPROVAL`), not in this package.
+A pending required check can look like "CI still running" to the coordinator,
+which may wait on it rather than park the PR. The PR also carries
+`CI approval needed`, which `GATE_CI_APPROVAL` already parks on, so the gate
+model should key off the label and not wait out the check. Confirm in the
+coordinator (rmartz/dotfiles) before relying on it there.

@@ -18,8 +18,8 @@ const LOOSENING: Classification = {
 const TIGHTENING: Classification = { verdict: 'tightening', indicators: [] };
 const NO_CHANGE: Classification = { verdict: 'no-change', indicators: [] };
 
-const blocking = (labels: string[], classification: Classification) =>
-  decideCiChange(classification, labels).findings.some((finding) => finding.blocking);
+const effects = (labels: string[], classification: Classification) =>
+  decideCiChange(classification, labels).findings.map((finding) => finding.effect);
 
 describe('decideCiChange — labels', () => {
   it('applies the gate label to an unlabelled loosening', () => {
@@ -51,20 +51,23 @@ describe('decideCiChange — labels', () => {
 });
 
 describe('decideCiChange — findings', () => {
-  it('blocks an unsigned loosening and lists every indicator', () => {
+  it('holds (never blocks) an unsigned loosening and lists every indicator', () => {
     const { findings } = decideCiChange(LOOSENING, []);
-    expect(blocking([], LOOSENING)).toBe(true);
+    expect(effects([], LOOSENING)).toContain('hold');
+    expect(effects([], LOOSENING)).not.toContain('block');
     expect(findings.some((finding) => finding.message.includes('jobs.test'))).toBe(true);
   });
 
-  it('stops blocking once a human applies the sign-off label', () => {
-    expect(blocking([CI_APPROVAL_NEEDED_LABEL, CI_CHANGE_APPROVED_LABEL], LOOSENING)).toBe(false);
+  it('releases the hold and headlines the sign-off once a human applies the label', () => {
+    const labels = [CI_APPROVAL_NEEDED_LABEL, CI_CHANGE_APPROVED_LABEL];
+    expect(effects(labels, LOOSENING)).not.toContain('hold');
+    expect(decideCiChange(LOOSENING, labels).findings.find((f) => f.headline)?.message).toContain(
+      'signed off',
+    );
   });
 
-  it('reports a tightening without blocking', () => {
-    const { findings } = decideCiChange(TIGHTENING, []);
-    expect(findings).toHaveLength(1);
-    expect(blocking([], TIGHTENING)).toBe(false);
+  it('reports a tightening as information only', () => {
+    expect(effects([], TIGHTENING)).toEqual(['info']);
   });
 
   it('reports nothing when no workflow file changed', () => {
