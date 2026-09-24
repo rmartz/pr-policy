@@ -19,6 +19,7 @@ function pr(title: string, overrides: Partial<PullRequestFacts> = {}): PullReque
     changedFiles: [],
     workflowChanges: [],
     manifestChanges: [],
+    signOffs: [],
     ...overrides,
   };
 }
