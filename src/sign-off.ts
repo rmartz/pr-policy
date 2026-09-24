@@ -5,7 +5,12 @@
  * PR anyway. That rejects GitHub Apps, bots, and triage-only users. Agents act
  * with the user's token, so they pass. See docs/decisions.md.
  */
+import { REPO_PERMISSIONS } from './policy.js';
 import type { LabelActor, PullRequestFacts, RepoPermission } from './policy.js';
+
+export function isRepoPermission(value: unknown): value is RepoPermission {
+  return REPO_PERMISSIONS.some((permission) => permission === value);
+}
 
 const MERGE_PERMISSIONS: ReadonlySet<RepoPermission> = new Set(['admin', 'maintain', 'write']);
 

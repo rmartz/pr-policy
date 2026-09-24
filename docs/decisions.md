@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, why an own-CI change is never forced to ci, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, why an own-CI change is never forced to ci, why the UAT gate lives here and who can sign off, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -23,7 +23,8 @@ never grows. See [check-run-contract.md](check-run-contract.md).
 ### Read-only: the reconcilers live in pr-lifecycle
 
 Overwriting labels another party owns (verdict labels, UAT labels, approval
-freshness) is a larger trust grant than reporting. Those reconcilers live in
+freshness) is a larger trust grant than reporting. Reading a UAT label to gate
+the merge is not; see [the UAT gate](#uat-is-a-hard-gate-here-the-lifecycle-stays-in-pr-lifecycle). Those reconcilers live in
 `rmartz/pr-lifecycle` (rmartz/ai-tools#306). This package writes only labels it
 owns outright, and neither package reads the other's outputs.
 
@@ -114,7 +115,48 @@ policy, and this check followed in #11:
 - A release type is never told to retitle to `ci`. This covers the
   linter/formatter-bump rule too.
 
+### UAT is a hard gate here; the lifecycle stays in pr-lifecycle
+
+rmartz/pr-policy#13 settled the split. **pr-lifecycle** moves a PR through
+review, fix, and approval, and arms native auto-merge on `approved`.
+**pr-policy** enforces the hard gates a PR must pass before it merges. An
+approved, armed PR waits on the required `pr-policy` check until every gate is
+satisfied. So the UAT gate moved in from pr-lifecycle as a check that
+[holds by default](checks/uat.md). It still never writes a UAT label.
+
+Static rules **only exempt** a PR from UAT, never require it. Requiring UAT is
+a judgment the review agent makes and expresses through the labels.
+
+### Who applied a sign-off is current state, not history
+
+A label records nobody, so trusting one means reading its latest `labeled`
+event. That is a fact about the label on the PR now, not about the PR's review
+history. It is the same kind of fact the label itself is, so it stays inside
+"content, not history". A sign-off counts only from a `User` with write,
+maintain, or admin permission, which is someone who could merge the PR anyway.
+The rule lives in one place (`src/sign-off.ts`) and applies to both gates:
+
+- **UAT:** it rejects a bot or a triage user applying `UAT passed` or
+  `no UAT needed`. Agents act with the user's token, so the review agent's
+  `no UAT needed` passes, as intended. That `UAT passed` is human-only stays a
+  convention.
+- **CI:** `CI change approved` gets the same check. Before, any label event
+  cleared the gate, so a bot or triage user could sign off a loosening. An
+  untrusted approval no longer freezes `CI approval needed` either.
+
+A failed label-event read throws instead of holding, so the run fails loudly
+rather than reporting a misleading "nobody applied it". A failed permission
+lookup (a non-collaborator's 404) is `none`, so the gate fails closed.
+
 ## Open
+
+### Should `UAT passed` survive a push?
+
+A person's `UAT passed` stays on the PR after a later push that changes what was
+tested, and nothing clears it. That matches the fleet's current `tested`
+semantics. A stale `no UAT needed` is already covered: pr-lifecycle disarms on a
+push, and the review agent refreshes its UAT labels before the verdict
+(rmartz/dotfiles#1583). A stale human `UAT passed` isn't covered by either.
 
 ### How the coordinator treats a pending `pr-policy`
 

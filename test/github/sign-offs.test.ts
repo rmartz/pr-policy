@@ -34,9 +34,7 @@ describe('gatherSignOffs', () => {
   it('attributes each label to its latest labeling and looks up that user', async () => {
     responses.set(
       EVENTS,
-      [event('UAT passed', 'bot', 'Bot'), event('UI', 'x'), event('UAT passed', 'reed')].join(
-        '\n',
-      ),
+      [event('UAT passed', 'bot', 'Bot'), event('UI', 'x'), event('UAT passed', 'reed')].join('\n'),
     );
     responses.set(
       'repos/o/r/collaborators/reed/permission',

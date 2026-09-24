@@ -9,11 +9,7 @@
  * across pushes is handled upstream: pr-lifecycle disarms on a push, and the
  * review agent refreshes its UAT label before its verdict. See docs/checks/uat.md.
  */
-import {
-  LEGACY_UAT_PASSED_LABEL,
-  NO_UAT_NEEDED_LABEL,
-  UAT_PASSED_LABEL,
-} from '../../contract.js';
+import { LEGACY_UAT_PASSED_LABEL, NO_UAT_NEEDED_LABEL, UAT_PASSED_LABEL } from '../../contract.js';
 import type { CheckResult, Finding, PolicyCheck, PullRequestFacts } from '../../policy.js';
 import { signOffState } from '../../sign-off.js';
 import { trivialCategories } from './trivial.js';
@@ -52,7 +48,9 @@ export function decideUat(pr: PullRequestFacts): CheckResult {
     effect: 'hold',
   };
   const why =
-    state.status === 'untrusted' ? [info(`\`${state.label}\` doesn't count: ${state.reason}.`)] : [];
+    state.status === 'untrusted'
+      ? [info(`\`${state.label}\` doesn't count: ${state.reason}.`)]
+      : [];
   return { findings: [hold, ...why] };
 }
 

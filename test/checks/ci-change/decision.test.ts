@@ -57,9 +57,7 @@ describe('decideCiChange — labels', () => {
 
   it('never applies the human sign-off label', () => {
     for (const classification of [LOOSENING, TIGHTENING, NO_CHANGE]) {
-      expect(decide(classification, []).labelsToAdd).not.toContain(
-        CI_CHANGE_APPROVED_LABEL,
-      );
+      expect(decide(classification, []).labelsToAdd).not.toContain(CI_CHANGE_APPROVED_LABEL);
     }
   });
 });

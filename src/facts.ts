@@ -1,11 +1,6 @@
 import { REPO_PERMISSIONS } from './policy.js';
-import type {
-  FileChange,
-  LabelActor,
-  PullRequestFacts,
-  RepoPermission,
-  SignOff,
-} from './policy.js';
+import { isRepoPermission } from './sign-off.js';
+import type { FileChange, LabelActor, PullRequestFacts, SignOff } from './policy.js';
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string');
@@ -32,10 +27,6 @@ function parseFileChanges(field: string, value: unknown): FileChange[] {
   return value.map((item, index) => parseFileChange(field, item, index));
 }
 
-function isPermission(value: unknown): value is RepoPermission {
-  return REPO_PERMISSIONS.some((permission) => permission === value);
-}
-
 function parseActor(where: string, value: unknown): LabelActor | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== 'object' || value === null) throw new Error(`${where} must be an object`);
@@ -43,7 +34,7 @@ function parseActor(where: string, value: unknown): LabelActor | undefined {
   if (typeof login !== 'string' || typeof type !== 'string') {
     throw new Error(`${where}.login / type must be strings`);
   }
-  if (!isPermission(permission)) {
+  if (!isRepoPermission(permission)) {
     throw new Error(`${where}.permission must be one of ${REPO_PERMISSIONS.join(', ')}`);
   }
   return { login, type, permission };

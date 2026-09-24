@@ -29,7 +29,8 @@ const LOCKFILES = new Set([
   'go.sum',
 ]);
 
-const ROOT_METADATA = /^(LICEN[CS]E|COPYING)(\..+)?$|^CODEOWNERS$|^\.(gitignore|gitattributes|editorconfig)$/;
+const ROOT_METADATA =
+  /^(LICEN[CS]E|COPYING)(\..+)?$|^CODEOWNERS$|^\.(gitignore|gitattributes|editorconfig)$/;
 
 /**
  * Whether a `package.json` change touches only dependency versions: the

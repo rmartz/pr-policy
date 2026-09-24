@@ -28,6 +28,12 @@ re-runs the check (`labeled`), releases the hold, and titles the check-run
 "CI loosening signed off". Why the label freezes once signed off is in
 [decisions.md](../decisions.md).
 
+`CI change approved` counts only when a user with write, maintain, or admin
+permission applied it, following the same rule as the UAT sign-offs (see
+[who can sign off](uat.md#who-can-sign-off)). A bot's or a triage user's
+approval keeps the hold, adds a note saying why, and doesn't freeze the gate
+label.
+
 Workflow files are read at the **merge base** and the head. If a side the file
 list says exists can't be read, the run fails rather than guess: a modified file
 mistaken for a new one would never be classified as loosening.

@@ -7,8 +7,8 @@
  */
 import { SIGN_OFF_LABELS } from '../contract.js';
 import { ghCall } from '../lib/github.js';
-import { REPO_PERMISSIONS } from '../policy.js';
 import type { RepoPermission, SignOff } from '../policy.js';
+import { isRepoPermission } from '../sign-off.js';
 import type { PullRequestTarget } from './pull-request.js';
 
 interface LabelEvent {
@@ -41,10 +41,6 @@ async function listLabelEvents(target: PullRequestTarget): Promise<LabelEvent[]>
     .map((line) => JSON.parse(line) as LabelEvent);
 }
 
-function isPermission(value: string): value is RepoPermission {
-  return REPO_PERMISSIONS.some((permission) => permission === value);
-}
-
 /**
  * A user's role, preferring the fine-grained name (which tells maintain and
  * triage apart) over the legacy level. A non-collaborator's 404, or any failed
@@ -69,8 +65,8 @@ async function lookupPermission(target: PullRequestTarget, login: string): Promi
     permission?: string;
     role_name?: string;
   };
-  if (roleName !== undefined && isPermission(roleName)) return roleName;
-  return permission !== undefined && isPermission(permission) ? permission : 'none';
+  if (isRepoPermission(roleName)) return roleName;
+  return isRepoPermission(permission) ? permission : 'none';
 }
 
 export async function gatherSignOffs(
