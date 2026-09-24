@@ -22,6 +22,27 @@ export const CI_APPROVAL_NEEDED_LABEL = 'CI approval needed';
 export const CI_CHANGE_APPROVED_LABEL = 'CI change approved';
 
 /**
+ * The UAT sign-offs, read and never written. `UAT passed` is a person's
+ * statement that they tested the PR; `tested` is its name until the fleet rename
+ * (rmartz/dotfiles#1572) finishes. `no UAT needed` is a waiver from the review
+ * agent or a person.
+ */
+export const UAT_PASSED_LABEL = 'UAT passed';
+export const LEGACY_UAT_PASSED_LABEL = 'tested';
+export const NO_UAT_NEEDED_LABEL = 'no UAT needed';
+
+/**
+ * Every label that counts only when a trusted person applied it. The facts
+ * gatherer looks up who applied each one present on the PR.
+ */
+export const SIGN_OFF_LABELS = [
+  CI_CHANGE_APPROVED_LABEL,
+  UAT_PASSED_LABEL,
+  LEGACY_UAT_PASSED_LABEL,
+  NO_UAT_NEEDED_LABEL,
+] as const;
+
+/**
  * Labels the title check reads and never writes. They belong to the review and
  * release flow: `breaking change` is the source of truth for a breaking PR,
  * `hotfix` implies one, and release-please marks its release PRs with

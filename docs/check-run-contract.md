@@ -1,13 +1,13 @@
 ---
 type: Reference
 title: The check-run and label contract
-description: The external names pr-policy is bound to — the pr-policy check-run, CI approval needed, and CI change approved — what its failure, pending, and success states mean, and why there is exactly one check-run.
+description: The external names pr-policy is bound to — the pr-policy check-run, the CI gate labels, and the UAT sign-off labels — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
 tags: [pr-policy, contract, labels, check-run]
 ---
 
 # The check-run and label contract
 
-Three strings in this package are read outside this repo. They are declared once
+The strings below are read outside this repo. They are declared once
 in [`src/contract.ts`](../src/contract.ts) and pinned by `test/contract.test.ts`.
 Renaming any of them is a coordinated cross-repo migration, never a local
 refactor.
@@ -41,6 +41,11 @@ orphaned pending run sits beside the real verdict. GitHub marks a run that stays
 incomplete for 14 days as `stale`; that still holds the merge, and the next
 event on the PR posts a fresh run.
 
+Findings come from three checks, in this order: [`title`](checks/title.md),
+[`ci-change`](checks/ci-change.md), and [`uat`](checks/uat.md). A PR waiting on
+both a CI sign-off and UAT holds twice, and the title reads "Waiting on 2 human
+sign-offs".
+
 There is exactly **one** check-run, however many checks the suite grows. A new
 check reports into it rather than posting its own, so adding a check never
 requires a ruleset edit in every consumer. `repo-hygiene` bundles its checks
@@ -58,5 +63,15 @@ pending.
 ## `CI change approved`: the human sign-off
 
 Read-only here. **This package never applies it.** It is the deliberate human act
-the CI gate exists to require, and it is the only sanctioned sign-off. The check
-re-runs on `labeled`, so applying it clears the finding.
+the CI gate exists to require, and it is the only sanctioned sign-off. It counts
+only when a user with write, maintain, or admin permission applied it (see
+[who can sign off](checks/uat.md#who-can-sign-off)). The check re-runs on
+`labeled`, so applying it clears the finding.
+
+## `UAT passed`, `tested`, and `no UAT needed`: the UAT sign-offs
+
+Read-only here. **This package never applies or removes them.** Any one of them,
+applied by a trusted user, passes the [UAT gate](checks/uat.md). `UAT passed`
+is a person's statement that they tested the PR. `tested` is its old name, read
+until rmartz/dotfiles#1572 finishes the rename. `no UAT needed` is a waiver from
+the review agent or a person.

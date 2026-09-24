@@ -10,10 +10,12 @@
  *    Once signed off it is never removed — it is the audit record, and silently
  *    reverting a human judgment is exactly what this package must not do.
  * 2. **`CI change approved` is never written here.** It is the human act the
- *    gate exists to require.
+ *    gate exists to require, and it counts only when a trusted person applied
+ *    it (src/sign-off.ts).
  */
 import { CI_APPROVAL_NEEDED_LABEL, CI_CHANGE_APPROVED_LABEL } from '../../contract.js';
 import type { CheckResult, Finding, PolicyCheck, PullRequestFacts } from '../../policy.js';
+import { signOffState } from '../../sign-off.js';
 import { classifyWorkflowChanges, type Classification } from './classify.js';
 import type { Indicator } from './indicators.js';
 
@@ -26,11 +28,11 @@ function indicatorMessage(indicator: Indicator): string {
 /** Decide the findings and label edits for one classified PR. */
 export function decideCiChange(
   classification: Classification,
-  labels: readonly string[],
+  pr: Pick<PullRequestFacts, 'labels' | 'signOffs'>,
 ): CheckResult {
-  const present = new Set(labels);
-  const signedOff = present.has(CI_CHANGE_APPROVED_LABEL);
-  const flagged = present.has(CI_APPROVAL_NEEDED_LABEL);
+  const approval = signOffState(pr, [CI_CHANGE_APPROVED_LABEL]);
+  const signedOff = approval.status === 'trusted';
+  const flagged = pr.labels.includes(CI_APPROVAL_NEEDED_LABEL);
   const loosening = classification.verdict === 'loosening';
 
   const labelsToAdd = loosening && !flagged ? [CI_APPROVAL_NEEDED_LABEL] : [];
@@ -61,16 +63,26 @@ export function decideCiChange(
         message: `This PR loosens CI and is waiting for a human to review the change and apply \`${CI_CHANGE_APPROVED_LABEL}\`. No code change clears this. Ambiguous indicators are treated as loosening because a miss skips the sign-off entirely.`,
         effect: 'hold',
       };
+  const untrusted: Finding[] =
+    approval.status === 'untrusted'
+      ? [
+          {
+            check: CI_CHANGE_CHECK,
+            message: `\`${approval.label}\` doesn't count: ${approval.reason}.`,
+            effect: 'info',
+          },
+        ]
+      : [];
   const evidence = classification.indicators.map((indicator): Finding => ({
     check: CI_CHANGE_CHECK,
     message: indicatorMessage(indicator),
     effect: 'info',
   }));
-  return { findings: [headline, ...evidence], labelsToAdd, labelsToRemove };
+  return { findings: [headline, ...untrusted, ...evidence], labelsToAdd, labelsToRemove };
 }
 
 export const ciChangeCheck: PolicyCheck = {
   name: CI_CHANGE_CHECK,
   evaluate: async (pr: PullRequestFacts) =>
-    decideCiChange(classifyWorkflowChanges(pr.workflowChanges), pr.labels),
+    decideCiChange(classifyWorkflowChanges(pr.workflowChanges), pr),
 };
