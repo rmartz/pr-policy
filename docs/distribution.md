@@ -9,7 +9,8 @@ tags: [pr-policy, distribution, github-actions]
 
 ## The package (this repo)
 
-`@rmartz/pr-policy` is published to GitHub Packages by
+`@rmartz/pr-policy` is published to npmjs (public, with provenance; versions up to
+0.2.0 were also published to GitHub Packages and stay there) by
 [release.yml](../.github/workflows/release.yml) on every releasable push to
 `main`. The version lives only in the git tag. `package.json` stays `0.0.0`.
 

@@ -150,8 +150,11 @@ Most of these are enforced by eslint. The intent:
   **PR title**, so it is the only subject that reaches `main`. `!` is allowed
   only on `feat`, `fix`, `perf`, and `revert`.
 - **Releases are automatic** via `semantic-release`. Every push to `main` runs
-  [release.yml](.github/workflows/release.yml). It publishes to GitHub Packages
-  and creates the tag and Release with the built-in `GITHUB_TOKEN`. **Don't bump
+  [release.yml](.github/workflows/release.yml). It publishes to npmjs through OIDC
+  trusted publishing, which is tied to the `release.yml` filename, so there is no
+  `NPM_TOKEN` and renaming that workflow breaks publishing until the trusted
+  publisher on npmjs is updated. It creates the tag and Release with the built-in
+  `GITHUB_TOKEN`. **Don't bump
   `package.json` by hand.** Its `version` is a frozen `0.0.0` placeholder, and
   nothing commits a version back to `main`. Config lives in
   [`.releaserc.json`](.releaserc.json).
