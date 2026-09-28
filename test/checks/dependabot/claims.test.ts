@@ -36,6 +36,36 @@ describe('parseClaims', () => {
     ]);
   });
 
+  it("reads a large group's summary table, which survives Dependabot truncating the body", () => {
+    const body = [
+      'Bumps the dev-dependencies group with 19 updates in the / directory:',
+      '',
+      '| Package | From | To |',
+      '| --- | --- | --- |',
+      '| [@storybook/nextjs-vite](https://github.com/storybookjs/storybook) | `10.4.6` | `10.6.0` |',
+      '| [tsx](https://github.com/privatenumber/tsx) | `4.23.0` | `4.23.15` |',
+      '',
+      'Updates `@storybook/nextjs-vite` from 10.4.6 to 10.6.0',
+      '_Description has been truncated_',
+    ].join('\n');
+    expect(parseClaims(body)).toEqual([
+      { name: '@storybook/nextjs-vite', to: '10.6.0' },
+      { name: 'tsx', to: '4.23.15' },
+    ]);
+  });
+
+  it("names a truncated group's remaining packages from its header, with no target", () => {
+    const body = [
+      'Bumps the react group with 2 updates: [react](https://github.com/react/react) and [@types/react-dom](https://github.com/DefinitelyTyped/DefinitelyTyped).',
+      'Updates `react` from 19.2.8 to 19.3.0',
+      '_Description has been truncated_',
+    ].join('\n');
+    expect(parseClaims(body)).toEqual([
+      { name: 'react', to: '19.3.0' },
+      { name: '@types/react-dom' },
+    ]);
+  });
+
   it('reads an action or reusable-workflow update', () => {
     expect(parseClaims(ACTIONS)).toEqual([
       { name: 'rmartz/merge-safety/.github/workflows/merge-safety.yml', to: '0.6.0' },

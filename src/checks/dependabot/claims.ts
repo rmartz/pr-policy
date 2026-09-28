@@ -2,16 +2,21 @@
  * The updates a Dependabot PR claims, read from its description. The body is
  * Dependabot's own record: a review agent may retitle the PR (`chore(deps):` →
  * `ci(deps):`), but nothing rewrites the body. Three sentence forms carry every
- * claim Dependabot makes:
+ * claim Dependabot makes, plus a summary table:
  *
  * - `Bumps [name](url) from A to B.` — a single update.
+ * - `| [name](url) | `A` | `B` |` — a row of the table a large group opens
+ *   with. Dependabot truncates a long description, cutting off the per-package
+ *   lines, but the table comes first and survives.
  * - ``Updates `name` from A to B`` — one entry of a grouped update, or of a
  *   single PR that bumps packages together.
  * - `Updates the requirements on [name](url) to permit ...` — a range change
  *   with no single target version.
  *
- * Group headers (`Bumps the npm group with 3 updates: ...`) name no versions and
- * are not claims; the ``Updates `name` `` lines below them are.
+ * A group header (`Bumps the npm group with 3 updates: [a](url) and [b](url).`)
+ * names every package but no version. Its names count as claims with no target,
+ * so a truncated body that lost an `Updates` line still covers that package;
+ * wherever a versioned line survives, its version is the one checked.
  */
 
 /** One claimed update. `to` is absent for a range change or a removal. */
@@ -27,12 +32,17 @@ const VERSION = /(\S+?)\.?(?=\s|$)/.source;
 
 const BUMP = new RegExp(String.raw`^Bumps ${NAME} from \S+ to ${VERSION}`, 'gm');
 const UPDATE = new RegExp(String.raw`^Updates ${NAME} from \S+ to ${VERSION}`, 'gm');
+/** Versions in a table row are always code spans, which the header row's aren't. */
+const CELL = /`[^`|]+`/.source;
+const TABLE_ROW = new RegExp(String.raw`^\| ${NAME} \| ${CELL} \| \x60([^\x60|]+)\x60 \|`, 'gm');
+const GROUP_HEADER = /^Bumps the \S+ group\b[^:\n]*:(.*)$/gm;
+const LINK = /\[([^\]]+)\]\([^)]*\)/g;
 const REQUIREMENTS = new RegExp(String.raw`^Updates the requirements on ${NAME}`, 'gm');
 const REMOVAL = new RegExp(String.raw`^Removes ${NAME}`, 'gm');
 
-/** Dependabot writes `@​scope` with a zero-width space so it isn't a mention. */
+/** Dependabot writes `@\u200bscope` with a zero-width space so it isn't a mention. */
 function clean(name: string): string {
-  return name.replace(/​/g, '').trim();
+  return name.replace(/\u200b/g, '').trim();
 }
 
 function nameOf(match: RegExpExecArray): string {
@@ -46,7 +56,7 @@ function nameOf(match: RegExpExecArray): string {
  */
 export function parseClaims(body: string): Claim[] {
   const claims = new Map<string, Claim>();
-  for (const pattern of [BUMP, UPDATE]) {
+  for (const pattern of [TABLE_ROW, BUMP, UPDATE]) {
     for (const match of body.matchAll(pattern)) {
       const name = nameOf(match);
       if (name !== '' && match[4] !== undefined) claims.set(name, { name, to: match[4] });
@@ -55,6 +65,12 @@ export function parseClaims(body: string): Claim[] {
   for (const pattern of [REQUIREMENTS, REMOVAL]) {
     for (const match of body.matchAll(pattern)) {
       const name = nameOf(match);
+      if (name !== '' && !claims.has(name)) claims.set(name, { name });
+    }
+  }
+  for (const header of body.matchAll(GROUP_HEADER)) {
+    for (const link of (header[1] ?? '').matchAll(LINK)) {
+      const name = clean(link[1] ?? '');
       if (name !== '' && !claims.has(name)) claims.set(name, { name });
     }
   }
