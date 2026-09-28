@@ -3,6 +3,7 @@
 // parses arguments and talks to `gh`.
 import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
+import { selectChecks } from '../checks/index.js';
 import { evaluatePolicy } from '../evaluate.js';
 import { parseFacts } from '../facts.js';
 import { postCheckRun } from '../github/check-run.js';
@@ -10,14 +11,16 @@ import { applyLabelEdits, gatherFacts } from '../github/pull-request.js';
 import { resolveRepoTarget } from '../lib/github.js';
 
 const USAGE = `Usage:
-  ai-pr-policy evaluate --pr <n> [--repo <owner/repo>] [--json]
-  ai-pr-policy evaluate --facts <path|->
+  ai-pr-policy evaluate --pr <n> [--repo <owner/repo>] [--json] [--skip-uat]
+  ai-pr-policy evaluate --facts <path|-> [--skip-uat]
 
 --pr     Evaluate a live PR, post the pr-policy check-run on its head, and
          apply the label edits the checks planned. --json prints the
          evaluation instead and changes nothing.
 --facts  Evaluate an offline JSON facts document ("-" reads stdin) and print
-         the evaluation. Exits 1 only on "failure" ("pending" exits 0).`;
+         the evaluation. Exits 1 only on "failure" ("pending" exits 0).
+--skip-uat
+         Don't run the UAT gate, for a repo with no user-acceptance testing.`;
 
 async function readInput(path: string): Promise<string> {
   if (path !== '-') return readFile(path, 'utf8');
@@ -35,6 +38,7 @@ async function main(argv: readonly string[]): Promise<number> {
       pr: { type: 'string' },
       repo: { type: 'string' },
       json: { type: 'boolean' },
+      'skip-uat': { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -46,9 +50,10 @@ async function main(argv: readonly string[]): Promise<number> {
     console.error(USAGE);
     return 2;
   }
+  const checks = selectChecks({ skipUat: values['skip-uat'] });
 
   if (values.facts !== undefined) {
-    const evaluation = await evaluatePolicy(parseFacts(await readInput(values.facts)));
+    const evaluation = await evaluatePolicy(parseFacts(await readInput(values.facts)), checks);
     console.log(JSON.stringify(evaluation, null, 2));
     return evaluation.outcome === 'failure' ? 1 : 0;
   }
@@ -65,7 +70,7 @@ async function main(argv: readonly string[]): Promise<number> {
   }
   const target = { repo, pr };
   const { facts, headSha } = await gatherFacts(target);
-  const evaluation = await evaluatePolicy(facts);
+  const evaluation = await evaluatePolicy(facts, checks);
   if (values.json) {
     console.log(JSON.stringify(evaluation, null, 2));
     return 0;

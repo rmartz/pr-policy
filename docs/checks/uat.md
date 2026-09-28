@@ -1,7 +1,7 @@
 ---
 type: Library
 title: UAT sign-off
-description: The uat check — a hard merge gate that holds every PR until it is statically trivial or carries a trusted no UAT needed or UAT passed label — the trivial-PR rules and their fleet replay, the label actor check, and what it deliberately leaves to other parties.
+description: The uat check — a hard merge gate that holds every PR until it is statically trivial or carries a trusted no UAT needed or UAT passed label — the trivial-PR rules and their fleet replay, the label actor check, turning the gate off for a repo without UAT, and what it deliberately leaves to other parties.
 resource: src/checks/uat/index.ts
 tags: [pr-policy, uat, sign-off, merge-gate]
 ---
@@ -85,6 +85,15 @@ person".
 The caller runs on `labeled` / `unlabeled`, so applying a label re-evaluates
 the PR straight away. See the Action's consumer guide in
 [distribution.md](../distribution.md).
+
+## Repos without UAT
+
+A repo with nothing to user-test can drop the gate. Pass `--skip-uat` to the
+CLI, or `selectChecks({ skipUat: true })` to `evaluatePolicy` in the library.
+The `uat` check then doesn't run: it adds no findings and gets no per-check
+status. The title and CI-change checks, and the `CI change approved` trust
+check, are unchanged. The setting belongs to the caller, never the PR. See
+[decisions.md](../decisions.md).
 
 ## Stale labels across pushes
 

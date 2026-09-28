@@ -1,4 +1,4 @@
-export { CHECKS } from './checks/index.js';
+export { CHECKS, selectChecks, type PolicyOptions } from './checks/index.js';
 export { CI_CHANGE_CHECK, ciChangeCheck, decideCiChange } from './checks/ci-change/index.js';
 export {
   classifyWorkflowChanges,
