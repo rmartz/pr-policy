@@ -12,12 +12,12 @@ new required-status name.
 
 ## Checks
 
-| Check                                                           | Blocks when                                                                                                                                                                                         |
-| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **CI-change classification** ([docs](docs/checks/ci-change.md)) | A `.github/workflows/**` change loosens CI (a removed job, `continue-on-error`, a narrowed trigger, …) and no human has applied `CI change approved` (shows as pending). Owns `CI approval needed`. |
-| **Title-type rules** ([docs](docs/checks/title.md))             | The squash title isn't a valid Conventional Commit, puts `!` on a non-functional type, or types a workflow change as anything but `ci` without the `breaking change` label.                         |
-| Domain labels (backlog)                                         | Never blocks. Additive path-glob → domain-label map.                                                                                                                                                |
-| Milestone inheritance (backlog)                                 | Never blocks. Issue → PR milestone.                                                                                                                                                                 |
+| Check                                                           | Blocks when                                                                                                                                                                                          |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CI-change classification** ([docs](docs/checks/ci-change.md)) | A `.github/workflows/**` change loosens CI (a removed job, `continue-on-error`, a narrowed trigger, …) and no human has applied `CI change approved` (shows as pending). Owns `CI approval needed`.  |
+| **Title-type rules** ([docs](docs/checks/title.md))             | The squash title isn't a valid Conventional Commit, puts `!` on a non-functional type, disagrees with the `breaking change` label, or types a linter/formatter bump as a non-release, non-`ci` type. |
+| Domain labels (backlog)                                         | Never blocks. Additive path-glob → domain-label map.                                                                                                                                                 |
+| Milestone inheritance (backlog)                                 | Never blocks. Issue → PR milestone.                                                                                                                                                                  |
 
 The design, and why this is separate from `merge-safety` and `pr-lifecycle`, is
 in [docs/decisions.md](docs/decisions.md).

@@ -65,7 +65,7 @@ export function decideTitle(pr: PullRequestFacts): CheckResult {
     if (breakingLabel) {
       findings.push(
         block(
-          `\`${BREAKING_CHANGE_LABEL}\` is only meaningful on ${FUNCTIONAL}. Remove the label, or retitle to the functional type if this really is a breaking code change. (A \`ci\` change already forces sibling rebases through its type.)`,
+          `\`${BREAKING_CHANGE_LABEL}\` is only meaningful on ${FUNCTIONAL}. Remove the label, or retitle to the functional type if this really is a breaking code change. (A CI change doesn't need it: sibling rebases key off the changed paths.)`,
         ),
       );
     }
@@ -83,18 +83,22 @@ export function decideTitle(pr: PullRequestFacts): CheckResult {
     );
   }
 
+  // A release type is never told to become `ci`: that would suppress the
+  // release. Sibling rebases for a CI change key off its paths, not its type,
+  // so on the remaining types `ci` is only a recommendation.
+  const mayRetitle = !functional && title.type !== 'ci';
+
   const workflows = substantiveWorkflowChanges(pr.workflowChanges);
-  const bundledCi = functional && breakingLabel;
-  if (workflows.length > 0 && title.type !== 'ci' && !bundledCi) {
-    findings.push(
-      block(
-        `This PR changes CI (${workflows.map((path) => `\`${path}\``).join(', ')}), so it must be \`ci\`-typed: retitle to \`ci(<scope>): …\`. If the CI change is bundled with a functional change, keep the ${FUNCTIONAL} type and apply \`${BREAKING_CHANGE_LABEL}\` instead.`,
-      ),
-    );
+  if (workflows.length > 0 && mayRetitle) {
+    findings.push({
+      check: TITLE_CHECK,
+      effect: 'info',
+      message: `This PR changes this repo's own CI (${workflows.map((path) => `\`${path}\``).join(', ')}); consider titling it \`ci(<scope>): …\`.`,
+    });
   }
 
   const bumps = sensitiveBumps(pr.manifestChanges);
-  if (bumps.length > 0 && title.type !== 'ci') {
+  if (bumps.length > 0 && mayRetitle) {
     findings.push(
       block(
         `This PR changes the version of ${bumps.map((name) => `\`${name}\``).join(', ')}, which can change lint/format results on every in-flight PR. Retitle to \`ci(deps): …\` so siblings re-test; do not use \`!\` or \`${BREAKING_CHANGE_LABEL}\` for it.`,
