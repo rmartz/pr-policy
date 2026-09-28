@@ -8,6 +8,7 @@ import { isManifestPath } from '../checks/title/sensitive-bump.js';
 import type { PolicyEvaluation } from '../evaluate.js';
 import { addLabels, ghCall, removeLabel } from '../lib/github.js';
 import type { FileChange, PullRequestFacts } from '../policy.js';
+import { gatherSignOffs } from './sign-offs.js';
 
 export interface PullRequestTarget {
   repo: string;
@@ -25,7 +26,8 @@ interface PrApiShape {
 interface ChangedFile {
   filename: string;
   status: string;
-  previous_filename?: string;
+  /** `null` in the `--jq` output when the file was not renamed. */
+  previous_filename?: string | null;
 }
 
 async function ghJson<T>(target: PullRequestTarget, argv: string[]): Promise<T> {
@@ -120,12 +122,19 @@ export async function gatherFacts(
     manifestChanges = await Promise.all(manifestFiles.map(read));
   }
 
+  const labels = view.labels.map((label) => label.name);
   const facts: PullRequestFacts = {
     title: view.title,
-    labels: view.labels.map((label) => label.name),
-    changedFiles: files.map((file) => file.filename),
+    labels,
+    // A rename's old path counts too: moving code into docs/ is not docs-only.
+    changedFiles: files.flatMap((file) =>
+      file.previous_filename === undefined || file.previous_filename === null
+        ? [file.filename]
+        : [file.previous_filename, file.filename],
+    ),
     workflowChanges,
     manifestChanges,
+    signOffs: await gatherSignOffs(target, labels),
   };
   return { facts, headSha };
 }

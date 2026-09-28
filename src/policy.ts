@@ -12,18 +12,46 @@ export interface FileChange {
 }
 
 /**
+ * A repository role, fine-grained where GitHub reports one. `none` covers a
+ * non-collaborator and a lookup that failed, so an unknown actor never counts.
+ */
+export const REPO_PERMISSIONS = ['admin', 'maintain', 'write', 'triage', 'read', 'none'] as const;
+export type RepoPermission = (typeof REPO_PERMISSIONS)[number];
+
+/** Who last applied a label: the actor on its latest `labeled` event. */
+export interface LabelActor {
+  login: string;
+  /** GitHub's actor type: `User`, `Bot`, `Organization`, or `Mannequin`. */
+  type: string;
+  permission: RepoPermission;
+}
+
+/**
+ * Provenance for one sign-off label on the PR (see `SIGN_OFF_LABELS`).
+ * `appliedBy` is absent when no `labeled` event names a live account.
+ */
+export interface SignOff {
+  label: string;
+  appliedBy?: LabelActor;
+}
+
+/**
  * The facts about a pull request that policy checks judge. Every field is a
- * property of the PR's own content — never its review history, which belongs to
- * the separate lifecycle reconciler (rmartz/ai-tools#306).
+ * property of the PR's current state — its content and the labels on it, never
+ * its review history, which belongs to the separate lifecycle reconciler
+ * (rmartz/ai-tools#306).
  */
 export interface PullRequestFacts {
   title: string;
   labels: readonly string[];
+  /** Every path the PR touches, including the old path of a rename. */
   changedFiles: readonly string[];
   /** Both sides of every changed `.github/workflows/**` file. */
   workflowChanges: readonly FileChange[];
   /** Both sides of every changed dependency manifest (`package.json`, `requirements*.txt`). */
   manifestChanges: readonly FileChange[];
+  /** Who applied each sign-off label present on the PR. */
+  signOffs: readonly SignOff[];
 }
 
 /**

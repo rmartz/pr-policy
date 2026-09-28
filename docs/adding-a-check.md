@@ -14,9 +14,11 @@ implementation.
 
 ## Before you start
 
-A rule belongs here only if it is a **fact about the PR's own content** that
-doesn't depend on history. Rules about review state, approvals, or UAT belong
-in `pr-lifecycle` (rmartz/ai-tools#306). Rules about the PR's relation to its
+A rule belongs here only if it is a **fact about the PR's current state** (its
+content, or a sign-off label on it) that doesn't depend on review history.
+Rules about review state or approvals belong in `pr-lifecycle`
+(rmartz/ai-tools#306); the UAT _gate_ lives here, as a hard gate over the
+labels (see [checks/uat.md](checks/uat.md)). Rules about the PR's relation to its
 base belong in `merge-safety`. If the rule needs to overwrite a label someone
 else owns, it is a reconciler and doesn't belong here.
 
@@ -29,8 +31,10 @@ else owns, it is a reconciler and doesn't belong here.
    report order.
 3. **Facts.** If the check needs input beyond `PullRequestFacts`, extend the
    interface, `gatherFacts` (`src/github/pull-request.ts`), and `parseFacts`
-   (`src/facts.ts`). Keep every field a property of current content, and make
+   (`src/facts.ts`). Keep every field a property of current state, and make
    gathering fail closed: a read error must not look like "nothing changed".
+   A human sign-off label should count only through `signOffState`
+   (`src/sign-off.ts`), after adding it to `SIGN_OFF_LABELS`.
 4. **Tests.** Add `test/checks/<name>.test.ts` with one `it` per rule. Cover the
    gating case and the nearest case that must _not_ fire. Tests stay hermetic.
 5. **Docs.** Add `docs/checks/<name>.md` (OKF `type: Library`,

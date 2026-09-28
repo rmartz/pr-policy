@@ -10,7 +10,17 @@ describe('parseFacts', () => {
       changedFiles: ['a.ts'],
       workflowChanges: [],
       manifestChanges: [],
+      signOffs: [],
     });
+  });
+
+  it('accepts sign-offs, with and without a known actor', () => {
+    const signOffs = [
+      { label: 'UAT passed', appliedBy: { login: 'reed', type: 'User', permission: 'admin' } },
+      { label: 'no UAT needed' },
+    ];
+    const raw = JSON.stringify({ title: 't', labels: [], changedFiles: [], signOffs });
+    expect(parseFacts(raw).signOffs).toEqual(signOffs);
   });
 
   it('accepts workflow changes with an absent side', () => {
@@ -34,6 +44,11 @@ describe('parseFacts', () => {
       'a workflow change without a path',
       '{"title":"t","labels":[],"changedFiles":[],"workflowChanges":[{}]}',
       'facts.workflowChanges[0].path',
+    ],
+    [
+      'a sign-off with an unknown permission',
+      '{"title":"t","labels":[],"changedFiles":[],"signOffs":[{"label":"tested","appliedBy":{"login":"a","type":"User","permission":"owner"}}]}',
+      'facts.signOffs[0].appliedBy.permission',
     ],
   ])('rejects %s', (_case, raw, message) => {
     expect(() => parseFacts(raw)).toThrow(message);
