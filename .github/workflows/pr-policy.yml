@@ -22,6 +22,7 @@ permissions:
   pull-requests: write # write the labels pr-policy owns (CI approval needed)
   contents: read # read changed files at the merge base and head
   packages: read # install the CLI from GitHub Packages
+  statuses: write # post one commit status per policy check (pr-policy / <check>)
 
 concurrency:
   group: pr-policy-${{ github.event.pull_request.number }}
