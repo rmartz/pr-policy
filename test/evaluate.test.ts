@@ -89,6 +89,7 @@ describe('selectChecks', () => {
     expect(selectChecks({ skipUat: true }).map((check) => check.name)).toEqual([
       'title',
       'ci-change',
+      'dependabot',
     ]);
   });
 
