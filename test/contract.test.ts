@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BLOCKED_LABEL,
+  BLOCKING_LABELS,
   CI_APPROVAL_NEEDED_LABEL,
   CI_CHANGE_APPROVED_LABEL,
+  DNM_LABEL,
+  DO_NOT_MERGE_LABEL,
+  ESCALATION_NEEDED_LABEL,
   LEGACY_UAT_PASSED_LABEL,
   NO_UAT_NEEDED_LABEL,
   PR_POLICY_CHECK_NAME,
@@ -25,5 +30,13 @@ describe('external contract names', () => {
     expect(UAT_PASSED_LABEL).toBe('UAT passed');
     expect(LEGACY_UAT_PASSED_LABEL).toBe('tested');
     expect(NO_UAT_NEEDED_LABEL).toBe('no UAT needed');
+  });
+
+  it('pins the blocking labels', () => {
+    expect(DO_NOT_MERGE_LABEL).toBe('do not merge');
+    expect(DNM_LABEL).toBe('dnm');
+    expect(BLOCKED_LABEL).toBe('blocked');
+    expect(ESCALATION_NEEDED_LABEL).toBe('escalation needed');
+    expect(BLOCKING_LABELS).toEqual(['do not merge', 'dnm', 'blocked', 'escalation needed']);
   });
 });
