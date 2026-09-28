@@ -26,7 +26,7 @@ export interface Claim {
 }
 
 /** A package reference: a markdown link's text, a code span, or a bare name. */
-const NAME = /(?:\[([^\[\]\n]+)\]\([^)]*\)|`([^`]+)`|([^\s[\]`]+))/.source;
+const NAME = /(?:\[([^\[\]\n]+)\]\([^()\n]*\)|`([^`]+)`|([^\s[\]`]+))/.source;
 /** A version up to (not including) a sentence-ending period. */
 const VERSION = /(\S+?)\.?(?=\s|$)/.source;
 
@@ -36,7 +36,7 @@ const UPDATE = new RegExp(String.raw`^Updates ${NAME} from \S+ to ${VERSION}`, '
 const CELL = /`[^`|]+`/.source;
 const TABLE_ROW = new RegExp(String.raw`^\| ${NAME} \| ${CELL} \| \x60([^\x60|]+)\x60 \|`, 'gm');
 const GROUP_HEADER = /^Bumps the \S+ group\b[^:\n]*:(.*)$/gm;
-const LINK = /\[([^\[\]\n]+)\]\([^)]*\)/g;
+const LINK = /\[([^\[\]\n]+)\]\([^()\n]*\)/g;
 const REQUIREMENTS = new RegExp(String.raw`^Updates the requirements on ${NAME}`, 'gm');
 const REMOVAL = new RegExp(String.raw`^Removes ${NAME}`, 'gm');
 
