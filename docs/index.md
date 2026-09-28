@@ -10,7 +10,8 @@ Documentation for `@rmartz/pr-policy`, written in
 - [What pr-policy is](overview.md): the question it answers, the one check-run
   it posts, and how it differs from merge-safety and pr-lifecycle.
 - [The check-run and label contract](check-run-contract.md): the external names
-  this package is bound to, and what failure, pending, and success mean.
+  this package is bound to, what failure, pending, and success mean, and why
+  the verdict is mirrored to a commit status.
 - [Policy checks](checks/index.md): one page per registered check.
 - [Adding a policy check](adding-a-check.md): the module, registration, tests,
   and docs a new check needs.

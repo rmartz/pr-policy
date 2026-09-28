@@ -6,7 +6,7 @@ import { parseArgs } from 'node:util';
 import { selectChecks } from '../checks/index.js';
 import { evaluatePolicy } from '../evaluate.js';
 import { parseFacts } from '../facts.js';
-import { postCheckRun } from '../github/check-run.js';
+import { postVerdict } from '../github/check-run.js';
 import { applyLabelEdits, gatherFacts } from '../github/pull-request.js';
 import { resolveRepoTarget } from '../lib/github.js';
 
@@ -14,9 +14,9 @@ const USAGE = `Usage:
   ai-pr-policy evaluate --pr <n> [--repo <owner/repo>] [--json] [--skip-uat]
   ai-pr-policy evaluate --facts <path|-> [--skip-uat]
 
---pr     Evaluate a live PR, post the pr-policy check-run on its head, and
-         apply the label edits the checks planned. --json prints the
-         evaluation instead and changes nothing.
+--pr     Evaluate a live PR, post the pr-policy check-run and commit status on
+         its head, and apply the label edits the checks planned. --json
+         prints the evaluation instead and changes nothing.
 --facts  Evaluate an offline JSON facts document ("-" reads stdin) and print
          the evaluation. Exits 1 only on "failure" ("pending" exits 0).
 --skip-uat
@@ -76,7 +76,7 @@ async function main(argv: readonly string[]): Promise<number> {
     return 0;
   }
   await applyLabelEdits(target, evaluation);
-  await postCheckRun(target, headSha, evaluation);
+  await postVerdict(target, headSha, evaluation);
   console.log(`${repo}#${pr}: ${evaluation.outcome} — ${evaluation.title}`);
   return 0;
 }

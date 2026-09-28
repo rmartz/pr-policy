@@ -25,7 +25,9 @@ folded into **one** [`pr-policy` check-run](check-run-contract.md).
 3. **Build one report** (`buildReport` in `src/report.ts`). Any block makes the
    check-run `failure`; otherwise any hold makes it pending; otherwise it is
    `success`. See [check-run-contract.md](check-run-contract.md).
-4. **Post the check-run**, and write any labels a check owns outright.
+4. **Post the check-run**, mirror it to the `pr-policy` commit status the merge
+   gate relies on, and write any labels a check owns outright. See
+   [the commit status](check-run-contract.md#the-commit-status-is-what-the-gate-relies-on).
 
 `ai-pr-policy evaluate --pr <n>` runs all four against a live PR (the plumbing
 is in `src/github/pull-request.ts`); `--facts` runs steps 2–3 offline. The

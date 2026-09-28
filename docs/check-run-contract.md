@@ -1,8 +1,8 @@
 ---
 type: Reference
 title: The check-run and label contract
-description: The external names pr-policy is bound to — the pr-policy check-run, the CI gate labels, the UAT sign-off labels, and the blocking labels — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
-tags: [pr-policy, contract, labels, check-run]
+description: The external names pr-policy is bound to — the pr-policy check-run and its mirrored commit status, the CI gate labels, the UAT sign-off labels, and the blocking labels — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
+tags: [pr-policy, contract, labels, check-run, commit-status]
 ---
 
 # The check-run and label contract
@@ -14,18 +14,19 @@ refactor.
 
 ## `pr-policy`: the check-run
 
-The one check-run this package posts. Consumers mark it a **required status
-check** on the default-branch ruleset, and match it by literal name. That's why
-the name is frozen from `v0.1.0`.
+The one check-run this package posts, mirrored to a commit status with the same
+context (see [below](#the-commit-status-is-what-the-gate-relies-on)). Consumers
+mark it a **required status check** on the default-branch ruleset, and match it
+by literal name. That's why the name is frozen from `v0.1.0`.
 
 Each finding has an **effect** (`src/policy.ts`), and the strongest one sets the
 check-run's state:
 
-| Effect  | Meaning                                 | Check-run state                         |
-| ------- | --------------------------------------- | --------------------------------------- |
-| `block` | A problem the author can fix (a title). | `completed` / `failure` (red)           |
-| `hold`  | Waiting on a human act (a sign-off).    | `in_progress`, no conclusion (pending)  |
-| `info`  | Context only.                           | doesn't gate; `success` if nothing else |
+| Effect  | Meaning                                 | Check-run state                         | Commit status |
+| ------- | --------------------------------------- | --------------------------------------- | ------------- |
+| `block` | A problem the author can fix (a title). | `completed` / `failure` (red)           | `failure`     |
+| `hold`  | Waiting on a human act (a sign-off).    | `in_progress`, no conclusion (pending)  | `pending`     |
+| `info`  | Context only.                           | doesn't gate; `success` if nothing else | `success`     |
 
 A `block` outranks a `hold`, so the author sees what they can act on. The
 summary lists every finding, attributed to its check.
@@ -48,6 +49,34 @@ repo [turns UAT off](checks/uat.md#repos-without-uat)), and
 [`dependabot`](checks/dependabot.md). A PR waiting on
 both a CI sign-off and UAT holds twice, and the title reads "Waiting on 2 human
 sign-offs".
+
+### The commit status is what the gate relies on
+
+Every verdict also sets a commit status with the context `pr-policy` and the
+same state. The check-run's title becomes its description, cut to GitHub's
+140-character limit, and it links the Actions run when there is one. The status
+exists because the check-run alone can leave a PR `BLOCKED` while every check
+shows green (rmartz/merge-safety#73):
+
+- A check-run created with `GITHUB_TOKEN` gets no check suite of its own. GitHub
+  files it into the head SHA's **oldest `github-actions` suite**.
+- When a newer run of that suite's workflow and event lands on the same SHA,
+  GitHub treats the older suite as superseded, and **the merge gate ignores
+  every check-run in it**. REST and GraphQL's `isRequired` rollup still report
+  the run as `SUCCESS`, and re-running doesn't help, because the new run goes
+  into the same old suite.
+
+A commit status belongs to no suite, so nothing can supersede it. The check-run
+is kept, with the same verdict, for tooling that reads it by name.
+
+Setting the status needs `statuses: write` in the caller workflow. Without it the
+check-run still posts and the run logs a warning, but the PR stays exposed to
+the superseded-suite block. A status set with a workflow's `GITHUB_TOKEN` is
+attributed to the GitHub Actions app, so a ruleset that pins `pr-policy` to it
+(`integration_id: 15368`) should accept the status too; rmartz/pr-policy#24
+tracks confirming that on a consumer after release.
+
+### One check-run for the whole suite
 
 There is exactly **one** check-run, however many checks the suite grows. A new
 check reports into it rather than posting its own, so adding a check never

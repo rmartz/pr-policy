@@ -19,6 +19,7 @@ on:
 
 permissions:
   checks: write # post the pr-policy check-run
+  statuses: write # mirror the verdict to the pr-policy commit status (#24)
   pull-requests: write # write the labels pr-policy owns (CI approval needed)
   contents: read # read changed files at the merge base and head
   packages: read # install the CLI from GitHub Packages
