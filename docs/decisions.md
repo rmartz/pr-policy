@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -157,6 +157,19 @@ The rule lives in one place (`src/sign-off.ts`) and applies to both gates:
 A failed label-event read throws instead of holding, so the run fails loudly
 rather than reporting a misleading "nobody applied it". A failed permission
 lookup (a non-collaborator's 404) is `none`, so the gate fails closed.
+
+### A blocking label holds, from anyone
+
+`do not merge`, `dnm`, `blocked`, and `escalation needed` are enforced here
+because `pr-policy` is the one required check every merge path waits on. Only the
+coordinator honored them before, so a person or native auto-merge could merge
+past them. The label is a fact about the PR's current state, so it fits "content,
+not history".
+
+It is a `hold`, not a `block`: a person put the label on, and only a person
+taking it off clears it. It is not read through `signOffState`, because it only
+adds a gate. Honoring an untrusted actor's label fails safe. See
+[checks/merge-block.md](checks/merge-block.md).
 
 ### Dependabot PRs are checked against their own description
 

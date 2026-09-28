@@ -1,6 +1,7 @@
 import type { PolicyCheck } from '../policy.js';
 import { ciChangeCheck } from './ci-change/index.js';
 import { dependabotCheck } from './dependabot/index.js';
+import { mergeBlockCheck } from './merge-block.js';
 import { titleCheck } from './title/index.js';
 import { uatCheck } from './uat/index.js';
 
@@ -10,6 +11,7 @@ import { uatCheck } from './uat/index.js';
  * `pr-policy` check-run. See docs/adding-a-check.md.
  */
 export const CHECKS: readonly PolicyCheck[] = [
+  mergeBlockCheck,
   titleCheck,
   ciChangeCheck,
   uatCheck,

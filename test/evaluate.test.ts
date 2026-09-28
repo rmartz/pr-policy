@@ -59,6 +59,15 @@ describe('evaluatePolicy', () => {
     expect(report.findings.map((finding) => finding.check)).toEqual(['uat']);
   });
 
+  it('holds a PR carrying a blocking label, even one that would otherwise pass', async () => {
+    const report = await evaluatePolicy(
+      { ...pr, labels: ['do not merge'] },
+      selectChecks({ skipUat: true }),
+    );
+    expect(report.outcome).toBe('pending');
+    expect(report.findings.map((finding) => finding.check)).toEqual(['merge-block']);
+  });
+
   it('passes a well-titled docs-only PR outright', async () => {
     expect((await evaluatePolicy({ ...pr, changedFiles: ['README.md'] })).outcome).toBe('success');
   });
@@ -87,6 +96,7 @@ describe('selectChecks', () => {
 
   it('drops only the UAT gate when skipUat is set', () => {
     expect(selectChecks({ skipUat: true }).map((check) => check.name)).toEqual([
+      'merge-block',
       'title',
       'ci-change',
       'dependabot',

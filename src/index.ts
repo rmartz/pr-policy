@@ -24,6 +24,7 @@ export {
   dependabotCheck,
 } from './checks/dependabot/index.js';
 export { parseClaims, type Claim } from './checks/dependabot/claims.js';
+export { MERGE_BLOCK_CHECK, decideMergeBlock, mergeBlockCheck } from './checks/merge-block.js';
 export { isWorkflowPath } from './checks/ci-change/workflow-paths.js';
 export { TITLE_CHECK, decideTitle, titleCheck } from './checks/title/index.js';
 export {
@@ -39,9 +40,14 @@ export {
   sensitiveBumps,
 } from './checks/title/sensitive-bump.js';
 export {
+  BLOCKED_LABEL,
+  BLOCKING_LABELS,
   BREAKING_CHANGE_LABEL,
   CI_APPROVAL_NEEDED_LABEL,
   CI_CHANGE_APPROVED_LABEL,
+  DNM_LABEL,
+  DO_NOT_MERGE_LABEL,
+  ESCALATION_NEEDED_LABEL,
   HOTFIX_LABEL,
   PR_POLICY_CHECK_NAME,
   RELEASE_PLEASE_PENDING_LABEL,
