@@ -1,5 +1,6 @@
 import type { PolicyCheck } from '../policy.js';
 import { ciChangeCheck } from './ci-change/index.js';
+import { mergeBlockCheck } from './merge-block.js';
 import { titleCheck } from './title/index.js';
 import { uatCheck } from './uat/index.js';
 
@@ -8,7 +9,12 @@ import { uatCheck } from './uat/index.js';
  * module under src/checks/ and is added here; all of them report into the single
  * `pr-policy` check-run. See docs/adding-a-check.md.
  */
-export const CHECKS: readonly PolicyCheck[] = [titleCheck, ciChangeCheck, uatCheck];
+export const CHECKS: readonly PolicyCheck[] = [
+  mergeBlockCheck,
+  titleCheck,
+  ciChangeCheck,
+  uatCheck,
+];
 
 /**
  * How a consuming repo tunes the suite. The caller passes these (a CLI flag, an
