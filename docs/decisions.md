@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, why an own-CI change is never forced to ci, why the UAT gate lives here and who can sign off, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, and why a blocking label holds from any actor, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -127,6 +127,16 @@ satisfied. So the UAT gate moved in from pr-lifecycle as a check that
 Static rules **only exempt** a PR from UAT, never require it. Requiring UAT is
 a judgment the review agent makes and expresses through the labels.
 
+### A repo without UAT turns the gate off in its caller
+
+Some repos have nothing to user-test (this one ships a library and an Action),
+so every non-trivial PR would wait on a `no UAT needed` label that says nothing.
+Such a repo runs the suite with `skipUat` (`--skip-uat`), set in its caller
+workflow. The option lives with the caller, not in a file in the repo: a
+`pull_request_target` caller runs from the base branch, so a PR can't switch off
+a gate it would otherwise wait on. Options default to the strictest policy, and
+a skipped check is left out entirely rather than reported as passed.
+
 ### Who applied a sign-off is current state, not history
 
 A label records nobody, so trusting one means reading its latest `labeled`
@@ -147,6 +157,19 @@ The rule lives in one place (`src/sign-off.ts`) and applies to both gates:
 A failed label-event read throws instead of holding, so the run fails loudly
 rather than reporting a misleading "nobody applied it". A failed permission
 lookup (a non-collaborator's 404) is `none`, so the gate fails closed.
+
+### A blocking label holds, from anyone
+
+`do not merge`, `dnm`, `blocked`, and `escalation needed` are enforced here
+because `pr-policy` is the one required check every merge path waits on. Only the
+coordinator honored them before, so a person or native auto-merge could merge
+past them. The label is a fact about the PR's current state, so it fits "content,
+not history".
+
+It is a `hold`, not a `block`: a person put the label on, and only a person
+taking it off clears it. It is not read through `signOffState`, because it only
+adds a gate. Honoring an untrusted actor's label fails safe. See
+[checks/merge-block.md](checks/merge-block.md).
 
 ## Open
 

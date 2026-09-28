@@ -43,6 +43,22 @@ export const SIGN_OFF_LABELS = [
 ] as const;
 
 /**
+ * Labels a person puts on a PR to stop it merging. The merge-block check holds
+ * `pr-policy` while any of them is present, and never applies or removes one.
+ * `dnm` is shorthand for `do not merge`.
+ */
+export const DO_NOT_MERGE_LABEL = 'do not merge';
+export const DNM_LABEL = 'dnm';
+export const BLOCKED_LABEL = 'blocked';
+export const ESCALATION_NEEDED_LABEL = 'escalation needed';
+export const BLOCKING_LABELS = [
+  DO_NOT_MERGE_LABEL,
+  DNM_LABEL,
+  BLOCKED_LABEL,
+  ESCALATION_NEEDED_LABEL,
+] as const;
+
+/**
  * Labels the title check reads and never writes. They belong to the review and
  * release flow: `breaking change` is the source of truth for a breaking PR,
  * `hotfix` implies one, and release-please marks its release PRs with

@@ -8,4 +8,6 @@ One page per registered check, each bound to its module under `src/checks/`.
 - [CI-change classification](ci-change.md): structural loosening detection over
   a PR's workflow diff, and the `CI approval needed` merge gate.
 - [UAT sign-off](uat.md): the hold-by-default UAT gate, the trivial-PR rules that
-  exempt from it, and who can sign off.
+  exempt from it, who can sign off, and how a repo without UAT turns it off.
+- [Blocking labels](merge-block.md): the hold `do not merge`, `dnm`, `blocked`,
+  and `escalation needed` put on a PR, and why any actor's label counts.

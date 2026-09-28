@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CHECKS, selectChecks } from '../src/checks/index.js';
 import { evaluatePolicy } from '../src/evaluate.js';
 import type { Finding, PolicyCheck, PullRequestFacts } from '../src/policy.js';
 import { buildReport } from '../src/report.js';
@@ -58,6 +59,15 @@ describe('evaluatePolicy', () => {
     expect(report.findings.map((finding) => finding.check)).toEqual(['uat']);
   });
 
+  it('holds a PR carrying a blocking label, even one that would otherwise pass', async () => {
+    const report = await evaluatePolicy(
+      { ...pr, labels: ['do not merge'] },
+      selectChecks({ skipUat: true }),
+    );
+    expect(report.outcome).toBe('pending');
+    expect(report.findings.map((finding) => finding.check)).toEqual(['merge-block']);
+  });
+
   it('passes a well-titled docs-only PR outright', async () => {
     expect((await evaluatePolicy({ ...pr, changedFiles: ['README.md'] })).outcome).toBe('success');
   });
@@ -75,5 +85,26 @@ describe('evaluatePolicy', () => {
     const report = await evaluatePolicy(pr, [stubCheck('first', [], ['owned label'])]);
     expect(report.labelsToAdd).toEqual(['owned label']);
     expect(report.labelsToRemove).toEqual([]);
+  });
+});
+
+describe('selectChecks', () => {
+  it('runs every check by default', () => {
+    expect(selectChecks()).toEqual(CHECKS);
+    expect(selectChecks({ skipUat: false })).toEqual(CHECKS);
+  });
+
+  it('drops only the UAT gate when skipUat is set', () => {
+    expect(selectChecks({ skipUat: true }).map((check) => check.name)).toEqual([
+      'merge-block',
+      'title',
+      'ci-change',
+    ]);
+  });
+
+  it('passes a well-titled code change outright with the UAT gate skipped', async () => {
+    const report = await evaluatePolicy(pr, selectChecks({ skipUat: true }));
+    expect(report.outcome).toBe('success');
+    expect(report.findings).toEqual([]);
   });
 });

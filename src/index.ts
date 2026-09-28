@@ -1,4 +1,4 @@
-export { CHECKS } from './checks/index.js';
+export { CHECKS, selectChecks, type PolicyOptions } from './checks/index.js';
 export { CI_CHANGE_CHECK, ciChangeCheck, decideCiChange } from './checks/ci-change/index.js';
 export {
   classifyWorkflowChanges,
@@ -17,6 +17,7 @@ export {
   type IndicatorKind,
   type LooseningIndicator,
 } from './checks/ci-change/indicators.js';
+export { MERGE_BLOCK_CHECK, decideMergeBlock, mergeBlockCheck } from './checks/merge-block.js';
 export { isWorkflowPath } from './checks/ci-change/workflow-paths.js';
 export { TITLE_CHECK, decideTitle, titleCheck } from './checks/title/index.js';
 export {
@@ -32,9 +33,14 @@ export {
   sensitiveBumps,
 } from './checks/title/sensitive-bump.js';
 export {
+  BLOCKED_LABEL,
+  BLOCKING_LABELS,
   BREAKING_CHANGE_LABEL,
   CI_APPROVAL_NEEDED_LABEL,
   CI_CHANGE_APPROVED_LABEL,
+  DNM_LABEL,
+  DO_NOT_MERGE_LABEL,
+  ESCALATION_NEEDED_LABEL,
   HOTFIX_LABEL,
   PR_POLICY_CHECK_NAME,
   RELEASE_PLEASE_PENDING_LABEL,
