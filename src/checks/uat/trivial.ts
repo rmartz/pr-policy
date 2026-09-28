@@ -17,7 +17,7 @@ export type TrivialCategory = (typeof TRIVIAL_CATEGORIES)[number];
 const TEST_DIRS = new Set(['test', 'tests', '__tests__', '__snapshots__', '__mocks__', 'e2e']);
 const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$|^test_.*\.py$|_test\.py$|^conftest\.py$/;
 
-const LOCKFILES = new Set([
+export const LOCKFILES = new Set([
   'pnpm-lock.yaml',
   'package-lock.json',
   'npm-shrinkwrap.json',

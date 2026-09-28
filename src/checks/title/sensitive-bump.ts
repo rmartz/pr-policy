@@ -23,7 +23,7 @@ export function isManifestPath(path: string): boolean {
 }
 
 /** PEP 503-style name normalization, so `Black` and `black` compare equal. */
-function normalize(name: string): string {
+export function normalize(name: string): string {
   return name
     .trim()
     .toLowerCase()
@@ -57,9 +57,9 @@ function npmVersions(text: string): Map<string, string> | null {
   return versions;
 }
 
-const REQUIREMENT_LINE = /^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*((?:==|~=|>=|<=|!=|<|>).*)$/;
+export const REQUIREMENT_LINE = /^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*((?:==|~=|>=|<=|!=|<|>).*)$/;
 
-function pipVersions(text: string): Map<string, string> {
+export function pipVersions(text: string): Map<string, string> {
   const versions = new Map<string, string>();
   for (const line of text.split('\n')) {
     const [, name, spec] = REQUIREMENT_LINE.exec(line.replace(/#.*/, '')) ?? [];

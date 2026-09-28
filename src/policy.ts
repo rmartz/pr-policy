@@ -35,6 +35,12 @@ export interface SignOff {
   appliedBy?: LabelActor;
 }
 
+/** The account that opened a PR, as GitHub reports it (`dependabot[bot]`, `Bot`). */
+export interface PullRequestAuthor {
+  login: string;
+  type: string;
+}
+
 /**
  * The facts about a pull request that policy checks judge. Every field is a
  * property of the PR's current state — its content and the labels on it, never
@@ -43,6 +49,13 @@ export interface SignOff {
  */
 export interface PullRequestFacts {
   title: string;
+  /**
+   * The PR description. Optional so a facts document without one still parses;
+   * `gatherFacts` always sets it (an empty description is `''`).
+   */
+  body?: string;
+  /** Who opened the PR. `gatherFacts` always sets it. */
+  author?: PullRequestAuthor;
   labels: readonly string[];
   /** Every path the PR touches, including the old path of a rename. */
   changedFiles: readonly string[];

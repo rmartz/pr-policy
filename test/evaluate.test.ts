@@ -99,6 +99,7 @@ describe('selectChecks', () => {
       'merge-block',
       'title',
       'ci-change',
+      'dependabot',
     ]);
   });
 

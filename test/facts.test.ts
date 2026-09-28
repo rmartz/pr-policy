@@ -23,6 +23,20 @@ describe('parseFacts', () => {
     expect(parseFacts(raw).signOffs).toEqual(signOffs);
   });
 
+  it('accepts the description and author when present', () => {
+    const author = { login: 'dependabot[bot]', type: 'Bot' };
+    const raw = JSON.stringify({
+      title: 't',
+      body: 'Bumps x',
+      author,
+      labels: [],
+      changedFiles: [],
+    });
+    const facts = parseFacts(raw);
+    expect(facts.body).toBe('Bumps x');
+    expect(facts.author).toEqual(author);
+  });
+
   it('accepts workflow changes with an absent side', () => {
     const raw = JSON.stringify({
       title: 'ci: x',
@@ -40,6 +54,12 @@ describe('parseFacts', () => {
     ['a missing title', '{"labels":[],"changedFiles":[]}', 'facts.title must be a string'],
     ['non-string labels', '{"title":"t","labels":[1],"changedFiles":[]}', 'facts.labels'],
     ['missing changedFiles', '{"title":"t","labels":[]}', 'facts.changedFiles'],
+    ['a non-string body', '{"title":"t","body":1,"labels":[],"changedFiles":[]}', 'facts.body'],
+    [
+      'an author without a type',
+      '{"title":"t","author":{"login":"a"},"labels":[],"changedFiles":[]}',
+      'facts.author.login / type',
+    ],
     [
       'a workflow change without a path',
       '{"title":"t","labels":[],"changedFiles":[],"workflowChanges":[{}]}',
