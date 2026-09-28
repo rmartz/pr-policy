@@ -39,7 +39,7 @@ See [docs/okf-format.md](docs/okf-format.md).
 
 ## The external names are contracts
 
-`PR_POLICY_CHECK_NAME`, `CI_APPROVAL_NEEDED_LABEL`, and `CI_CHANGE_APPROVED_LABEL`
+`PR_POLICY_CHECK_NAME`, the CI gate labels, and the UAT sign-off labels
 (`src/contract.ts`) are read outside this repo. Treat them as frozen;
 `test/contract.test.ts` pins them. See
 [docs/check-run-contract.md](docs/check-run-contract.md).
@@ -57,8 +57,11 @@ Invariants that hold whatever a future change looks like:
   the human act the CI gate exists to require.
 - **Waiting on a human is a `hold`, never a `block`.** A human-gated finding
   leaves `pr-policy` pending; red is reserved for problems the author can fix.
-- **Content, not history.** A check's input is the PR's current content. If a
-  rule needs review history, it belongs to the lifecycle reconciler.
+- **Content, not history.** A check's input is the PR's current state: its
+  content, and who applied each sign-off label on it. If a rule needs review
+  history, it belongs to the lifecycle reconciler.
+- **A sign-off counts only from someone who could merge.** Read every human
+  sign-off label through `signOffState` (`src/sign-off.ts`).
 
 ## Adding a CI-change indicator
 

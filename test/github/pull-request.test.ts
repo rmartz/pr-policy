@@ -76,6 +76,35 @@ describe('gatherFacts', () => {
     ]);
   });
 
+  it('lists both paths of a rename, so moving code into docs/ is not docs-only', async () => {
+    responses.set(
+      'repos/o/r/pulls/7/files',
+      JSON.stringify({ filename: 'docs/a.md', status: 'renamed', previous_filename: 'src/a.ts' }),
+    );
+    const { facts } = await gatherFacts(target);
+    expect(facts.changedFiles).toEqual(['src/a.ts', 'docs/a.md']);
+  });
+
+  it('gathers who applied each sign-off label', async () => {
+    responses.set(
+      'repos/o/r/pulls/7',
+      JSON.stringify({ ...JSON.parse(PR), labels: [{ name: 'UAT passed' }] }),
+    );
+    responses.set('repos/o/r/pulls/7/files', '');
+    responses.set(
+      'repos/o/r/issues/7/events',
+      JSON.stringify({ label: 'UAT passed', login: 'reed', type: 'User' }),
+    );
+    responses.set(
+      'repos/o/r/collaborators/reed/permission',
+      JSON.stringify({ permission: 'admin', role_name: 'admin' }),
+    );
+    const { facts } = await gatherFacts(target);
+    expect(facts.signOffs).toEqual([
+      { label: 'UAT passed', appliedBy: { login: 'reed', type: 'User', permission: 'admin' } },
+    ]);
+  });
+
   it('skips the merge-base lookup when no workflow file or manifest changed', async () => {
     responses.delete('repos/o/r/compare/main...head1');
     responses.set(

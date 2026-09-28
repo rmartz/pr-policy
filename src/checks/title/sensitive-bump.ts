@@ -30,7 +30,7 @@ function normalize(name: string): string {
     .replace(/[-_.]+/g, '-');
 }
 
-const DEPENDENCY_FIELDS = [
+export const DEPENDENCY_FIELDS = [
   'dependencies',
   'devDependencies',
   'optionalDependencies',

@@ -15,9 +15,10 @@ folded into **one** [`pr-policy` check-run](check-run-contract.md).
 
 ## How a PR is evaluated
 
-1. **Gather facts** about the PR's current content (`PullRequestFacts` in
-   `src/policy.ts`): title, labels, changed paths, and both sides of every
-   changed workflow file and dependency manifest.
+1. **Gather facts** about the PR's current state (`PullRequestFacts` in
+   `src/policy.ts`): title, labels, changed paths, both sides of every changed
+   workflow file and dependency manifest, and who applied each sign-off label on
+   the PR (`src/github/sign-offs.ts`).
 2. **Run every registered check** (`CHECKS` in `src/checks/index.ts`). Each one
    returns zero or more findings, each a **block** (fixable problem), a
    **hold** (waiting on a human), or **info**.

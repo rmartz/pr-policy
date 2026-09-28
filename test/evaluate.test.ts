@@ -9,6 +9,7 @@ const pr: PullRequestFacts = {
   changedFiles: ['src/a.ts'],
   workflowChanges: [],
   manifestChanges: [],
+  signOffs: [],
 };
 
 function stubCheck(name: string, findings: Finding[], labelsToAdd: string[] = []): PolicyCheck {
@@ -51,8 +52,14 @@ describe('buildReport', () => {
 });
 
 describe('evaluatePolicy', () => {
-  it('passes a well-titled PR that touches no workflow file', async () => {
-    expect((await evaluatePolicy(pr)).outcome).toBe('success');
+  it('holds a well-titled code change until UAT is signed off', async () => {
+    const report = await evaluatePolicy(pr);
+    expect(report.outcome).toBe('pending');
+    expect(report.findings.map((finding) => finding.check)).toEqual(['uat']);
+  });
+
+  it('passes a well-titled docs-only PR outright', async () => {
+    expect((await evaluatePolicy({ ...pr, changedFiles: ['README.md'] })).outcome).toBe('success');
   });
 
   it('folds every check into one report, in check order', async () => {
