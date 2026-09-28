@@ -19,10 +19,9 @@ on:
 
 permissions:
   checks: write # post the pr-policy check-run
-  statuses: write # mirror the verdict to the pr-policy commit status (#24)
   pull-requests: write # write the labels pr-policy owns (CI approval needed)
   contents: read # read changed files at the merge base and head
-  packages: read # install the CLI from GitHub Packages
+  statuses: write # post one commit status per policy check (pr-policy / <check>)
 
 concurrency:
   group: pr-policy-${{ github.event.pull_request.number }}
@@ -34,6 +33,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: rmartz/pr-policy-action@38f5acc49575fafddc3874acd91f8aea65f8ea7a # v1.0.0
+      - uses: rmartz/pr-policy-action@b61c8f981cf19f5c1a4c4b170ddc6abfa3eb11ed # v1.3.0
         with:
           pr: ${{ github.event.pull_request.number }}
