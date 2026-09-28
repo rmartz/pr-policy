@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, and why a blocking label holds from any actor, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -170,6 +170,27 @@ It is a `hold`, not a `block`: a person put the label on, and only a person
 taking it off clears it. It is not read through `signOffState`, because it only
 adds a gate. Honoring an untrusted actor's label fails safe. See
 [checks/merge-block.md](checks/merge-block.md).
+
+### Dependabot PRs are checked against their own description
+
+`bot-automerge` merges Dependabot PRs unreviewed, so the `dependabot` check
+verifies that a PR changes only what its description claims (rmartz/pr-policy#19).
+That makes the description, and the PR's author, check input for the first
+time. Both are current state, so they stay inside "content, not history". The
+author only decides whether the check applies.
+
+- **The claim comes from the body, not the title.** Review agents retitle
+  Dependabot PRs; nothing rewrites the body. `pr-policy` runs on `edited`, so a
+  body edit is re-checked.
+- **A mismatch is a `block`.** Recreating the PR, or dropping the foreign
+  commit, clears it. Nothing waits on a person, so it is not a `hold`.
+- **Unverifiable files are `info`, not `hold`.** Lockfiles and other
+  ecosystems' manifests are allowed but not yet read. A `hold` needs a human act
+  that clears it, and there is no sign-off label for "I checked this lockfile".
+  Adding one would be a contract change for a gap the lockfile follow-up will
+  close. Until then the finding says plainly what wasn't verified.
+
+See [checks/dependabot.md](checks/dependabot.md).
 
 ## Open
 

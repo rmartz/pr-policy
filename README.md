@@ -1,7 +1,7 @@
 # @rmartz/pr-policy
 
 **Is this pull request's content acceptable under policy?** `pr-policy` answers
-that on every PR, statically, from the PR's diff, title, and changed paths. It
+that on every PR, statically, from the PR's diff, title, description, and changed paths. It
 doesn't rely on a reviewer remembering to check.
 
 Each policy rule is a small read-only classifier. All of them report into **one**
@@ -12,14 +12,15 @@ new required-status name.
 
 ## Checks
 
-| Check                                                           | Blocks when                                                                                                                                                                                          |
-| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Blocking labels** ([docs](docs/checks/merge-block.md))        | The PR carries `do not merge`, `dnm`, `blocked`, or `escalation needed` (shows as pending).                                                                                                          |
-| **CI-change classification** ([docs](docs/checks/ci-change.md)) | A `.github/workflows/**` change loosens CI (a removed job, `continue-on-error`, a narrowed trigger, …) and no human has applied `CI change approved` (shows as pending). Owns `CI approval needed`.  |
-| **Title-type rules** ([docs](docs/checks/title.md))             | The squash title isn't a valid Conventional Commit, puts `!` on a non-functional type, disagrees with the `breaking change` label, or types a linter/formatter bump as a non-release, non-`ci` type. |
-| **UAT sign-off** ([docs](docs/checks/uat.md))                   | The PR isn't docs, tests, CI, dependency-only, or repo metadata, and no trusted user has applied `UAT passed` (or `tested`) or `no UAT needed` (shows as pending).                                   |
-| Domain labels (backlog)                                         | Never blocks. Additive path-glob → domain-label map.                                                                                                                                                 |
-| Milestone inheritance (backlog)                                 | Never blocks. Issue → PR milestone.                                                                                                                                                                  |
+| Check                                                                 | Blocks when                                                                                                                                                                                                                        |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Blocking labels** ([docs](docs/checks/merge-block.md))              | The PR carries `do not merge`, `dnm`, `blocked`, or `escalation needed` (shows as pending).                                                                                                                                        |
+| **CI-change classification** ([docs](docs/checks/ci-change.md))       | A `.github/workflows/**` change loosens CI (a removed job, `continue-on-error`, a narrowed trigger, …) and no human has applied `CI change approved` (shows as pending). Owns `CI approval needed`.                                |
+| **Title-type rules** ([docs](docs/checks/title.md))                   | The squash title isn't a valid Conventional Commit, puts `!` on a non-functional type, disagrees with the `breaking change` label, or types a linter/formatter bump as a non-release, non-`ci` type.                               |
+| **UAT sign-off** ([docs](docs/checks/uat.md))                         | The PR isn't docs, tests, CI, dependency-only, or repo metadata, and no trusted user has applied `UAT passed` (or `tested`) or `no UAT needed` (shows as pending).                                                                 |
+| **Dependabot claim verification** ([docs](docs/checks/dependabot.md)) | A Dependabot PR touches a non-dependency path, changes a dependency its description doesn't claim, pins a version other than the claimed one, or edits anything Dependabot never edits (a `package.json` script, a workflow step). |
+| Domain labels (backlog)                                               | Never blocks. Additive path-glob → domain-label map.                                                                                                                                                                               |
+| Milestone inheritance (backlog)                                       | Never blocks. Issue → PR milestone.                                                                                                                                                                                                |
 
 The design, and why this is separate from `merge-safety` and `pr-lifecycle`, is
 in [docs/decisions.md](docs/decisions.md).

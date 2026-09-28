@@ -1,6 +1,12 @@
 import { REPO_PERMISSIONS } from './policy.js';
 import { isRepoPermission } from './sign-off.js';
-import type { FileChange, LabelActor, PullRequestFacts, SignOff } from './policy.js';
+import type {
+  FileChange,
+  LabelActor,
+  PullRequestAuthor,
+  PullRequestFacts,
+  SignOff,
+} from './policy.js';
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string');
@@ -53,22 +59,34 @@ function parseSignOffs(value: unknown): SignOff[] {
   });
 }
 
+function parseAuthor(value: unknown): PullRequestAuthor | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'object' || value === null)
+    throw new Error('facts.author must be an object');
+  const { login, type } = value as Record<string, unknown>;
+  if (typeof login !== 'string' || typeof type !== 'string') {
+    throw new Error('facts.author.login / type must be strings');
+  }
+  return { login, type };
+}
+
 /**
  * Parse and validate a JSON facts document into `PullRequestFacts`.
  * `workflowChanges`, `manifestChanges`, and `signOffs` are optional and default
- * to none. With no `signOffs`, no sign-off label counts: trust fails closed.
+ * to none; `body` and `author` are optional and stay absent. With no `signOffs`, no sign-off label counts: trust fails closed.
  */
 export function parseFacts(raw: string): PullRequestFacts {
   const parsed: unknown = JSON.parse(raw);
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     throw new Error('facts must be a JSON object');
   }
-  const { title, labels, changedFiles, workflowChanges, manifestChanges, signOffs } =
+  const { title, body, author, labels, changedFiles, workflowChanges, manifestChanges, signOffs } =
     parsed as Record<string, unknown>;
   if (typeof title !== 'string') throw new Error('facts.title must be a string');
+  if (!isOptionalString(body)) throw new Error('facts.body must be a string');
   if (!isStringArray(labels)) throw new Error('facts.labels must be a string array');
   if (!isStringArray(changedFiles)) throw new Error('facts.changedFiles must be a string array');
-  return {
+  const pr: PullRequestFacts = {
     title,
     labels,
     changedFiles,
@@ -76,4 +94,8 @@ export function parseFacts(raw: string): PullRequestFacts {
     manifestChanges: parseFileChanges('manifestChanges', manifestChanges),
     signOffs: parseSignOffs(signOffs),
   };
+  const parsedAuthor = parseAuthor(author);
+  if (body !== undefined) pr.body = body;
+  if (parsedAuthor !== undefined) pr.author = parsedAuthor;
+  return pr;
 }

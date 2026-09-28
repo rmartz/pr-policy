@@ -17,6 +17,13 @@ export {
   type IndicatorKind,
   type LooseningIndicator,
 } from './checks/ci-change/indicators.js';
+export {
+  DEPENDABOT_CHECK,
+  DEPENDABOT_LOGIN,
+  decideDependabot,
+  dependabotCheck,
+} from './checks/dependabot/index.js';
+export { parseClaims, type Claim } from './checks/dependabot/claims.js';
 export { MERGE_BLOCK_CHECK, decideMergeBlock, mergeBlockCheck } from './checks/merge-block.js';
 export { isWorkflowPath } from './checks/ci-change/workflow-paths.js';
 export { TITLE_CHECK, decideTitle, titleCheck } from './checks/title/index.js';
@@ -49,7 +56,14 @@ export { evaluatePolicy, type PolicyEvaluation } from './evaluate.js';
 export { parseFacts } from './facts.js';
 export { checkRunBody, postCheckRun } from './github/check-run.js';
 export { applyLabelEdits, gatherFacts, type PullRequestTarget } from './github/pull-request.js';
-export type { CheckResult, FileChange, Finding, PolicyCheck, PullRequestFacts } from './policy.js';
+export type {
+  CheckResult,
+  FileChange,
+  Finding,
+  PolicyCheck,
+  PullRequestAuthor,
+  PullRequestFacts,
+} from './policy.js';
 export { buildReport } from './report.js';
 export { POLICY_OUTCOMES } from './report.js';
 export type { CheckRunReport, PolicyOutcome } from './report.js';

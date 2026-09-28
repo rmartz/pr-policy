@@ -9,8 +9,8 @@ tags: [pr-policy, overview, merge-gate]
 
 `@rmartz/pr-policy` answers one question about a pull request: **is its content
 acceptable under policy?** Each policy rule is a **check**: a read-only
-classifier over the PR's current title, labels, and changed files (and, for
-checks that need them, the changed files' contents). Every check's findings are
+classifier over the PR's current title, description, author, labels, and
+changed files (and, for checks that need them, the changed files' contents). Every check's findings are
 folded into **one** [`pr-policy` check-run](check-run-contract.md).
 
 ## How a PR is evaluated
