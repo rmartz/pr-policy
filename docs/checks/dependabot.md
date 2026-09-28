@@ -70,7 +70,7 @@ already allowed the new version needs no manifest edit.
 
 ## What it leaves out
 
-These are the follow-ups in rmartz/pr-policy#19:
+These are tracked in rmartz/pr-policy#23:
 
 - **Lockfile contents.** A lockfile carries legitimate transitive churn, so it
   can't be held to the claimed set. The planned rules bound it instead: an
