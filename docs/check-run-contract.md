@@ -41,9 +41,10 @@ orphaned pending run sits beside the real verdict. GitHub marks a run that stays
 incomplete for 14 days as `stale`; that still holds the merge, and the next
 event on the PR posts a fresh run.
 
-Findings come from three checks, in this order: [`title`](checks/title.md),
-[`ci-change`](checks/ci-change.md), and [`uat`](checks/uat.md) (unless the
-repo [turns UAT off](checks/uat.md#repos-without-uat)). A PR waiting on
+Findings come from four checks, in this order: [`title`](checks/title.md),
+[`ci-change`](checks/ci-change.md), [`uat`](checks/uat.md) (unless the
+repo [turns UAT off](checks/uat.md#repos-without-uat)), and
+[`dependabot`](checks/dependabot.md). A PR waiting on
 both a CI sign-off and UAT holds twice, and the title reads "Waiting on 2 human
 sign-offs".
 

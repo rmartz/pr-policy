@@ -2,8 +2,9 @@
 
 This repo is the home of `@rmartz/pr-policy`: a suite of **read-only
 classifiers**. Each one judges a fact about a pull request's **own content**
-(its diff, title, and changed paths) against policy. Every check reports into
-**one** `pr-policy` check-run, which the consumer's ruleset requires. See
+(its diff, title, description, and changed paths) against policy. Every check
+reports into **one** `pr-policy` check-run, which the consumer's ruleset
+requires. See
 [README.md](README.md) and the [documentation](docs/index.md).
 
 It was scoped in **rmartz/ai-tools#302**. Read that issue before designing a new
