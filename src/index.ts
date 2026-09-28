@@ -54,7 +54,7 @@ export {
 } from './contract.js';
 export { evaluatePolicy, type PolicyEvaluation } from './evaluate.js';
 export { parseFacts } from './facts.js';
-export { checkRunBody, postCheckRun } from './github/check-run.js';
+export { checkRunBody, postCheckRun, postVerdict, statusBody } from './github/check-run.js';
 export { applyLabelEdits, gatherFacts, type PullRequestTarget } from './github/pull-request.js';
 export type {
   CheckResult,
