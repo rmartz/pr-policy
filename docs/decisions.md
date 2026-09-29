@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red, the title-rule port, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -63,12 +63,9 @@ See [distribution.md](distribution.md). The composite-Action wrapper follows
 `repo-hygiene-action` and `bot-automerge-action`, which replaced the fleet's
 reusable workflows.
 
-### CI-change check ported from ci-change-guard
+### The CI approval label and `/review`
 
-`rmartz/ci-change-guard` was scaffolded for check 1 before #302 was rescoped
-into this suite. Its classifier and per-rule tests were ported here as the
-[`ci-change` check](checks/ci-change.md), and that repo is retired. Its settled
-policies carried over:
+The [`ci-change` check](checks/ci-change.md) follows two policies:
 
 - **Label removal:** reconcile `CI approval needed` to the current head while no
   one has signed off. Never remove it once `CI change approved` is present; it
@@ -89,9 +86,8 @@ a bad title.
 
 This replaced an interim design where an unsigned loosening posted `failure`.
 Red read as a broken build, and would have sent the PR round a fix pass that
-can't clear a human gate. `ci-change-guard` had avoided that with `neutral`,
-but a `neutral` conclusion **passes** a required check, which would have let the
-loosening merge unsigned. Pending avoids both: it reads as waiting, and a
+can't clear a human gate. A `neutral` conclusion avoids the red, but it
+**passes** a required check, which would let the loosening merge unsigned. Pending avoids both: it reads as waiting, and a
 required check that isn't complete still holds the merge.
 
 ### Title rules: what was ported, and one deliberate difference
