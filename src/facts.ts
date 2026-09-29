@@ -3,7 +3,9 @@ import { isRepoPermission } from './sign-off.js';
 import type {
   FileChange,
   LabelActor,
+  OpenPullRequest,
   PullRequestAuthor,
+  PullRequestBase,
   PullRequestFacts,
   SignOff,
 } from './policy.js';
@@ -70,18 +72,50 @@ function parseAuthor(value: unknown): PullRequestAuthor | undefined {
   return { login, type };
 }
 
+function parseOpenPullRequest(value: unknown, index: number): OpenPullRequest {
+  const where = `facts.base.headOf[${index}]`;
+  if (typeof value !== 'object' || value === null) throw new Error(`${where} must be an object`);
+  const { number, labels } = value as Record<string, unknown>;
+  if (typeof number !== 'number') throw new Error(`${where}.number must be a number`);
+  if (!isStringArray(labels)) throw new Error(`${where}.labels must be a string array`);
+  return { number, labels };
+}
+
+function parseBase(value: unknown): PullRequestBase | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'object' || value === null) throw new Error('facts.base must be an object');
+  const { branch, defaultBranch, headOf } = value as Record<string, unknown>;
+  if (typeof branch !== 'string' || typeof defaultBranch !== 'string') {
+    throw new Error('facts.base.branch / defaultBranch must be strings');
+  }
+  if (headOf !== undefined && !Array.isArray(headOf)) {
+    throw new Error('facts.base.headOf must be an array');
+  }
+  return { branch, defaultBranch, headOf: (headOf ?? []).map(parseOpenPullRequest) };
+}
+
 /**
  * Parse and validate a JSON facts document into `PullRequestFacts`.
  * `workflowChanges`, `manifestChanges`, and `signOffs` are optional and default
- * to none; `body` and `author` are optional and stay absent. With no `signOffs`, no sign-off label counts: trust fails closed.
+ * to none; `body`, `author`, and `base` are optional and stay absent. With no
+ * `signOffs`, no sign-off label counts: trust fails closed.
  */
 export function parseFacts(raw: string): PullRequestFacts {
   const parsed: unknown = JSON.parse(raw);
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     throw new Error('facts must be a JSON object');
   }
-  const { title, body, author, labels, changedFiles, workflowChanges, manifestChanges, signOffs } =
-    parsed as Record<string, unknown>;
+  const {
+    title,
+    body,
+    author,
+    base,
+    labels,
+    changedFiles,
+    workflowChanges,
+    manifestChanges,
+    signOffs,
+  } = parsed as Record<string, unknown>;
   if (typeof title !== 'string') throw new Error('facts.title must be a string');
   if (!isOptionalString(body)) throw new Error('facts.body must be a string');
   if (!isStringArray(labels)) throw new Error('facts.labels must be a string array');
@@ -95,7 +129,9 @@ export function parseFacts(raw: string): PullRequestFacts {
     signOffs: parseSignOffs(signOffs),
   };
   const parsedAuthor = parseAuthor(author);
+  const parsedBase = parseBase(base);
   if (body !== undefined) pr.body = body;
   if (parsedAuthor !== undefined) pr.author = parsedAuthor;
+  if (parsedBase !== undefined) pr.base = parsedBase;
   return pr;
 }

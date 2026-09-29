@@ -6,6 +6,7 @@ import {
   CI_CHANGE_APPROVED_LABEL,
   DNM_LABEL,
   DO_NOT_MERGE_LABEL,
+  EPIC_LABEL,
   ESCALATION_NEEDED_LABEL,
   LEGACY_UAT_PASSED_LABEL,
   NO_UAT_NEEDED_LABEL,
@@ -38,5 +39,9 @@ describe('external contract names', () => {
     expect(BLOCKED_LABEL).toBe('blocked');
     expect(ESCALATION_NEEDED_LABEL).toBe('escalation needed');
     expect(BLOCKING_LABELS).toEqual(['do not merge', 'dnm', 'blocked', 'escalation needed']);
+  });
+
+  it('pins the epic label', () => {
+    expect(EPIC_LABEL).toBe('epic');
   });
 });
