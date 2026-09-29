@@ -21,7 +21,7 @@ export type CommitType = (typeof COMMIT_TYPES)[number];
 
 /**
  * The only types that may carry `!`. Under semantic-release `!` cuts a major, so
- * it is reserved for shippable functional change (rmartz/dotfiles#1559).
+ * it is reserved for shippable functional change.
  */
 export const FUNCTIONAL_TYPES = [
   'feat',
@@ -63,7 +63,7 @@ const RELEASE_PLEASE_TITLE = /^chore(\([^)]*\))?!?:\s+release\b/;
 /**
  * Whether this is a release-please release PR. Its title is a contract with
  * release-please, which must parse its own merged release PR, so no title rule
- * applies to it (rmartz/dotfiles#1542).
+ * applies to it.
  */
 export function isReleasePleaseTitle(title: string): boolean {
   return RELEASE_PLEASE_TITLE.test(title);

@@ -106,7 +106,7 @@ only when a user with write, maintain, or admin permission applied it (see
 Read-only here. **This package never applies or removes them.** Any one of them,
 applied by a trusted user, passes the [UAT gate](checks/uat.md). `UAT passed`
 is a person's statement that they tested the PR. `tested` is its old name, read
-until rmartz/dotfiles#1572 finishes the rename. `no UAT needed` is a waiver from
+until the fleet finishes the rename. `no UAT needed` is a waiver from
 the review agent or a person.
 
 ## `do not merge`, `dnm`, `blocked`, and `escalation needed`: the blocking labels
