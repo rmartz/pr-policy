@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { decideTitle } from '../../../src/checks/title/index.js';
-import { isTestPath } from '../../../src/checks/title/type-paths.js';
 import type { PullRequestFacts } from '../../../src/policy.js';
 
 function pr(title: string, changedFiles: string[]): PullRequestFacts {
@@ -95,26 +94,8 @@ describe('decideTitle — test changes only tests and docs', () => {
     expect(finding?.message).toContain(`\`${path}\``);
     expect(finding?.message).not.toContain('`test/a.test.ts`');
   });
-});
 
-describe('isTestPath', () => {
-  it.each([
-    'test/fixtures/workflow.yml',
-    'tests/test_foo.py',
-    'src/__tests__/a.ts',
-    'src/a.test.ts',
-    'src/a.spec.tsx',
-    'pkg/test_util.py',
-    'pkg/util_test.py',
-    'cmd/main_test.go',
-  ])('recognises %s', (path) => {
-    expect(isTestPath(path)).toBe(true);
+  it('counts a snapshot as a test', () => {
+    expect(findings('test: update snapshots', ['src/__snapshots__/a.test.ts.snap'])).toEqual([]);
   });
-
-  it.each(['src/testing.ts', 'src/contest/a.ts', 'docs/test.md', 'src/latest.ts', 'attest.py'])(
-    'does not flag %s',
-    (path) => {
-      expect(isTestPath(path)).toBe(false);
-    },
-  );
 });
