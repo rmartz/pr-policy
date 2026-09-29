@@ -64,7 +64,7 @@ other.
 A substantive change to this repo's own CI on a non-`ci`, non-release type gets
 an `info` finding recommending `ci(<scope>): …`. It never gates. The coordinator
 now rebases siblings on a CI change by its **paths** (`.github/workflows/**`,
-`.github/actions/**`), not its title (rmartz/dotfiles#1581), so the type no
+`.github/actions/**`), not its title, so the type no
 longer carries that signal. A release-typed PR that bundles an own-CI change
 keeps its type with no `breaking change` label.
 
@@ -84,8 +84,8 @@ still needs `CI approval needed`, because the [ci-change](ci-change.md) check is
 unaffected.
 
 Only the trigger is read. A `workflow_call`-only file that the repo also calls by
-local path (`uses: ./.github/workflows/<file>`) would be misread as shipped. The
-fleet survey for rmartz/dotfiles#1581 found none, and the facts carry only
+local path (`uses: ./.github/workflows/<file>`) would be misread as shipped. A fleet
+survey found none, and the facts carry only
 changed workflows, so the check can't see an unchanged caller.
 
 ## Exemptions

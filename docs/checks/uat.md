@@ -16,7 +16,7 @@ true.
    category (below).
 2. **`no UAT needed` is on the PR,** applied by the review agent or a person.
 3. **`UAT passed` is on the PR,** applied by a person. Its old name, `tested`,
-   counts too while the fleet rename (rmartz/dotfiles#1572) is in progress.
+   counts too while the fleet rename is in progress.
 
 A missing label is a `hold`, never "not required". That's what makes the gate
 race-free: pr-lifecycle can approve a PR and arm auto-merge at any point, and
@@ -100,7 +100,7 @@ check, are unchanged. The setting belongs to the caller, never the PR. See
 A `no UAT needed` applied to an earlier head stays on the PR after a push that
 might need UAT. This check doesn't track heads, because two other parties cover
 it: pr-lifecycle disarms auto-merge on a push (the approval goes stale), and the
-review agent updates its UAT labels **before** posting its verdict
-(rmartz/dotfiles#1583). A re-armed PR therefore never passes on a stale
+review agent updates its UAT labels **before** posting its verdict.
+A re-armed PR therefore never passes on a stale
 exemption. Whether a person's `UAT passed` should survive a push that changes
 what was tested is still open. See [decisions.md](../decisions.md).

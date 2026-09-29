@@ -24,7 +24,7 @@ export const CI_CHANGE_APPROVED_LABEL = 'CI change approved';
 /**
  * The UAT sign-offs, read and never written. `UAT passed` is a person's
  * statement that they tested the PR; `tested` is its name until the fleet rename
- * (rmartz/dotfiles#1572) finishes. `no UAT needed` is a waiver from the review
+ * finishes. `no UAT needed` is a waiver from the review
  * agent or a person.
  */
 export const UAT_PASSED_LABEL = 'UAT passed';

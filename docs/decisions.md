@@ -211,8 +211,8 @@ See [checks/dependabot.md](checks/dependabot.md).
 A person's `UAT passed` stays on the PR after a later push that changes what was
 tested, and nothing clears it. That matches the fleet's current `tested`
 semantics. A stale `no UAT needed` is already covered: pr-lifecycle disarms on a
-push, and the review agent refreshes its UAT labels before the verdict
-(rmartz/dotfiles#1583). A stale human `UAT passed` isn't covered by either.
+push, and the review agent refreshes its UAT labels before the verdict.
+A stale human `UAT passed` isn't covered by either.
 
 ### How the coordinator treats a pending `pr-policy`
 
@@ -220,4 +220,4 @@ A pending required check can look like "CI still running" to the coordinator,
 which may wait on it rather than park the PR. The PR also carries
 `CI approval needed`, which `GATE_CI_APPROVAL` already parks on, so the gate
 model should key off the label and not wait out the check. Confirm in the
-coordinator (rmartz/dotfiles) before relying on it there.
+coordinator before relying on it there.
