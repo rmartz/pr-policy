@@ -41,6 +41,25 @@ export interface PullRequestAuthor {
   type: string;
 }
 
+/** An open PR, reduced to what the base-branch check reads. */
+export interface OpenPullRequest {
+  number: number;
+  labels: readonly string[];
+}
+
+/** Where a PR merges: its base branch, and what that branch is. */
+export interface PullRequestBase {
+  /** The branch the PR merges into. */
+  branch: string;
+  /** The repository's default branch. */
+  defaultBranch: string;
+  /**
+   * The open PRs whose head is `branch`. Empty for the default branch, which
+   * is never looked up.
+   */
+  headOf: readonly OpenPullRequest[];
+}
+
 /**
  * The facts about a pull request that policy checks judge. Every field is a
  * property of the PR's current state — its content and the labels on it, never
@@ -56,6 +75,8 @@ export interface PullRequestFacts {
   body?: string;
   /** Who opened the PR. `gatherFacts` always sets it. */
   author?: PullRequestAuthor;
+  /** The branch the PR merges into. `gatherFacts` always sets it. */
+  base?: PullRequestBase;
   labels: readonly string[];
   /** Every path the PR touches, including the old path of a rename. */
   changedFiles: readonly string[];

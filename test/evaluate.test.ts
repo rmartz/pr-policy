@@ -97,6 +97,7 @@ describe('selectChecks', () => {
   it('drops only the UAT gate when skipUat is set', () => {
     expect(selectChecks({ skipUat: true }).map((check) => check.name)).toEqual([
       'merge-block',
+      'base-branch',
       'title',
       'ci-change',
       'dependabot',
