@@ -18,8 +18,10 @@ A rule belongs here only if it is a **fact about the PR's current state** (its
 content, or a sign-off label on it) that doesn't depend on review history.
 Rules about review state or approvals belong in `pr-lifecycle`
 (rmartz/ai-tools#306); the UAT _gate_ lives here, as a hard gate over the
-labels (see [checks/uat.md](checks/uat.md)). Rules about the PR's relation to its
-base belong in `merge-safety`. If the rule needs to overwrite a label someone
+labels (see [checks/uat.md](checks/uat.md)). Rules about whether the PR is safe
+against its base _as the base moves_ (staleness, conflicts, base health) belong
+in `merge-safety`; which branch it may target is policy, and lives here (see
+[checks/base-branch.md](checks/base-branch.md)). If the rule needs to overwrite a label someone
 else owns, it is a reconciler and doesn't belong here.
 
 ## Steps

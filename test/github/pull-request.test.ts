@@ -21,7 +21,7 @@ const PR = JSON.stringify({
   body: null,
   user: { login: 'dependabot[bot]', type: 'Bot' },
   head: { sha: 'head1' },
-  base: { ref: 'main' },
+  base: { ref: 'main', repo: { default_branch: 'main' } },
   labels: [{ name: 'DevOps' }],
 });
 
@@ -107,6 +107,46 @@ describe('gatherFacts', () => {
     expect(facts.signOffs).toEqual([
       { label: 'UAT passed', appliedBy: { login: 'reed', type: 'User', permission: 'admin' } },
     ]);
+  });
+
+  it('gathers a default base without looking up the PRs it heads', async () => {
+    responses.set('repos/o/r/pulls/7/files', '');
+    const { facts } = await gatherFacts(target);
+    expect(facts.base).toEqual({ branch: 'main', defaultBranch: 'main', headOf: [] });
+  });
+
+  it('gathers the open PRs heading a stacked base', async () => {
+    responses.set(
+      'repos/o/r/pulls/7',
+      JSON.stringify({
+        ...JSON.parse(PR),
+        base: { ref: 'feature/big', repo: { default_branch: 'main' } },
+      }),
+    );
+    responses.set('repos/o/r/pulls/7/files', '');
+    responses.set(
+      'repos/o/r/pulls?state=open&head=o%3Afeature%2Fbig&per_page=100',
+      JSON.stringify({ number: 12, labels: ['Epic'] }),
+    );
+    const { facts } = await gatherFacts(target);
+    expect(facts.base).toEqual({
+      branch: 'feature/big',
+      defaultBranch: 'main',
+      headOf: [{ number: 12, labels: ['Epic'] }],
+    });
+  });
+
+  it('fails closed when the PRs heading a stacked base cannot be listed', async () => {
+    // An empty list would read as "no PR heads this branch", a different verdict.
+    responses.set(
+      'repos/o/r/pulls/7',
+      JSON.stringify({
+        ...JSON.parse(PR),
+        base: { ref: 'feature/big', repo: { default_branch: 'main' } },
+      }),
+    );
+    responses.set('repos/o/r/pulls/7/files', '');
+    await expect(gatherFacts(target)).rejects.toThrow('open PRs heading feature/big');
   });
 
   it('skips the merge-base lookup when no workflow file or manifest changed', async () => {

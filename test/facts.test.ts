@@ -37,6 +37,28 @@ describe('parseFacts', () => {
     expect(facts.author).toEqual(author);
   });
 
+  it('accepts the base branch, defaulting the PRs it heads to none', () => {
+    const raw = JSON.stringify({
+      title: 't',
+      base: { branch: 'feature/big', defaultBranch: 'main' },
+      labels: [],
+      changedFiles: [],
+    });
+    expect(parseFacts(raw).base).toEqual({
+      branch: 'feature/big',
+      defaultBranch: 'main',
+      headOf: [],
+    });
+    const headOf = [{ number: 12, labels: ['epic'] }];
+    const withHead = JSON.stringify({
+      title: 't',
+      base: { branch: 'feature/big', defaultBranch: 'main', headOf },
+      labels: [],
+      changedFiles: [],
+    });
+    expect(parseFacts(withHead).base?.headOf).toEqual(headOf);
+  });
+
   it('accepts workflow changes with an absent side', () => {
     const raw = JSON.stringify({
       title: 'ci: x',
@@ -64,6 +86,16 @@ describe('parseFacts', () => {
       'a workflow change without a path',
       '{"title":"t","labels":[],"changedFiles":[],"workflowChanges":[{}]}',
       'facts.workflowChanges[0].path',
+    ],
+    [
+      'a base without a default branch',
+      '{"title":"t","base":{"branch":"x"},"labels":[],"changedFiles":[]}',
+      'facts.base.branch / defaultBranch',
+    ],
+    [
+      'a base PR without a number',
+      '{"title":"t","base":{"branch":"x","defaultBranch":"main","headOf":[{"labels":[]}]},"labels":[],"changedFiles":[]}',
+      'facts.base.headOf[0].number',
     ],
     [
       'a sign-off with an unknown permission',

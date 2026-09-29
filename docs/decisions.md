@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -44,8 +44,9 @@ red until the author (or `/fix-review`) fixes the title. See
 2. **Different kind of red.** A merge-safety red clears itself (rebase, resolve,
    wait). A CI-loosening red waits on a person. Changing what the frozen
    `merge-safety` check means would be a fleet-wide semantic change.
-3. **Different subject.** merge-safety judges a PR's relation to its base. This
-   judges the PR's own content.
+3. **Different subject.** merge-safety judges whether a PR is still safe as its
+   base moves. This judges the PR's own current state, including which branch
+   it targets (see [below](#the-merge-target-is-policy)).
 
 ### The verdict is mirrored to a commit status
 
@@ -213,6 +214,30 @@ author only decides whether the check applies.
   close. Until then the finding says plainly what wasn't verified.
 
 See [checks/dependabot.md](checks/dependabot.md).
+
+### The merge target is policy
+
+Which branch a PR may merge into was merge-safety's stacked-base barrier. It
+moved here because it is policy, not safety: it doesn't change as the base
+moves, and the rule is the fleet's workflow choice, not a hazard. The base
+branch, and the open PRs heading it, are current state, so the rule stays
+inside "content, not history".
+
+The policy changed as it moved:
+
+- **Only `epic` accumulates.** merge-safety exempted children of a base PR
+  labelled `release` or `epic`, from a caller input. Here a non-epic PR may
+  merge into an epic's branch, and nothing else is exempt. The label is a
+  contract name, not an input: every repo stacks the same way.
+- **An epic never merges into another epic.** Stacked epics land on the default
+  branch one at a time, from the bottom up, so each is reviewed and released
+  on its own.
+- **A base no open PR heads blocks.** merge-safety let it through, since nothing
+  would ever release it. Here it is a `block`: the fix is a retarget, which the
+  author can make. A stacked PR still waiting on its base is a `hold`.
+
+The barrier is still in merge-safety until it is removed there; while both run,
+the stricter verdict wins. See [checks/base-branch.md](checks/base-branch.md).
 
 ## Open
 
