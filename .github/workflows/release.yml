@@ -9,7 +9,8 @@ name: Release
 # npm auth is OIDC trusted publishing: npmjs trusts THIS workflow file
 # (`release.yml`) in rmartz/pr-policy, so there is no NPM_TOKEN secret. Renaming
 # this file breaks publishing until the trusted publisher on npmjs is updated to
-# match. Provenance attestations are generated automatically.
+# match. Provenance attestations are generated automatically. OIDC publishing needs
+# npm >= 11.5.1, which the setup action gets by installing Node 24.
 #
 # There is deliberately NO @semantic-release/git plugin: package.json is never bumped
 # back to main (it stays a placeholder — see its "version" field), so the released
