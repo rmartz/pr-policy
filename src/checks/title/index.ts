@@ -21,6 +21,7 @@ import {
   parseTitle,
 } from './conventional.js';
 import { sensitiveBumps } from './sensitive-bump.js';
+import { typePathViolation } from './type-paths.js';
 import { substantiveWorkflowChanges } from './workflow-change.js';
 
 export const TITLE_CHECK = 'title';
@@ -82,6 +83,9 @@ export function decideTitle(pr: PullRequestFacts): CheckResult {
       ),
     );
   }
+
+  const pathViolation = typePathViolation(title.type, pr.changedFiles);
+  if (pathViolation !== undefined) findings.push(block(pathViolation));
 
   // A release type is never told to become `ci`: that would suppress the
   // release. Sibling rebases for a CI change key off its paths, not its type,

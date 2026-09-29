@@ -1,7 +1,7 @@
 ---
 type: Library
 title: Title-type rules
-description: The title check — the Conventional-Commit grammar a squash title must meet, the breaking-marker and label consistency rules, when ci-typing is required or only recommended, why a shipped reusable workflow is product code, and the release-please exemption. Violations block until the title is edited; the check never renames a PR.
+description: The title check — the Conventional-Commit grammar a squash title must meet, the breaking-marker and label consistency rules, when ci-typing is required or only recommended, the paths a docs, refactor, or test PR may change, why a shipped reusable workflow is product code, and the release-please exemption. Violations block until the title is edited; the check never renames a PR.
 resource: src/checks/title/index.ts
 tags: [pr-policy, title, conventional-commits, releases]
 ---
@@ -28,11 +28,36 @@ The rules are ported from rmartz/dotfiles `breaking_change.py` and
 | **Label without `!`**    | A functional type labelled `breaking change` or `hotfix` whose title has no `!`, so the release would miss the major.                                                 | Add the `!` (the finding spells out the exact title).         |
 | **`!` without label**    | A functional `!` title without `breaking change`. The label is the source of truth.                                                                                   | Add the label, or drop the `!`.                               |
 | **Sensitive tool bumps** | A version change to `eslint`, `prettier`, `black`, `ruff`, or `pylint` in a `package.json` or `requirements*.txt`, on a type that is neither `ci` nor a release type. | Retitle `ci(deps): …`. Never `!` or `breaking change` for it. |
+| **`docs` paths**         | A `docs` title on a PR that changes any non-Markdown (`.md`) file: code, CI, config, or a manifest. A rename's old path counts.                                       | Retitle to the non-docs change's type, or split the PR.       |
+| **`refactor` tests**     | A `refactor` title on a PR that adds, changes, removes, or renames a non-Markdown test file.                                                                          | Land the test change first as a `test:` PR, then refactor.    |
+| **`test` paths**         | A `test` title on a PR that changes any file that is neither a test nor Markdown: code, CI, or config.                                                                | Retitle to the non-test change's type, or split the PR.       |
 
 A new linter or formatter can change results on files a PR never touched, so the
 coordinator must re-test in-flight PRs against it, and it keys that off the `ci`
 type. A **release type** (`feat`/`fix`/`perf`/`revert`) is never told to retitle
 to `ci`: that would suppress the release.
+
+## Type-versus-paths rules
+
+`docs`, `refactor`, and `test` don't release, so each type makes a promise about
+what the PR touches (`src/checks/title/type-paths.ts`):
+
+- **`docs` changes only Markdown.** Otherwise a code, CI, or config change
+  merges under a type that never releases, and never ships.
+- **`refactor` leaves the tests alone.** A refactor claims to keep behaviour the
+  same, and the unchanged tests are the evidence. Coverage comes first, in a
+  `test:` PR that adds tests without changing code; the refactor lands
+  against those tests. A refactor that must touch test imports (after moving a
+  module, for example) is split the same way.
+- **`test` changes only tests.** It locks in current behaviour, so it may add or
+  change test files and fixtures but no code. Test tooling config (such as
+  `vitest.config.ts`) is not a test path, so it needs its own type.
+
+`refactor` and `test` may both change docs alongside their main change: Markdown
+is always allowed and is never counted as a test, even under a test directory.
+
+A test path is a file under a `test/`, `tests/`, or `__tests__/` directory, or a
+file named `*.test.*`, `*.spec.*`, `test_*.py`, `*_test.py`, or `*_test.go`.
 
 ## Own-CI changes: a note, never a block
 
