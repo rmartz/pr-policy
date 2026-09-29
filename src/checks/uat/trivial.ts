@@ -10,12 +10,10 @@ import { asRecord, deepEqual } from '../ci-change/structure.js';
 import type { FileChange, PullRequestFacts } from '../../policy.js';
 import { DEPENDENCY_FIELDS, isManifestPath } from '../title/sensitive-bump.js';
 import { isShippedReusableWorkflow } from '../title/workflow-change.js';
+import { isTestPath } from '../test-paths.js';
 
 export const TRIVIAL_CATEGORIES = ['docs', 'tests', 'ci', 'dependencies', 'metadata'] as const;
 export type TrivialCategory = (typeof TRIVIAL_CATEGORIES)[number];
-
-const TEST_DIRS = new Set(['test', 'tests', '__tests__', '__snapshots__', '__mocks__', 'e2e']);
-const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$|^test_.*\.py$|_test\.py$|^conftest\.py$/;
 
 export const LOCKFILES = new Set([
   'pnpm-lock.yaml',
@@ -61,10 +59,9 @@ function isDependencyOnlyManifest(change: FileChange | undefined): boolean {
 function categoryOf(path: string, pr: PullRequestFacts): TrivialCategory | undefined {
   const parts = path.split('/');
   const name = parts[parts.length - 1] ?? '';
-  const dirs = parts.slice(0, -1);
 
   if (name.endsWith('.md') || parts[0] === 'docs') return 'docs';
-  if (dirs.some((dir) => TEST_DIRS.has(dir)) || TEST_FILE.test(name)) return 'tests';
+  if (isTestPath(path)) return 'tests';
   if (path.startsWith('.github/workflows/') || path.startsWith('.github/actions/')) {
     // A shipped reusable workflow is the product consumers call, not this repo's CI.
     const change = pr.workflowChanges.find((file) => file.path === path);

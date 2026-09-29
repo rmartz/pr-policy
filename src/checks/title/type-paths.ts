@@ -5,19 +5,11 @@
  * change only Markdown, `test` only tests and Markdown, and `refactor` no tests
  * at all. Markdown is always docs, even under a test directory.
  */
+import { isTestPath } from '../test-paths.js';
 import type { CommitType } from './conventional.js';
-
-const TEST_DIRS = new Set(['test', 'tests', '__tests__']);
-const TEST_FILE = /\.(test|spec)\.[^/]+$|^test_[^/]*\.py$|_test\.(py|go)$/;
 
 export function isMarkdownPath(path: string): boolean {
   return path.toLowerCase().endsWith('.md');
-}
-
-export function isTestPath(path: string): boolean {
-  const parts = path.split('/');
-  const name = parts.at(-1) ?? '';
-  return parts.slice(0, -1).some((dir) => TEST_DIRS.has(dir)) || TEST_FILE.test(name);
 }
 
 const quote = (paths: readonly string[]): string => {
