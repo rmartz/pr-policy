@@ -9,14 +9,11 @@ tags: [pr-policy, title, conventional-commits, releases]
 # Title-type rules
 
 The repo squash-merges with the PR title, so the title **is** the commit subject
-that reaches `main` and drives semantic-release. Nothing rewrites it at merge any
-more, so the `title` check (`src/checks/title/`) blocks until it is right. Every
-rule below is a `block`: the author (or a fix pass) can always clear it by
-editing the title or a label. The one exception is the own-CI note, which is
-`info`. The check never renames the PR itself.
-
-The rules are ported from rmartz/dotfiles `breaking_change.py` and
-`lib/breaking_title.py`, which applied them by rewriting the title at merge time.
+that reaches `main` and drives semantic-release. Nothing rewrites it at merge,
+so the `title` check (`src/checks/title/`) blocks until it is right. Every rule
+below is a `block`: the author (or a fix pass) can always clear it by editing
+the title or a label. The one exception is the own-CI note, which is `info`. The
+check never renames the PR itself.
 
 ## The rules
 
