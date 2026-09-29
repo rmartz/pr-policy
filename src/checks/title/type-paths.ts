@@ -2,7 +2,8 @@
  * Type-versus-paths rules: a non-releasing type promises something about what
  * the PR touches, and a title that breaks that promise either hides a change
  * from the release or hides a change in the tests that judge it. `docs` may
- * change only Markdown, `test` only tests, and `refactor` no tests at all.
+ * change only Markdown, `test` only tests and Markdown, and `refactor` no tests
+ * at all. Markdown is always docs, even under a test directory.
  */
 import type { CommitType } from './conventional.js';
 
@@ -37,14 +38,15 @@ export function typePathViolation(
     return `A \`docs\` PR may change only Markdown files, but this one changes ${quote(offending)}. \`docs\` doesn't release, so that change would never ship. Retitle to the type of the non-docs change, or split it into its own PR.`;
   }
   if (type === 'refactor') {
-    const offending = paths.filter(isTestPath);
+    // Markdown under a test directory is documentation, not a test.
+    const offending = paths.filter((path) => isTestPath(path) && !isMarkdownPath(path));
     if (offending.length === 0) return undefined;
     return `A \`refactor\` PR must leave the tests untouched, so they can confirm behaviour is unchanged, but this one changes ${quote(offending)}. Land the test changes first as a \`test:\` PR, then refactor against them.`;
   }
   if (type === 'test') {
-    const offending = paths.filter((path) => !isTestPath(path));
+    const offending = paths.filter((path) => !isTestPath(path) && !isMarkdownPath(path));
     if (offending.length === 0) return undefined;
-    return `A \`test\` PR may change only test files, so it locks in current behaviour without changing it, but this one changes ${quote(offending)}. \`test\` doesn't release, so that change would never ship. Retitle to the type of the non-test change, or split it into its own PR.`;
+    return `A \`test\` PR may change only test files and docs, so it locks in current behaviour without changing it, but this one changes ${quote(offending)}. \`test\` doesn't release, so that change would never ship. Retitle to the type of the non-test change, or split it into its own PR.`;
   }
   return undefined;
 }

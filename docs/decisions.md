@@ -108,8 +108,10 @@ the checklist deliberately gives those PRs `chore`.
 
 ### `docs`, `refactor`, and `test` are checked against their paths
 
-A `docs` PR may change only Markdown, a `test` PR only test files, and a
-`refactor` PR no test file (rmartz/pr-policy#28). All three block. A `docs` or
+A `docs` PR may change only Markdown, a `test` PR only test files and Markdown,
+and a `refactor` PR no test file (rmartz/pr-policy#28). All three block.
+Markdown is always docs, so `test` and `refactor` may update docs alongside
+their change. A `docs` or
 `test` title on code hides the change from the release. A refactor that edits
 its own tests removes the evidence that behaviour is unchanged, so coverage
 lands first as a `test:` PR. The strictness is deliberate: a refactor that must

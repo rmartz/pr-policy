@@ -29,8 +29,8 @@ The rules are ported from rmartz/dotfiles `breaking_change.py` and
 | **`!` without label**    | A functional `!` title without `breaking change`. The label is the source of truth.                                                                                   | Add the label, or drop the `!`.                               |
 | **Sensitive tool bumps** | A version change to `eslint`, `prettier`, `black`, `ruff`, or `pylint` in a `package.json` or `requirements*.txt`, on a type that is neither `ci` nor a release type. | Retitle `ci(deps): …`. Never `!` or `breaking change` for it. |
 | **`docs` paths**         | A `docs` title on a PR that changes any non-Markdown (`.md`) file: code, CI, config, or a manifest. A rename's old path counts.                                       | Retitle to the non-docs change's type, or split the PR.       |
-| **`refactor` tests**     | A `refactor` title on a PR that adds, changes, removes, or renames a test file.                                                                                       | Land the test change first as a `test:` PR, then refactor.    |
-| **`test` paths**         | A `test` title on a PR that changes any file that isn't a test: code, CI, config, or docs.                                                                            | Retitle to the non-test change's type, or split the PR.       |
+| **`refactor` tests**     | A `refactor` title on a PR that adds, changes, removes, or renames a non-Markdown test file.                                                                          | Land the test change first as a `test:` PR, then refactor.    |
+| **`test` paths**         | A `test` title on a PR that changes any file that is neither a test nor Markdown: code, CI, or config.                                                                | Retitle to the non-test change's type, or split the PR.       |
 
 A new linter or formatter can change results on files a PR never touched, so the
 coordinator must re-test in-flight PRs against it, and it keys that off the `ci`
@@ -50,8 +50,11 @@ what the PR touches (`src/checks/title/type-paths.ts`):
   against those tests. A refactor that must touch test imports (after moving a
   module, for example) is split the same way.
 - **`test` changes only tests.** It locks in current behaviour, so it may add or
-  change test files and fixtures but nothing else. Test tooling config (such as
-  `vitest.config.ts`) and docs are not test paths, so they need their own type.
+  change test files and fixtures but no code. Test tooling config (such as
+  `vitest.config.ts`) is not a test path, so it needs its own type.
+
+`refactor` and `test` may both change docs alongside their main change: Markdown
+is always allowed and is never counted as a test, even under a test directory.
 
 A test path is a file under a `test/`, `tests/`, or `__tests__/` directory, or a
 file named `*.test.*`, `*.spec.*`, `test_*.py`, `*_test.py`, or `*_test.go`.
