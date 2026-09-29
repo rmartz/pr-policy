@@ -174,10 +174,19 @@ Most of these are enforced by eslint. The intent:
   before merge.
   [commit-convention.yml](.github/workflows/commit-convention.yml) is the
   post-merge tripwire, because a non-conventional subject on `main` makes
-  semantic-release skip the release. The `Release notes render` job in
-  [ci.yml](.github/workflows/ci.yml) runs
-  [scripts/verify-changelog-render.mjs](scripts/verify-changelog-render.mjs), so
-  an incompatible changelog preset fails the PR, not the post-merge run.
+  semantic-release skip the release. The shared
+  [release-check.yml](.github/workflows/release-check.yml)
+  (`release-check / release-check`, a required check) loads `.releaserc.json`
+  the way semantic-release does and runs the real commit-analyzer and
+  release-notes-generator, so a config that would not release or render fails
+  the PR, not the post-merge run.
+- **The release toolchain lives in
+  [semantic-release-ci](https://github.com/rmartz/semantic-release-ci).**
+  `semantic-release`, its plugins and the changelog preset are **not** in this
+  repo's `package.json`; [release.yml](.github/workflows/release.yml) calls the
+  shared workflow, pinned by SHA and bumped by Dependabot. Never add the
+  toolchain back or reintroduce a local render script: a toolchain bump is
+  tested once, in semantic-release-ci, before it reaches the pin here.
 
 ## Agent directive files
 
