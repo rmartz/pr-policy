@@ -9,8 +9,7 @@ tags: [pr-policy, ci-change, classification, merge-gate]
 # CI-change classification
 
 The `ci-change` check (`src/checks/ci-change/`) classifies a PR's
-`.github/workflows/**` diff as tightening or loosening. Ported from
-`rmartz/ci-change-guard` (retired).
+`.github/workflows/**` diff as tightening or loosening.
 
 ## What it reports
 

@@ -2,8 +2,8 @@
  * The classifier: given the before/after text of every CI workflow file a pull
  * request touches, decide whether the change **tightens** or **loosens** CI.
  *
- * This is the predicate `review.md` Step 5 used to evaluate by reading the diff.
- * Moving it here removes the two failure modes an LLM-judged gate has: it cannot
+ * Deciding this in code rather than by a reviewer reading the diff removes the
+ * two failure modes an LLM-judged gate has: it cannot
  * be skipped (nothing has to remember to run a review), and it cannot misread a
  * diff. It is deliberately trigger-happy — see {@link containsAll}.
  */

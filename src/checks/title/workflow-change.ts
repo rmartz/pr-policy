@@ -8,7 +8,7 @@
  * - A change to a **shipped reusable workflow**: one whose only trigger is
  *   `workflow_call`. In an action / reusable-workflow repo that file is the
  *   product consumers call, so it takes a release type like any other product
- *   code (rmartz/dotfiles#1581).
+ *   code.
  */
 import { parse } from 'yaml';
 import type { FileChange } from '../../policy.js';
@@ -48,7 +48,7 @@ function onlyWorkflowCall(doc: unknown): boolean {
  * Whether the file is a shipped reusable workflow, judged on its head content
  * (its base content, for a deletion). Only the trigger is inspected: a
  * `workflow_call`-only file that the repo also calls by local path would be
- * misread as shipped, and the fleet survey for rmartz/dotfiles#1581 found none.
+ * misread as shipped, and a fleet survey found none.
  */
 export function isShippedReusableWorkflow(change: FileChange): boolean {
   const text = change.headText ?? change.baseText;

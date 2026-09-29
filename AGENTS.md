@@ -89,8 +89,7 @@ fixes and port them across.
 
 ## Repository conformance
 
-This repo follows the shared
-[repository checklist](https://github.com/rmartz/ai/blob/main/docs/guidance/repository-checklist.md).
+This repo follows the fleet's shared repository checklist.
 It **self-manages** its config: fix conformance gaps here, in a PR. Bootstrap
 (`ai-ensure-*`) only seeds a new repo. Don't wait for a bootstrap re-run to fix
 something.
@@ -167,7 +166,7 @@ Most of these are enforced by eslint. The intent:
   pre-1.0, a breaking change (`!`) is capped at a minor bump, so an accidental
   `!` can't jump to `1.0.0`. `docs:` / `chore:` / `style:` / `refactor:` /
   `test:` / `ci:` / `build:` don't release. Dependabot uses the split-prefix
-  convention (rmartz/ai#82): a production bump is `fix(deps):` → patch, and a
+  convention: a production bump is `fix(deps):` → patch, and a
   dev-dependency bump is a release-less `chore(deps):`. **Leaving v0 is a
   deliberate act:** cut `1.0.0` manually and remove the cap rule.
 - **Three release guards** back the automatic flow:

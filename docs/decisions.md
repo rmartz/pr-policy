@@ -1,14 +1,14 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red, how the title rules treat `!`, labels, and CI changes, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
 # Design decisions
 
-Recorded from **rmartz/ai-tools#302** and its comment thread. When a question
-below is settled, move it to the decided list and trim the discussion.
+When a question below is settled, move it to the decided list and trim the
+discussion.
 
 ## Decided
 
@@ -31,9 +31,9 @@ owns outright, and neither package reads the other's outputs.
 ### Title rules block; they never rename
 
 The squash merge uses the PR title, so the title is the commit subject that
-reaches `main`. Today `merge-pr.py` rewrites it at merge time. Once pr-lifecycle
-arms native auto-merge, no merge-time step is left to do that. Renaming the PR
-here would rewrite author-owned text and re-trigger CI. So the title check stays
+reaches `main`. Native auto-merge, which pr-lifecycle arms, has no merge-time
+step that could rewrite it, and renaming the PR here would rewrite author-owned
+text and re-trigger CI. So the title check stays
 red until the author (or `/fix-review`) fixes the title. See
 [checks/title.md](checks/title.md).
 
@@ -61,15 +61,11 @@ mirror, not the check. See
 ### Distributed as a package plus a composite Action
 
 See [distribution.md](distribution.md). The composite-Action wrapper follows
-`repo-hygiene-action` and `bot-automerge-action`, which replaced the fleet's
-reusable workflows.
+the same pattern as `repo-hygiene-action` and `bot-automerge-action`.
 
-### CI-change check ported from ci-change-guard
+### The CI approval label and `/review`
 
-`rmartz/ci-change-guard` was scaffolded for check 1 before #302 was rescoped
-into this suite. Its classifier and per-rule tests were ported here as the
-[`ci-change` check](checks/ci-change.md), and that repo is retired. Its settled
-policies carried over:
+The [`ci-change` check](checks/ci-change.md) follows two policies:
 
 - **Label removal:** reconcile `CI approval needed` to the current head while no
   one has signed off. Never remove it once `CI change approved` is present; it
@@ -88,21 +84,19 @@ is a `hold`, so `pr-policy` is posted `in_progress` (pending) while the PR waits
 for `CI change approved`. Red is reserved for problems the author can fix, like
 a bad title.
 
-This replaced an interim design where an unsigned loosening posted `failure`.
-Red read as a broken build, and would have sent the PR round a fix pass that
-can't clear a human gate. `ci-change-guard` had avoided that with `neutral`,
-but a `neutral` conclusion **passes** a required check, which would have let the
-loosening merge unsigned. Pending avoids both: it reads as waiting, and a
+A `failure` would read as a broken build and send the PR round a fix pass that
+can't clear a human gate. A `neutral` conclusion avoids the red, but it
+**passes** a required check, which would let the loosening merge unsigned. Pending avoids both: it reads as waiting, and a
 required check that isn't complete still holds the merge.
 
-### Title rules: what was ported, and one deliberate difference
+### Title rules: `!`, labels, and what counts as CI
 
-The title check ports dotfiles' predicate, with the `!` ↔ label reconciliation
-expressed as findings rather than a rewrite: a functional title's `!` must agree
+The title check expresses the `!` ↔ label reconciliation as findings rather
+than a rewrite: a functional title's `!` must agree
 with `breaking change` / `hotfix` in both directions, and `breaking change` on a
 non-functional type blocks. release-please release PRs are exempt.
 
-The difference: only a **substantive** workflow change counts as CI. A pure
+Only a **substantive** workflow change counts as CI. A pure
 action-pin bump or comment-only edit keeps its Dependabot `chore` type.
 Otherwise every Dependabot `github-actions` PR in the fleet would be flagged, and
 the checklist deliberately gives those PRs `chore`.
@@ -121,20 +115,16 @@ stay content-only.
 
 ### An own-CI change is never forced to `ci`
 
-The title check used to block any substantive workflow change that wasn't
-`ci`-typed or bundled on a functional type with `breaking change`. Both options
-were wrong in an action or reusable-workflow repo, where the workflow is the
-product: `ci` suppressed the release (storybook-ci#36 shipped to no one) and
-`breaking change` cut a spurious major. rmartz/dotfiles#1581 changed the fleet
-policy, and this check followed in #11:
+In an action or reusable-workflow repo the workflow is the product. Forcing a
+workflow change to `ci` would suppress its release, and requiring
+`breaking change` would cut a spurious major. So:
 
 - A `workflow_call`-only workflow is shipped product code, and the title check
   ignores it. The trigger alone decides this. See
   [checks/title.md](checks/title.md).
-- The coordinator's sibling-rebase signal is now path-based, so the `ci` type no
-  longer carries it. An own-CI change on a non-release type gets an `info`
-  recommendation, never a block. The `breaking change` bundling escape is
-  retired.
+- The coordinator's sibling-rebase signal is path-based, so the `ci` type
+  doesn't need to carry it. An own-CI change on a non-release type gets an
+  `info` recommendation, never a block, and never needs `breaking change`.
 - A release type is never told to retitle to `ci`. This covers the
   linter/formatter-bump rule too.
 
@@ -246,8 +236,8 @@ the stricter verdict wins. See [checks/base-branch.md](checks/base-branch.md).
 A person's `UAT passed` stays on the PR after a later push that changes what was
 tested, and nothing clears it. That matches the fleet's current `tested`
 semantics. A stale `no UAT needed` is already covered: pr-lifecycle disarms on a
-push, and the review agent refreshes its UAT labels before the verdict
-(rmartz/dotfiles#1583). A stale human `UAT passed` isn't covered by either.
+push, and the review agent refreshes its UAT labels before the verdict.
+A stale human `UAT passed` isn't covered by either.
 
 ### How the coordinator treats a pending `pr-policy`
 
@@ -255,4 +245,4 @@ A pending required check can look like "CI still running" to the coordinator,
 which may wait on it rather than park the PR. The PR also carries
 `CI approval needed`, which `GATE_CI_APPROVAL` already parks on, so the gate
 model should key off the label and not wait out the check. Confirm in the
-coordinator (rmartz/dotfiles) before relying on it there.
+coordinator before relying on it there.

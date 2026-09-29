@@ -1,11 +1,8 @@
 /**
  * Check 2: title-type rules. The repo squash-merges with the PR title, so the
  * title *is* the commit subject that reaches `main` and drives the release.
- * Nothing rewrites it at merge time any more, so an invalid title stays red
- * until the author (or a fix pass) edits it. This package never renames a PR.
- *
- * Ported from rmartz/dotfiles `breaking_change.py` / `lib/breaking_title.py`,
- * where the same rules were applied by rewriting the title at merge.
+ * Nothing rewrites it at merge time, so an invalid title stays red until the
+ * author (or a fix pass) edits it. This package never renames a PR.
  */
 import {
   BREAKING_CHANGE_LABEL,
