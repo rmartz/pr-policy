@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, what carried over from ci-change-guard, why a PR waiting on sign-off is pending rather than red, the title-rule port, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -46,6 +46,16 @@ red until the author (or `/fix-review`) fixes the title. See
    `merge-safety` check means would be a fleet-wide semantic change.
 3. **Different subject.** merge-safety judges a PR's relation to its base. This
    judges the PR's own content.
+
+### The verdict is mirrored to a commit status
+
+A `GITHUB_TOKEN` check-run can land in a superseded check suite, which the merge
+gate ignores while it still reads green. So every verdict also sets a
+`pr-policy` commit status, following rmartz/merge-safety#74. The check-run
+stays, so the name and the "one check-run" contract are unchanged. A failed
+status only warns, so a caller that hasn't granted `statuses: write` loses the
+mirror, not the check. See
+[check-run-contract.md](check-run-contract.md#the-commit-status-is-what-the-gate-relies-on).
 
 ### Distributed as a package plus a composite Action
 
