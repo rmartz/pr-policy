@@ -1,7 +1,7 @@
 ---
 type: Library
 title: Title-type rules
-description: The title check — the Conventional-Commit grammar a squash title must meet, the breaking-marker and label consistency rules, when ci-typing is required or only recommended, the paths a docs or refactor PR may change, why a shipped reusable workflow is product code, and the release-please exemption. Violations block until the title is edited; the check never renames a PR.
+description: The title check — the Conventional-Commit grammar a squash title must meet, the breaking-marker and label consistency rules, when ci-typing is required or only recommended, the paths a docs, refactor, or test PR may change, why a shipped reusable workflow is product code, and the release-please exemption. Violations block until the title is edited; the check never renames a PR.
 resource: src/checks/title/index.ts
 tags: [pr-policy, title, conventional-commits, releases]
 ---
@@ -28,9 +28,9 @@ The rules are ported from rmartz/dotfiles `breaking_change.py` and
 | **Label without `!`**    | A functional type labelled `breaking change` or `hotfix` whose title has no `!`, so the release would miss the major.                                                 | Add the `!` (the finding spells out the exact title).         |
 | **`!` without label**    | A functional `!` title without `breaking change`. The label is the source of truth.                                                                                   | Add the label, or drop the `!`.                               |
 | **Sensitive tool bumps** | A version change to `eslint`, `prettier`, `black`, `ruff`, or `pylint` in a `package.json` or `requirements*.txt`, on a type that is neither `ci` nor a release type. | Retitle `ci(deps): …`. Never `!` or `breaking change` for it. |
-
-| **`docs` paths** | A `docs` title on a PR that changes any non-Markdown (`.md`) file: code, CI, config, or a manifest. A rename's old path counts. | Retitle to the non-docs change's type, or split the PR. |
-| **`refactor` tests** | A `refactor` title on a PR that adds, changes, removes, or renames a test file. | Land the test change first as a `test:` PR, then refactor. |
+| **`docs` paths**         | A `docs` title on a PR that changes any non-Markdown (`.md`) file: code, CI, config, or a manifest. A rename's old path counts.                                       | Retitle to the non-docs change's type, or split the PR.       |
+| **`refactor` tests**     | A `refactor` title on a PR that adds, changes, removes, or renames a test file.                                                                                       | Land the test change first as a `test:` PR, then refactor.    |
+| **`test` paths**         | A `test` title on a PR that changes any file that isn't a test: code, CI, config, or docs.                                                                            | Retitle to the non-test change's type, or split the PR.       |
 
 A new linter or formatter can change results on files a PR never touched, so the
 coordinator must re-test in-flight PRs against it, and it keys that off the `ci`
@@ -39,8 +39,8 @@ to `ci`: that would suppress the release.
 
 ## Type-versus-paths rules
 
-`docs` and `refactor` don't release, so each type makes a promise about what the
-PR touches (`src/checks/title/type-paths.ts`):
+`docs`, `refactor`, and `test` don't release, so each type makes a promise about
+what the PR touches (`src/checks/title/type-paths.ts`):
 
 - **`docs` changes only Markdown.** Otherwise a code, CI, or config change
   merges under a type that never releases, and never ships.
@@ -49,6 +49,9 @@ PR touches (`src/checks/title/type-paths.ts`):
   `test:` PR that adds tests without changing code; the refactor lands
   against those tests. A refactor that must touch test imports (after moving a
   module, for example) is split the same way.
+- **`test` changes only tests.** It locks in current behaviour, so it may add or
+  change test files and fixtures but nothing else. Test tooling config (such as
+  `vitest.config.ts`) and docs are not test paths, so they need their own type.
 
 A test path is a file under a `test/`, `tests/`, or `__tests__/` directory, or a
 file named `*.test.*`, `*.spec.*`, `test_*.py`, `*_test.py`, or `*_test.go`.

@@ -106,14 +106,15 @@ action-pin bump or comment-only edit keeps its Dependabot `chore` type.
 Otherwise every Dependabot `github-actions` PR in the fleet would be flagged, and
 the checklist deliberately gives those PRs `chore`.
 
-### `docs` and `refactor` are checked against their paths
+### `docs`, `refactor`, and `test` are checked against their paths
 
-A `docs` PR may change only Markdown, and a `refactor` PR may not touch a test
-file (rmartz/pr-policy#28). Both block. A `docs` title on code hides the change
-from the release. A refactor that edits its own tests removes the evidence that
-behaviour is unchanged, so coverage lands first as a `test:` PR. The strictness
-is deliberate: a refactor that must update test imports is split too. Both rules
-read only `changedFiles`, so they stay content-only.
+A `docs` PR may change only Markdown, a `test` PR only test files, and a
+`refactor` PR no test file (rmartz/pr-policy#28). All three block. A `docs` or
+`test` title on code hides the change from the release. A refactor that edits
+its own tests removes the evidence that behaviour is unchanged, so coverage
+lands first as a `test:` PR. The strictness is deliberate: a refactor that must
+update test imports is split too. The rules read only `changedFiles`, so they
+stay content-only.
 
 ### An own-CI change is never forced to `ci`
 

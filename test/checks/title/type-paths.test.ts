@@ -65,11 +65,29 @@ describe('decideTitle — refactor leaves tests untouched', () => {
     expect(finding?.message).toContain('`test/checks/title/decide.test.ts`');
     expect(finding?.message).toContain('`test:` PR');
   });
+});
 
-  it('passes a test PR that adds tests without code', () => {
-    expect(findings('test(title): lock in behaviour', ['test/checks/title/new.test.ts'])).toEqual(
-      [],
-    );
+describe('decideTitle — test changes only tests', () => {
+  it('passes a test PR that adds tests and fixtures without code', () => {
+    expect(
+      findings('test(title): lock in behaviour', [
+        'test/checks/title/new.test.ts',
+        'test/fixtures/workflow.yml',
+        'src/a.spec.ts',
+      ]),
+    ).toEqual([]);
+  });
+
+  it.each([
+    ['code', 'src/checks/title/index.ts'],
+    ['CI', '.github/workflows/ci.yml'],
+    ['config', 'vitest.config.ts'],
+    ['docs', 'docs/checks/title.md'],
+  ])('blocks a test PR that changes %s', (_kind, path) => {
+    const [finding] = findings('test: cover title rules', ['test/a.test.ts', path]);
+    expect(finding?.effect).toBe('block');
+    expect(finding?.message).toContain(`\`${path}\``);
+    expect(finding?.message).not.toContain('`test/a.test.ts`');
   });
 });
 

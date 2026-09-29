@@ -1,7 +1,8 @@
 /**
  * Type-versus-paths rules: a non-releasing type promises something about what
  * the PR touches, and a title that breaks that promise either hides a change
- * from the release or hides a change in the tests that judge it.
+ * from the release or hides a change in the tests that judge it. `docs` may
+ * change only Markdown, `test` only tests, and `refactor` no tests at all.
  */
 import type { CommitType } from './conventional.js';
 
@@ -39,6 +40,11 @@ export function typePathViolation(
     const offending = paths.filter(isTestPath);
     if (offending.length === 0) return undefined;
     return `A \`refactor\` PR must leave the tests untouched, so they can confirm behaviour is unchanged, but this one changes ${quote(offending)}. Land the test changes first as a \`test:\` PR, then refactor against them.`;
+  }
+  if (type === 'test') {
+    const offending = paths.filter((path) => !isTestPath(path));
+    if (offending.length === 0) return undefined;
+    return `A \`test\` PR may change only test files, so it locks in current behaviour without changing it, but this one changes ${quote(offending)}. \`test\` doesn't release, so that change would never ship. Retitle to the type of the non-test change, or split it into its own PR.`;
   }
   return undefined;
 }
