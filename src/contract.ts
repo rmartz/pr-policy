@@ -59,6 +59,14 @@ export const BLOCKING_LABELS = [
 ] as const;
 
 /**
+ * Marks a PR as an epic: a long-running feature branch that other PRs may merge
+ * into. The base-branch check reads it on the PR and on the PR that heads its
+ * base branch, matching case-insensitively (the fleet roster spells it `Epic`),
+ * and never writes it.
+ */
+export const EPIC_LABEL = 'epic';
+
+/**
  * Labels the title check reads and never writes. They belong to the review and
  * release flow: `breaking change` is the source of truth for a breaking PR,
  * `hotfix` implies one, and release-please marks its release PRs with
