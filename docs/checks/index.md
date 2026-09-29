@@ -13,5 +13,8 @@ One page per registered check, each bound to its module under `src/checks/`.
   description claims, per ecosystem, and what is allowed but not yet verified.
 - [UAT sign-off](uat.md): the hold-by-default UAT gate, the trivial-PR rules that
   exempt from it, who can sign off, and how a repo without UAT turns it off.
+- [Base branch](base-branch.md): any PR may merge into the default branch, and
+  a non-epic PR into an open epic's branch; every other stacked PR waits for its
+  base to merge.
 - [Blocking labels](merge-block.md): the hold `do not merge`, `dnm`, `blocked`,
   and `escalation needed` put on a PR, and why any actor's label counts.

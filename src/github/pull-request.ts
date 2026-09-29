@@ -7,7 +7,7 @@ import { isWorkflowPath } from '../checks/ci-change/workflow-paths.js';
 import { isManifestPath } from '../checks/title/sensitive-bump.js';
 import type { PolicyEvaluation } from '../evaluate.js';
 import { addLabels, ghCall, removeLabel } from '../lib/github.js';
-import type { FileChange, PullRequestFacts } from '../policy.js';
+import type { FileChange, OpenPullRequest, PullRequestBase, PullRequestFacts } from '../policy.js';
 import { gatherSignOffs } from './sign-offs.js';
 
 export interface PullRequestTarget {
@@ -21,7 +21,7 @@ interface PrApiShape {
   body: string | null;
   user: { login: string; type: string };
   head: { sha: string };
-  base: { ref: string };
+  base: { ref: string; repo: { default_branch: string } };
   labels: { name: string }[];
 }
 
@@ -84,6 +84,40 @@ async function listFiles(target: PullRequestTarget): Promise<ChangedFile[]> {
 }
 
 /**
+ * The PR's base branch and the open PRs it heads. A stacked base is read from
+ * the PR that heads it, since GitHub has no branch-level labels. The default
+ * branch is never looked up. A failed lookup throws: an empty list would read as
+ * "no PR heads this branch".
+ */
+async function gatherBase(target: PullRequestTarget, view: PrApiShape): Promise<PullRequestBase> {
+  const branch = view.base.ref;
+  const defaultBranch = view.base.repo.default_branch;
+  if (branch === defaultBranch) return { branch, defaultBranch, headOf: [] };
+  // A base branch always lives in the base repo, so its owner qualifies the head.
+  const head = encodeURIComponent(`${target.repo.split('/')[0] ?? ''}:${branch}`);
+  const out = await ghCall(
+    {
+      argv: [
+        'gh',
+        'api',
+        '--paginate',
+        `repos/${target.repo}/pulls?state=open&head=${head}&per_page=100`,
+        '--jq',
+        '.[] | {number, labels: [.labels[].name]}',
+      ],
+    },
+    null,
+    { cwd: target.cwd },
+  );
+  if (out === null) throw new Error(`could not list the open PRs heading ${branch}`);
+  const headOf = out
+    .split('\n')
+    .filter((line) => line.trim() !== '')
+    .map((line) => JSON.parse(line) as OpenPullRequest);
+  return { branch, defaultBranch, headOf };
+}
+
+/**
  * Gather everything the checks judge. Workflow files and dependency manifests
  * are read at the **merge base**, not the base tip, so a change merged into the
  * base after this PR branched is not attributed to it.
@@ -129,6 +163,7 @@ export async function gatherFacts(
     title: view.title,
     body: view.body ?? '',
     author: { login: view.user.login, type: view.user.type },
+    base: await gatherBase(target, view),
     labels,
     // A rename's old path counts too: moving code into docs/ is not docs-only.
     changedFiles: files.flatMap((file) =>

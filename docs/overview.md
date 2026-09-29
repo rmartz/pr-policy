@@ -16,7 +16,8 @@ folded into **one** [`pr-policy` check-run](check-run-contract.md).
 ## How a PR is evaluated
 
 1. **Gather facts** about the PR's current state (`PullRequestFacts` in
-   `src/policy.ts`): title, labels, changed paths, both sides of every changed
+   `src/policy.ts`): title, labels, base branch (and the open PRs that head it),
+   changed paths, both sides of every changed
    workflow file and dependency manifest, and who applied each sign-off label on
    the PR (`src/github/sign-offs.ts`).
 2. **Run every registered check** (`CHECKS` in `src/checks/index.ts`). Each one
@@ -39,7 +40,7 @@ run it through the `rmartz/pr-policy-action` Action: see
 
 | Package         | Question                                         | Kind                                                     |
 | --------------- | ------------------------------------------------ | -------------------------------------------------------- |
-| `merge-safety`  | Is this PR safe to merge against _current_ base? | Classifier of the PR's **relation to its base**          |
+| `merge-safety`  | Is this PR safe to merge against _current_ base? | Classifier of the PR's **freshness against its base**    |
 | **`pr-policy`** | Is this PR's **own content** acceptable?         | Classifier. Reports only; never overrides another party. |
 | `pr-lifecycle`  | Where is this PR in its review lifecycle?        | Reconciler of lifecycle labels; arms auto-merge          |
 

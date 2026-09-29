@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: The check-run and label contract
-description: The external names pr-policy is bound to — the pr-policy check-run and its mirrored commit status, the CI gate labels, the UAT sign-off labels, and the blocking labels — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
+description: The external names pr-policy is bound to — the pr-policy check-run and its mirrored commit status, the CI gate labels, the UAT sign-off labels, the blocking labels, and the epic label — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
 tags: [pr-policy, contract, labels, check-run, commit-status]
 ---
 
@@ -42,8 +42,9 @@ orphaned pending run sits beside the real verdict. GitHub marks a run that stays
 incomplete for 14 days as `stale`; that still holds the merge, and the next
 event on the PR posts a fresh run.
 
-Findings come from five checks, in this order:
-[`merge-block`](checks/merge-block.md), [`title`](checks/title.md),
+Findings come from six checks, in this order:
+[`merge-block`](checks/merge-block.md),
+[`base-branch`](checks/base-branch.md), [`title`](checks/title.md),
 [`ci-change`](checks/ci-change.md), [`uat`](checks/uat.md) (unless the
 repo [turns UAT off](checks/uat.md#repos-without-uat)), and
 [`dependabot`](checks/dependabot.md). A PR waiting on
@@ -105,7 +106,7 @@ only when a user with write, maintain, or admin permission applied it (see
 Read-only here. **This package never applies or removes them.** Any one of them,
 applied by a trusted user, passes the [UAT gate](checks/uat.md). `UAT passed`
 is a person's statement that they tested the PR. `tested` is its old name, read
-until rmartz/dotfiles#1572 finishes the rename. `no UAT needed` is a waiver from
+until the fleet finishes the rename. `no UAT needed` is a waiver from
 the review agent or a person.
 
 ## `do not merge`, `dnm`, `blocked`, and `escalation needed`: the blocking labels
@@ -114,3 +115,10 @@ Read-only here. **This package never applies or removes them.** While any one is
 on the PR, the [merge-block check](checks/merge-block.md) holds `pr-policy`
 pending. Other parties key off the same names: the coordinator's `/merge`
 dispatch skips them, and pr-lifecycle writes `escalation needed`.
+
+## `epic`: the accumulator label
+
+Read-only here. **This package never applies or removes it.** It marks a PR
+whose branch other PRs may merge into; the
+[base-branch check](checks/base-branch.md) reads it on the PR and on the PR that
+heads its base branch, ignoring case.

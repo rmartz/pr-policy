@@ -24,7 +24,7 @@ export const CI_CHANGE_APPROVED_LABEL = 'CI change approved';
 /**
  * The UAT sign-offs, read and never written. `UAT passed` is a person's
  * statement that they tested the PR; `tested` is its name until the fleet rename
- * (rmartz/dotfiles#1572) finishes. `no UAT needed` is a waiver from the review
+ * finishes. `no UAT needed` is a waiver from the review
  * agent or a person.
  */
 export const UAT_PASSED_LABEL = 'UAT passed';
@@ -57,6 +57,14 @@ export const BLOCKING_LABELS = [
   BLOCKED_LABEL,
   ESCALATION_NEEDED_LABEL,
 ] as const;
+
+/**
+ * Marks a PR as an epic: a long-running feature branch that other PRs may merge
+ * into. The base-branch check reads it on the PR and on the PR that heads its
+ * base branch, matching case-insensitively (the fleet roster spells it `Epic`),
+ * and never writes it.
+ */
+export const EPIC_LABEL = 'epic';
 
 /**
  * Labels the title check reads and never writes. They belong to the review and

@@ -9,14 +9,11 @@ tags: [pr-policy, title, conventional-commits, releases]
 # Title-type rules
 
 The repo squash-merges with the PR title, so the title **is** the commit subject
-that reaches `main` and drives semantic-release. Nothing rewrites it at merge any
-more, so the `title` check (`src/checks/title/`) blocks until it is right. Every
-rule below is a `block`: the author (or a fix pass) can always clear it by
-editing the title or a label. The one exception is the own-CI note, which is
-`info`. The check never renames the PR itself.
-
-The rules are ported from rmartz/dotfiles `breaking_change.py` and
-`lib/breaking_title.py`, which applied them by rewriting the title at merge time.
+that reaches `main` and drives semantic-release. Nothing rewrites it at merge,
+so the `title` check (`src/checks/title/`) blocks until it is right. Every rule
+below is a `block`: the author (or a fix pass) can always clear it by editing
+the title or a label. The one exception is the own-CI note, which is `info`. The
+check never renames the PR itself.
 
 ## The rules
 
@@ -67,7 +64,7 @@ other.
 A substantive change to this repo's own CI on a non-`ci`, non-release type gets
 an `info` finding recommending `ci(<scope>): …`. It never gates. The coordinator
 now rebases siblings on a CI change by its **paths** (`.github/workflows/**`,
-`.github/actions/**`), not its title (rmartz/dotfiles#1581), so the type no
+`.github/actions/**`), not its title, so the type no
 longer carries that signal. A release-typed PR that bundles an own-CI change
 keeps its type with no `breaking change` label.
 
@@ -87,8 +84,8 @@ still needs `CI approval needed`, because the [ci-change](ci-change.md) check is
 unaffected.
 
 Only the trigger is read. A `workflow_call`-only file that the repo also calls by
-local path (`uses: ./.github/workflows/<file>`) would be misread as shipped. The
-fleet survey for rmartz/dotfiles#1581 found none, and the facts carry only
+local path (`uses: ./.github/workflows/<file>`) would be misread as shipped. A fleet
+survey found none, and the facts carry only
 changed workflows, so the check can't see an unchanged caller.
 
 ## Exemptions

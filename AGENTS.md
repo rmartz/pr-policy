@@ -40,8 +40,8 @@ See [docs/okf-format.md](docs/okf-format.md).
 
 ## The external names are contracts
 
-`PR_POLICY_CHECK_NAME`, the CI gate labels, the UAT sign-off labels, and the blocking labels
-(`src/contract.ts`) are read outside this repo. Treat them as frozen;
+`PR_POLICY_CHECK_NAME`, the CI gate labels, the UAT sign-off labels, the blocking
+labels, and the epic label (`src/contract.ts`) are read outside this repo. Treat them as frozen;
 `test/contract.test.ts` pins them. See
 [docs/check-run-contract.md](docs/check-run-contract.md).
 
@@ -89,8 +89,7 @@ fixes and port them across.
 
 ## Repository conformance
 
-This repo follows the shared
-[repository checklist](https://github.com/rmartz/ai/blob/main/docs/guidance/repository-checklist.md).
+This repo follows the fleet's shared repository checklist.
 It **self-manages** its config: fix conformance gaps here, in a PR. Bootstrap
 (`ai-ensure-*`) only seeds a new repo. Don't wait for a bootstrap re-run to fix
 something.
@@ -166,7 +165,7 @@ Most of these are enforced by eslint. The intent:
   pre-1.0, a breaking change (`!`) is capped at a minor bump, so an accidental
   `!` can't jump to `1.0.0`. `docs:` / `chore:` / `style:` / `refactor:` /
   `test:` / `ci:` / `build:` don't release. Dependabot uses the split-prefix
-  convention (rmartz/ai#82): a production bump is `fix(deps):` → patch, and a
+  convention: a production bump is `fix(deps):` → patch, and a
   dev-dependency bump is a release-less `chore(deps):`. **Leaving v0 is a
   deliberate act:** cut `1.0.0` manually and remove the cap rule.
 - **Three release guards** back the automatic flow:
@@ -174,10 +173,19 @@ Most of these are enforced by eslint. The intent:
   before merge.
   [commit-convention.yml](.github/workflows/commit-convention.yml) is the
   post-merge tripwire, because a non-conventional subject on `main` makes
-  semantic-release skip the release. The `Release notes render` job in
-  [ci.yml](.github/workflows/ci.yml) runs
-  [scripts/verify-changelog-render.mjs](scripts/verify-changelog-render.mjs), so
-  an incompatible changelog preset fails the PR, not the post-merge run.
+  semantic-release skip the release. The shared
+  [release-check.yml](.github/workflows/release-check.yml)
+  (`release-check / release-check`, a required check) loads `.releaserc.json`
+  the way semantic-release does and runs the real commit-analyzer and
+  release-notes-generator, so a config that would not release or render fails
+  the PR, not the post-merge run.
+- **The release toolchain lives in
+  [semantic-release-ci](https://github.com/rmartz/semantic-release-ci).**
+  `semantic-release`, its plugins and the changelog preset are **not** in this
+  repo's `package.json`; [release.yml](.github/workflows/release.yml) calls the
+  shared workflow, pinned by SHA and bumped by Dependabot. Never add the
+  toolchain back or reintroduce a local render script: a toolchain bump is
+  tested once, in semantic-release-ci, before it reaches the pin here.
 
 ## Agent directive files
 
