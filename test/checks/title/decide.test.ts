@@ -52,6 +52,44 @@ describe('decideTitle — grammar', () => {
   });
 });
 
+describe('decideTitle — dependency major bumps', () => {
+  const majorBump: FileChange[] = [
+    {
+      path: 'package.json',
+      baseText: JSON.stringify({ dependencies: { 'left-pad': '^2.1.0' } }),
+      headText: JSON.stringify({ dependencies: { 'left-pad': '^3.0.0' } }),
+    },
+  ];
+
+  it('blocks an unmarked functional PR and spells out the retitle', () => {
+    const found = messages(pr('fix(deps): bump left-pad', { manifestChanges: majorBump }));
+    expect(found).toHaveLength(1);
+    expect(found[0]).toContain('left-pad 2.1.0 → 3.0.0');
+    expect(found[0]).toContain('`fix(deps)!: bump left-pad`');
+    expect(found[0]).toContain('`breaking change`');
+  });
+
+  it('passes once the title has `!` and the label', () => {
+    const facts = pr('fix(deps)!: bump left-pad', {
+      manifestChanges: majorBump,
+      labels: ['breaking change'],
+    });
+    expect(messages(facts)).toEqual([]);
+  });
+
+  it('reports only the existing label-without-`!` finding when the label is already there', () => {
+    const found = messages(
+      pr('fix(deps): bump left-pad', { manifestChanges: majorBump, labels: ['breaking change'] }),
+    );
+    expect(found).toHaveLength(1);
+    expect(found[0]).toContain('labelled breaking but the title has no');
+  });
+
+  it('leaves a non-functional type alone — `!` there would be blocked anyway', () => {
+    expect(messages(pr('chore(deps): bump left-pad', { manifestChanges: majorBump }))).toEqual([]);
+  });
+});
+
 describe('decideTitle — breaking markers', () => {
   it('blocks `!` on a non-functional type', () => {
     expect(messages(pr('chore!: drop node 18', { labels: [] }))[0]).toContain('Drop the `!`');

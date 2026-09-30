@@ -17,6 +17,7 @@ import {
   isReleasePleaseTitle,
   parseTitle,
 } from './conventional.js';
+import { majorBumps } from './major-bump.js';
 import { sensitiveBumps } from './sensitive-bump.js';
 import { typePathViolation } from './type-paths.js';
 import { substantiveWorkflowChanges } from './workflow-change.js';
@@ -49,6 +50,7 @@ export function decideTitle(pr: PullRequestFacts): CheckResult {
 
   const findings: Finding[] = [];
   const functional = isFunctionalType(title.type);
+  const breakingTitle = `${title.type}${title.scope ? `(${title.scope})` : ''}!: ${title.subject}`;
   const breakingLabel = labels.has(BREAKING_CHANGE_LABEL);
   const breakingIntent = breakingLabel || labels.has(HOTFIX_LABEL);
 
@@ -70,13 +72,25 @@ export function decideTitle(pr: PullRequestFacts): CheckResult {
   } else if (breakingIntent && !title.breaking) {
     findings.push(
       block(
-        `The PR is labelled breaking but the title has no \`!\`, so the release would miss the major. Retitle to \`${title.type}${title.scope ? `(${title.scope})` : ''}!: ${title.subject}\`.`,
+        `The PR is labelled breaking but the title has no \`!\`, so the release would miss the major. Retitle to \`${breakingTitle}\`.`,
       ),
     );
   } else if (!breakingIntent && title.breaking) {
     findings.push(
       block(
         `The title marks a breaking change but the PR lacks the \`${BREAKING_CHANGE_LABEL}\` label, which is the source of truth. Add the label, or drop the \`!\`.`,
+      ),
+    );
+  }
+
+  // A dependency major bump is a breaking change on a functional type. Only the
+  // unmarked, unlabelled case needs this finding: a label without `!` is already
+  // reported above, with the same retitle.
+  const majors = majorBumps(pr.manifestChanges);
+  if (functional && !breakingIntent && !title.breaking && majors.length > 0) {
+    findings.push(
+      block(
+        `This PR bumps a dependency's major version (${majors.map((bump) => `\`${bump}\``).join(', ')}), so it is a breaking change. Retitle to \`${breakingTitle}\` and add the \`${BREAKING_CHANGE_LABEL}\` label.`,
       ),
     );
   }
