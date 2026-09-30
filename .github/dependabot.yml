@@ -32,10 +32,18 @@ updates:
       prettier:
         patterns:
           - 'prettier'
+      # TypeScript isolated (case-by-case choice): a compiler bump can change
+      # type-checking across the whole codebase, and typescript-eslint pins a
+      # supported TS range, so it warrants its own reviewable PR that can wait
+      # for the linter without holding back the rest of the dev catch-all.
+      typescript:
+        patterns:
+          - 'typescript'
       # Catch-all groups, majors included (repository checklist default).
       dev-dependencies:
         dependency-type: development
         exclude-patterns:
           - 'prettier'
+          - 'typescript'
       production-dependencies:
         dependency-type: production
