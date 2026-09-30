@@ -34,13 +34,13 @@ is in its [consumer guide](https://github.com/rmartz/pr-policy-action/blob/main/
 
 ## Library and CLI
 
-Every check is importable. The `ai-pr-policy` CLI is a thin wrapper around them:
+Every check is importable. The `pr-policy` CLI is a thin wrapper around them:
 
 ```bash
-ai-pr-policy evaluate --pr 12 --repo rmartz/pr-policy          # post the check-run, status + labels
-ai-pr-policy evaluate --pr 12 --repo rmartz/pr-policy --json   # evaluate only, change nothing
-ai-pr-policy evaluate --facts pr.json                          # offline, from a JSON facts file
-ai-pr-policy evaluate --pr 12 --repo rmartz/pr-policy --skip-uat  # for a repo with no UAT
+pr-policy evaluate --pr 12 --repo rmartz/pr-policy            # post the check-run, status + labels
+pr-policy evaluate --pr 12 --repo rmartz/pr-policy --json     # evaluate only, change nothing
+pr-policy evaluate --facts pr.json                            # offline, from a JSON facts file
+pr-policy evaluate --pr 12 --repo rmartz/pr-policy --skip-uat # for a repo with no UAT
 ```
 
 ## Documentation

@@ -26,7 +26,7 @@
     }
   },
   "bin": {
-    "ai-pr-policy": "./dist/bin/pr-policy.js"
+    "pr-policy": "./dist/bin/pr-policy.js"
   },
   "files": [
     "dist"

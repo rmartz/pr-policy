@@ -11,8 +11,8 @@ import { applyLabelEdits, gatherFacts } from '../github/pull-request.js';
 import { resolveRepoTarget } from '../lib/github.js';
 
 const USAGE = `Usage:
-  ai-pr-policy evaluate --pr <n> [--repo <owner/repo>] [--json] [--skip-uat]
-  ai-pr-policy evaluate --facts <path|-> [--skip-uat]
+  pr-policy evaluate --pr <n> [--repo <owner/repo>] [--json] [--skip-uat]
+  pr-policy evaluate --facts <path|-> [--skip-uat]
 
 --pr     Evaluate a live PR, post the pr-policy check-run and commit status on
          its head, and apply the label edits the checks planned. --json

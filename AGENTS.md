@@ -7,9 +7,6 @@ reports into **one** `pr-policy` check-run, which the consumer's ruleset
 requires. See
 [README.md](README.md) and the [documentation](docs/index.md).
 
-It was scoped in **rmartz/ai-tools#302**. Read that issue before designing a new
-check. It lists the planned checks, the backlog, and the open questions.
-
 ## Start and finish every task with the docs
 
 The `docs/` bundle is this repo's working memory. Keep it accurate the way you
@@ -52,8 +49,7 @@ Invariants that hold whatever a future change looks like:
   required-status migration.
 - **Read-only.** A check never renames the PR, edits its body, or overrides
   another party's labels. The only labels this package writes are ones it owns
-  outright (`CI approval needed`). Reconcilers belong in `rmartz/pr-lifecycle`
-  (rmartz/ai-tools#306).
+  outright (`CI approval needed`). Reconcilers belong in `rmartz/pr-lifecycle`.
 - **Never `CI change approved`.** This package never applies it. That label is
   the human act the CI gate exists to require.
 - **Waiting on a human is a `hold`, never a `block`.** A human-gated finding

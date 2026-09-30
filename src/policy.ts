@@ -63,8 +63,8 @@ export interface PullRequestBase {
 /**
  * The facts about a pull request that policy checks judge. Every field is a
  * property of the PR's current state — its content and the labels on it, never
- * its review history, which belongs to the separate lifecycle reconciler
- * (rmartz/ai-tools#306).
+ * its review history, which belongs to the separate lifecycle reconciler in
+ * `rmartz/pr-lifecycle`.
  */
 export interface PullRequestFacts {
   title: string;
