@@ -68,7 +68,8 @@ export function pipVersions(text: string): Map<string, string> {
   return versions;
 }
 
-function versionsOf(path: string, text: string): Map<string, string> | null {
+/** Declared version spec by package name for a manifest, or `null` when it won't parse. */
+export function manifestVersions(path: string, text: string): Map<string, string> | null {
   return basename(path) === 'package.json' ? npmVersions(text) : pipVersions(text);
 }
 
@@ -80,8 +81,8 @@ export function sensitiveBumps(changes: readonly FileChange[]): string[] {
   const bumped = new Set<string>();
   for (const change of changes) {
     if (change.baseText === undefined || change.headText === undefined) continue;
-    const before = versionsOf(change.path, change.baseText);
-    const after = versionsOf(change.path, change.headText);
+    const before = manifestVersions(change.path, change.baseText);
+    const after = manifestVersions(change.path, change.headText);
     if (before === null || after === null) continue;
     for (const name of CI_SENSITIVE_PACKAGES) {
       const was = before.get(name);
