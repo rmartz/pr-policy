@@ -29,13 +29,13 @@ retitle the PR (`chore(deps):` → `ci(deps):`), but nothing rewrites the body.
 The body is also re-checked when it changes, because `pr-policy` runs on
 `edited`. `src/checks/dependabot/claims.ts` reads these forms:
 
-| Form                                                    | Gives                                                |
-| ------------------------------------------------------- | ---------------------------------------------------- |
-| `Bumps [name](url) from A to B.`                        | `name`, target `B` (a single update)                 |
-| ``Updates `name` from A to B``                          | `name`, target `B` (each entry of a grouped update)  |
-| ``\| [name](url) \| `A` \| `B` \|``                     | `name`, target `B` (a row of a large group's table)  |
-| `Bumps the <group> group …: [a](url) and [b](url).`     | `a`, `b`, no target (the names a group header lists) |
-| `Updates the requirements on [name](url) …` / `Removes` | `name`, no target (a range change or a removal)      |
+| Form                                                            | Gives                                                |
+| --------------------------------------------------------------- | ---------------------------------------------------- |
+| `Bumps [name](https://…) from A to B.`                          | `name`, target `B` (a single update)                 |
+| ``Updates `name` from A to B``                                  | `name`, target `B` (each entry of a grouped update)  |
+| ``\| [name](https://…) \| `A` \| `B` \|``                       | `name`, target `B` (a row of a large group's table)  |
+| `Bumps the <group> group …: [a](https://…) and [b](https://…).` | `a`, `b`, no target (the names a group header lists) |
+| `Updates the requirements on [name](https://…) …` / `Removes`   | `name`, no target (a range change or a removal)      |
 
 Dependabot truncates a long description, which cuts off the per-package
 `Updates` lines. The table and the group header come first and survive, so a
