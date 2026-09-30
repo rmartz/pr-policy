@@ -7,9 +7,11 @@
 import {
   BREAKING_CHANGE_LABEL,
   HOTFIX_LABEL,
+  CONTAINED_BREAK_LABEL,
   RELEASE_PLEASE_PENDING_LABEL,
 } from '../../contract.js';
 import type { CheckResult, Finding, PolicyCheck, PullRequestFacts } from '../../policy.js';
+import { signOffState } from '../../sign-off.js';
 import {
   COMMIT_TYPES,
   FUNCTIONAL_TYPES,
@@ -78,21 +80,46 @@ export function decideTitle(pr: PullRequestFacts): CheckResult {
   } else if (!breakingIntent && title.breaking) {
     findings.push(
       block(
-        `The title marks a breaking change but the PR lacks the \`${BREAKING_CHANGE_LABEL}\` label, which is the source of truth. Add the label, or drop the \`!\`.`,
+        `The title marks a breaking change but the PR lacks the \`${BREAKING_CHANGE_LABEL}\` label; the two must agree. Add the label, or drop the \`!\`.`,
+      ),
+    );
+  }
+
+  const containedBreakLabel = labels.has(CONTAINED_BREAK_LABEL);
+  if (containedBreakLabel && (breakingIntent || title.breaking)) {
+    findings.push(
+      block(
+        `\`${CONTAINED_BREAK_LABEL}\` says the break doesn't reach consumers, but the PR is also marked breaking. Remove \`${CONTAINED_BREAK_LABEL}\`, or drop the \`!\` and the breaking label.`,
       ),
     );
   }
 
   // A dependency major bump is a breaking change on a functional type. Only the
   // unmarked, unlabelled case needs this finding: a label without `!` is already
-  // reported above, with the same retitle.
+  // reported above, with the same retitle. Someone who could merge may waive it
+  // with `contained break` when consumers can't see the bump, such as a wrapper
+  // that absorbs its CLI's major.
   const majors = majorBumps(pr.manifestChanges);
   if (functional && !breakingIntent && !title.breaking && majors.length > 0) {
-    findings.push(
-      block(
-        `This PR bumps a dependency's major version (${majors.map((bump) => `\`${bump}\``).join(', ')}), so it is a breaking change. Retitle to \`${breakingTitle}\` and add the \`${BREAKING_CHANGE_LABEL}\` label.`,
-      ),
-    );
+    const bumped = majors.map((bump) => `\`${bump}\``).join(', ');
+    const waiver = signOffState(pr, [CONTAINED_BREAK_LABEL]);
+    if (waiver.status === 'trusted') {
+      findings.push({
+        check: TITLE_CHECK,
+        effect: 'info',
+        message: `\`${waiver.appliedBy.login}\` waived the dependency major bump (${bumped}) with \`${CONTAINED_BREAK_LABEL}\`, so it releases without \`!\`.`,
+      });
+    } else {
+      const untrusted =
+        waiver.status === 'untrusted'
+          ? ` The \`${CONTAINED_BREAK_LABEL}\` label doesn't count: ${waiver.reason}.`
+          : '';
+      findings.push(
+        block(
+          `This PR bumps a dependency's major version (${bumped}), so it is a breaking change. Retitle to \`${breakingTitle}\` and add the \`${BREAKING_CHANGE_LABEL}\` label. If the bump is invisible to this package's consumers, someone who can merge may add \`${CONTAINED_BREAK_LABEL}\` instead.${untrusted}`,
+        ),
+      );
+    }
   }
 
   const pathViolation = typePathViolation(title.type, pr.changedFiles);
