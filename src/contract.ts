@@ -32,6 +32,14 @@ export const LEGACY_UAT_PASSED_LABEL = 'tested';
 export const NO_UAT_NEEDED_LABEL = 'no UAT needed';
 
 /**
+ * A person's judgment that a dependency major bump doesn't reach this package's
+ * consumers, such as a wrapper that absorbs its CLI's major. Read and never
+ * written. It waives only the title check's dependency-major rule, so the PR can
+ * release without `!`.
+ */
+export const NOT_BREAKING_LABEL = 'not breaking';
+
+/**
  * Every label that counts only when a trusted person applied it. The facts
  * gatherer looks up who applied each one present on the PR.
  */
@@ -40,6 +48,7 @@ export const SIGN_OFF_LABELS = [
   UAT_PASSED_LABEL,
   LEGACY_UAT_PASSED_LABEL,
   NO_UAT_NEEDED_LABEL,
+  NOT_BREAKING_LABEL,
 ] as const;
 
 /**
@@ -68,9 +77,9 @@ export const EPIC_LABEL = 'epic';
 
 /**
  * Labels the title check reads and never writes. They belong to the review and
- * release flow: `breaking change` is the source of truth for a breaking PR,
- * `hotfix` implies one, and release-please marks its release PRs with
- * `autorelease: pending`.
+ * release flow: `breaking change` must agree with the title's `!`, which is what
+ * the release and merge-safety read; `hotfix` implies one; and release-please
+ * marks its release PRs with `autorelease: pending`.
  */
 export const BREAKING_CHANGE_LABEL = 'breaking change';
 export const HOTFIX_LABEL = 'hotfix';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { decideTitle } from '../../../src/checks/title/index.js';
-import type { FileChange, PullRequestFacts } from '../../../src/policy.js';
+import type { FileChange, LabelActor, PullRequestFacts } from '../../../src/policy.js';
 
 const WORKFLOW = '.github/workflows/ci.yml';
 const BASE_WORKFLOW = `on: push
@@ -87,6 +87,48 @@ describe('decideTitle — dependency major bumps', () => {
 
   it('leaves a non-functional type alone — `!` there would be blocked anyway', () => {
     expect(messages(pr('chore(deps): bump left-pad', { manifestChanges: majorBump }))).toEqual([]);
+  });
+
+  it('offers the `not breaking` waiver in the block', () => {
+    const found = messages(pr('fix(deps): bump left-pad', { manifestChanges: majorBump }));
+    expect(found[0]).toContain('may add `not breaking` instead');
+  });
+
+  describe('the `not breaking` waiver', () => {
+    const maintainer = { login: 'reed', type: 'User', permission: 'maintain' } as const;
+    const waived = (appliedBy?: LabelActor): PullRequestFacts =>
+      pr('fix(deps): bump left-pad', {
+        manifestChanges: majorBump,
+        labels: ['not breaking'],
+        signOffs: [{ label: 'not breaking', ...(appliedBy === undefined ? {} : { appliedBy }) }],
+      });
+
+    it('clears the block when someone who could merge applied it, and says who', () => {
+      const { findings } = decideTitle(waived(maintainer));
+      expect(findings.map((finding) => finding.effect)).toEqual(['info']);
+      expect(findings[0]?.message).toContain('`reed` waived the dependency major bump');
+    });
+
+    it.each([
+      ['a bot', { login: 'github-actions[bot]', type: 'Bot', permission: 'none' }, 'not a person'],
+      ['a triage-only user', { ...maintainer, permission: 'triage' }, 'write, maintain, or admin'],
+      ['no labeling event', undefined, 'no labeling event'],
+    ] as const)('still blocks when applied by %s, and says why', (_who, appliedBy, reason) => {
+      const { findings } = decideTitle(waived(appliedBy));
+      expect(findings.map((finding) => finding.effect)).toEqual(['block']);
+      expect(findings[0]?.message).toContain("`not breaking` label doesn't count");
+      expect(findings[0]?.message).toContain(reason);
+    });
+
+    it.each([
+      ['a `!` title', 'fix(deps)!: bump left-pad', ['breaking change', 'not breaking']],
+      ['a breaking label', 'fix(deps): bump left-pad', ['breaking change', 'not breaking']],
+    ])('blocks when it contradicts %s', (_what, title, labels) => {
+      const found = messages(pr(title, { manifestChanges: majorBump, labels }));
+      expect(found.some((message) => message.includes('both breaking and `not breaking`'))).toBe(
+        true,
+      );
+    });
   });
 });
 

@@ -7,9 +7,11 @@
 import {
   BREAKING_CHANGE_LABEL,
   HOTFIX_LABEL,
+  NOT_BREAKING_LABEL,
   RELEASE_PLEASE_PENDING_LABEL,
 } from '../../contract.js';
 import type { CheckResult, Finding, PolicyCheck, PullRequestFacts } from '../../policy.js';
+import { signOffState } from '../../sign-off.js';
 import {
   COMMIT_TYPES,
   FUNCTIONAL_TYPES,
@@ -83,16 +85,41 @@ export function decideTitle(pr: PullRequestFacts): CheckResult {
     );
   }
 
-  // A dependency major bump is a breaking change on a functional type. Only the
-  // unmarked, unlabelled case needs this finding: a label without `!` is already
-  // reported above, with the same retitle.
-  const majors = majorBumps(pr.manifestChanges);
-  if (functional && !breakingIntent && !title.breaking && majors.length > 0) {
+  const notBreakingLabel = labels.has(NOT_BREAKING_LABEL);
+  if (notBreakingLabel && (breakingIntent || title.breaking)) {
     findings.push(
       block(
-        `This PR bumps a dependency's major version (${majors.map((bump) => `\`${bump}\``).join(', ')}), so it is a breaking change. Retitle to \`${breakingTitle}\` and add the \`${BREAKING_CHANGE_LABEL}\` label.`,
+        `The PR is marked both breaking and \`${NOT_BREAKING_LABEL}\`. Remove \`${NOT_BREAKING_LABEL}\`, or drop the \`!\` and the breaking label.`,
       ),
     );
+  }
+
+  // A dependency major bump is a breaking change on a functional type. Only the
+  // unmarked, unlabelled case needs this finding: a label without `!` is already
+  // reported above, with the same retitle. Someone who could merge may waive it
+  // with `not breaking` when consumers can't see the bump, such as a wrapper
+  // that absorbs its CLI's major.
+  const majors = majorBumps(pr.manifestChanges);
+  if (functional && !breakingIntent && !title.breaking && majors.length > 0) {
+    const bumped = majors.map((bump) => `\`${bump}\``).join(', ');
+    const waiver = signOffState(pr, [NOT_BREAKING_LABEL]);
+    if (waiver.status === 'trusted') {
+      findings.push({
+        check: TITLE_CHECK,
+        effect: 'info',
+        message: `\`${waiver.appliedBy.login}\` waived the dependency major bump (${bumped}) with \`${NOT_BREAKING_LABEL}\`, so it releases without \`!\`.`,
+      });
+    } else {
+      const untrusted =
+        waiver.status === 'untrusted'
+          ? ` The \`${NOT_BREAKING_LABEL}\` label doesn't count: ${waiver.reason}.`
+          : '';
+      findings.push(
+        block(
+          `This PR bumps a dependency's major version (${bumped}), so it is a breaking change. Retitle to \`${breakingTitle}\` and add the \`${BREAKING_CHANGE_LABEL}\` label. If the bump is invisible to this package's consumers, someone who can merge may add \`${NOT_BREAKING_LABEL}\` instead.${untrusted}`,
+        ),
+      );
+    }
   }
 
   const pathViolation = typePathViolation(title.type, pr.changedFiles);
