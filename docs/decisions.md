@@ -25,7 +25,7 @@ never grows. See [check-run-contract.md](check-run-contract.md).
 Overwriting labels another party owns (verdict labels, UAT labels, approval
 freshness) is a larger trust grant than reporting. Reading a UAT label to gate
 the merge is not; see [the UAT gate](#uat-is-a-hard-gate-here-the-lifecycle-stays-in-pr-lifecycle). Those reconcilers live in
-`rmartz/pr-lifecycle` (rmartz/ai-tools#306). This package writes only labels it
+`rmartz/pr-lifecycle`. This package writes only labels it
 owns outright, and neither package reads the other's outputs.
 
 ### Title rules block; they never rename
