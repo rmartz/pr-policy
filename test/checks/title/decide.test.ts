@@ -121,7 +121,7 @@ describe('decideTitle — dependency major bumps', () => {
     });
 
     it.each([
-      ['a `!` title', 'fix(deps)!: bump left-pad', ['breaking change', 'contained break']],
+      ['a `!` title', 'fix(deps)!: bump left-pad', ['contained break']],
       ['a breaking label', 'fix(deps): bump left-pad', ['breaking change', 'contained break']],
     ])('blocks when it contradicts %s', (_what, title, labels) => {
       const found = messages(pr(title, { manifestChanges: majorBump, labels }));

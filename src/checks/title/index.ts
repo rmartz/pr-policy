@@ -80,7 +80,7 @@ export function decideTitle(pr: PullRequestFacts): CheckResult {
   } else if (!breakingIntent && title.breaking) {
     findings.push(
       block(
-        `The title marks a breaking change but the PR lacks the \`${BREAKING_CHANGE_LABEL}\` label, which is the source of truth. Add the label, or drop the \`!\`.`,
+        `The title marks a breaking change but the PR lacks the \`${BREAKING_CHANGE_LABEL}\` label; the two must agree. Add the label, or drop the \`!\`.`,
       ),
     );
   }

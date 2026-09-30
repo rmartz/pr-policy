@@ -40,11 +40,10 @@ A dependency major bump is treated as a breaking change on a functional type, so
 the release cuts a major. The versions are compared structurally, like the
 sensitive-tool rule: each manifest is parsed on both sides, and a package only
 added, only removed, or downgraded is not a bump. The manifest's own `version`
-field is not a dependency, so a release PR never trips it. There is not yet a
-way to say a bump doesn't reach this package's consumers (a wrapper that absorbs
-its dependency's major); until there is, remove the dependency change or accept
-the major. This rule moved here from merge-safety, which used to add the label
-itself.
+field is not a dependency, so a release PR never trips it. A person can waive it
+with `contained break` when the bump doesn't reach this package's consumers; see
+[Waiving a dependency major](#waiving-a-dependency-major). This rule moved here
+from merge-safety, which used to add the label itself.
 
 ## Waiving a dependency major
 
