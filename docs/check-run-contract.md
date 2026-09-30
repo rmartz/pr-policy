@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: The check-run and label contract
-description: The external names pr-policy is bound to — the pr-policy check-run and its mirrored commit status, the CI gate labels, the UAT sign-off labels, the blocking labels, and the epic label — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
+description: The external names pr-policy is bound to — the pr-policy check-run and its mirrored commit status, the CI gate labels, the UAT sign-off labels, the breaking-waiver label, the blocking labels, and the epic label — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
 tags: [pr-policy, contract, labels, check-run, commit-status]
 ---
 
@@ -108,6 +108,14 @@ applied by a trusted user, passes the [UAT gate](checks/uat.md). `UAT passed`
 is a person's statement that they tested the PR. `tested` is its old name, read
 until the fleet finishes the rename. `no UAT needed` is a waiver from
 the review agent or a person.
+
+## `not breaking`: the dependency-major waiver
+
+Read-only here. **This package never applies or removes it.** It is a judgment
+that a dependency major bump doesn't reach the package's consumers, such as a
+wrapper Action that absorbs its CLI's major. Applied by a trusted user, it
+clears the [title check](checks/title.md#waiving-a-dependency-major)'s
+dependency-major rule, so the PR releases without `!`. It waives nothing else.
 
 ## `do not merge`, `dnm`, `blocked`, and `escalation needed`: the blocking labels
 

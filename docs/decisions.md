@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red, how the title rules treat `!`, labels, and CI changes, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -100,6 +100,28 @@ Only a **substantive** workflow change counts as CI. A pure
 action-pin bump or comment-only edit keeps its Dependabot `chore` type.
 Otherwise every Dependabot `github-actions` PR in the fleet would be flagged, and
 the checklist deliberately gives those PRs `chore`.
+
+### A dependency major is breaking unless a person waives it
+
+merge-safety reads a PR's breaking status from its title's `!` alone
+(rmartz/merge-safety#85). Deciding which PRs need that `!` is title policy, so
+the title check owns it: a dependency major bump on a functional type blocks
+until the title has `!` and `breaking change`.
+
+The diff can't tell whether a bump reaches consumers, so a person decides. The
+waiver is a label, `not breaking`, trusted through `signOffState`, because it
+is the same kind of judgment as a UAT waiver. The alternatives were weaker:
+
+- Honoring a human's _removal_ of `breaking change` would read the label's
+  history, which belongs to the lifecycle reconciler, not a content check.
+- A per-repo list of exempt dependencies bakes in "this wrapper never exposes
+  its CLI's majors", which is false the first time the CLI's break leaks through
+  an input. A per-PR judgment is right each time.
+
+It stays a `block`, not a `hold`: the author can always clear it by adding the
+`!`, so nothing here waits only on a human. This replaces merge-safety's
+add-only label, which re-added itself after every human removal
+(rmartz/merge-safety#82).
 
 ### `docs`, `refactor`, and `test` are checked against their paths
 

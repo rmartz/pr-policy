@@ -40,8 +40,8 @@ See [docs/okf-format.md](docs/okf-format.md).
 
 ## The external names are contracts
 
-`PR_POLICY_CHECK_NAME`, the CI gate labels, the UAT sign-off labels, the blocking
-labels, and the epic label (`src/contract.ts`) are read outside this repo. Treat them as frozen;
+`PR_POLICY_CHECK_NAME`, the CI gate labels, the UAT sign-off labels, the
+breaking-waiver label, the blocking labels, and the epic label (`src/contract.ts`) are read outside this repo. Treat them as frozen;
 `test/contract.test.ts` pins them. See
 [docs/check-run-contract.md](docs/check-run-contract.md).
 

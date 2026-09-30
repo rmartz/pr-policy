@@ -1,7 +1,7 @@
 ---
 type: Library
 title: Title-type rules
-description: The title check — the Conventional-Commit grammar a squash title must meet, the breaking-marker and label consistency rules, dependency major bumps as breaking changes, when ci-typing is required or only recommended, the paths a docs, refactor, or test PR may change, why a shipped reusable workflow is product code, and the release-please exemption. Violations block until the title is edited; the check never renames a PR.
+description: The title check — the Conventional-Commit grammar a squash title must meet, the breaking-marker and label consistency rules, the dependency-major rule and its `not breaking` waiver, dependency major bumps as breaking changes, when ci-typing is required or only recommended, the paths a docs, refactor, or test PR may change, why a shipped reusable workflow is product code, and the release-please exemption. Violations block until the title is edited; the check never renames a PR.
 resource: src/checks/title/index.ts
 tags: [pr-policy, title, conventional-commits, releases]
 ---
@@ -17,18 +17,19 @@ check never renames the PR itself.
 
 ## The rules
 
-| Rule                     | Blocks when                                                                                                                                                           | Fix                                                                   |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| **Grammar**              | The title isn't `<type>[(<scope>)][!]: <subject>` with a known type. Same grammar as `pr-title-lint.yml` and `commit-convention.yml`.                                 | Retitle.                                                              |
-| **`!` type**             | `!` on a non-functional type (anything but `feat`/`fix`/`perf`/`revert`). It would cut a spurious major.                                                              | Drop the `!`.                                                         |
-| **Label type**           | `breaking change` on a non-functional type.                                                                                                                           | Remove the label, or retitle to the functional type.                  |
-| **Label without `!`**    | A functional type labelled `breaking change` or `hotfix` whose title has no `!`, so the release would miss the major.                                                 | Add the `!` (the finding spells out the exact title).                 |
-| **`!` without label**    | A functional `!` title without `breaking change`. The label is the source of truth.                                                                                   | Add the label, or drop the `!`.                                       |
-| **Dependency majors**    | A functional type with neither `!` nor a breaking label, whose `package.json` or `requirements*.txt` raises a dependency's major version.                             | Add the `!` and `breaking change` (the finding spells out the title). |
-| **Sensitive tool bumps** | A version change to `eslint`, `prettier`, `black`, `ruff`, or `pylint` in a `package.json` or `requirements*.txt`, on a type that is neither `ci` nor a release type. | Retitle `ci(deps): …`. Never `!` or `breaking change` for it.         |
-| **`docs` paths**         | A `docs` title on a PR that changes any non-Markdown (`.md`) file: code, CI, config, or a manifest. A rename's old path counts.                                       | Retitle to the non-docs change's type, or split the PR.               |
-| **`refactor` tests**     | A `refactor` title on a PR that adds, changes, removes, or renames a non-Markdown test file.                                                                          | Land the test change first as a `test:` PR, then refactor.            |
-| **`test` paths**         | A `test` title on a PR that changes any file that is neither a test nor Markdown: code, CI, or config.                                                                | Retitle to the non-test change's type, or split the PR.               |
+| Rule                     | Blocks when                                                                                                                                                           | Fix                                                                                                               |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Grammar**              | The title isn't `<type>[(<scope>)][!]: <subject>` with a known type. Same grammar as `pr-title-lint.yml` and `commit-convention.yml`.                                 | Retitle.                                                                                                          |
+| **`!` type**             | `!` on a non-functional type (anything but `feat`/`fix`/`perf`/`revert`). It would cut a spurious major.                                                              | Drop the `!`.                                                                                                     |
+| **Label type**           | `breaking change` on a non-functional type.                                                                                                                           | Remove the label, or retitle to the functional type.                                                              |
+| **Label without `!`**    | A functional type labelled `breaking change` or `hotfix` whose title has no `!`, so the release would miss the major.                                                 | Add the `!` (the finding spells out the exact title).                                                             |
+| **`!` without label**    | A functional `!` title without `breaking change`. The two must agree.                                                                                                 | Add the label, or drop the `!`.                                                                                   |
+| **Dependency majors**    | A functional type with neither `!` nor a breaking label, whose `package.json` or `requirements*.txt` raises a dependency's major version.                             | Add the `!` and `breaking change` (the finding spells out the title), or [waive it](#waiving-a-dependency-major). |
+| **Waiver conflict**      | `not breaking` alongside a `!` title or a breaking label.                                                                                                             | Remove `not breaking`, or drop the `!` and the breaking label.                                                    |
+| **Sensitive tool bumps** | A version change to `eslint`, `prettier`, `black`, `ruff`, or `pylint` in a `package.json` or `requirements*.txt`, on a type that is neither `ci` nor a release type. | Retitle `ci(deps): …`. Never `!` or `breaking change` for it.                                                     |
+| **`docs` paths**         | A `docs` title on a PR that changes any non-Markdown (`.md`) file: code, CI, config, or a manifest. A rename's old path counts.                                       | Retitle to the non-docs change's type, or split the PR.                                                           |
+| **`refactor` tests**     | A `refactor` title on a PR that adds, changes, removes, or renames a non-Markdown test file.                                                                          | Land the test change first as a `test:` PR, then refactor.                                                        |
+| **`test` paths**         | A `test` title on a PR that changes any file that is neither a test nor Markdown: code, CI, or config.                                                                | Retitle to the non-test change's type, or split the PR.                                                           |
 
 A new linter or formatter can change results on files a PR never touched, so the
 coordinator must re-test in-flight PRs against it, and it keys that off the `ci`
@@ -44,6 +45,23 @@ way to say a bump doesn't reach this package's consumers (a wrapper that absorbs
 its dependency's major); until there is, remove the dependency change or accept
 the major. This rule moved here from merge-safety, which used to add the label
 itself.
+
+## Waiving a dependency major
+
+A dependency's major bump isn't always a break for the package's consumers. A
+wrapper Action that absorbs its CLI's renamed bin keeps its inputs, outputs,
+and behavior. Marking it `!` would cut a spurious major.
+
+When a reviewer confirms that, they add `not breaking` instead of the `!` and
+the label. It counts only when a user with write, maintain, or admin permission
+applied it, read through `signOffState` like every sign-off (see
+[who can sign off](uat.md#who-can-sign-off)). An agent acting with that user's
+token qualifies. A trusted waiver replaces the block with an `info` finding
+naming who waived it. An untrusted one leaves the block and says why it doesn't
+count.
+
+It waives only the dependency-major rule. On a PR that is also marked breaking
+it contradicts the `!`, so the check blocks until one of them goes.
 
 ## Type-versus-paths rules
 
