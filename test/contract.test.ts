@@ -10,6 +10,7 @@ import {
   ESCALATION_NEEDED_LABEL,
   LEGACY_UAT_PASSED_LABEL,
   NO_UAT_NEEDED_LABEL,
+  CONTAINED_BREAK_LABEL,
   PR_POLICY_CHECK_NAME,
   UAT_PASSED_LABEL,
 } from '../src/contract.js';
@@ -31,6 +32,10 @@ describe('external contract names', () => {
     expect(UAT_PASSED_LABEL).toBe('UAT passed');
     expect(LEGACY_UAT_PASSED_LABEL).toBe('tested');
     expect(NO_UAT_NEEDED_LABEL).toBe('no UAT needed');
+  });
+
+  it('pins the breaking-waiver label', () => {
+    expect(CONTAINED_BREAK_LABEL).toBe('contained break');
   });
 
   it('pins the blocking labels', () => {
