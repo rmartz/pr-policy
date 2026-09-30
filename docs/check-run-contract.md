@@ -109,7 +109,7 @@ is a person's statement that they tested the PR. `tested` is its old name, read
 until the fleet finishes the rename. `no UAT needed` is a waiver from
 the review agent or a person.
 
-## `not breaking`: the dependency-major waiver
+## `contained break`: the dependency-major waiver
 
 Read-only here. **This package never applies or removes it.** It is a judgment
 that a dependency major bump doesn't reach the package's consumers, such as a

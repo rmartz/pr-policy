@@ -89,18 +89,18 @@ describe('decideTitle — dependency major bumps', () => {
     expect(messages(pr('chore(deps): bump left-pad', { manifestChanges: majorBump }))).toEqual([]);
   });
 
-  it('offers the `not breaking` waiver in the block', () => {
+  it('offers the `contained break` waiver in the block', () => {
     const found = messages(pr('fix(deps): bump left-pad', { manifestChanges: majorBump }));
-    expect(found[0]).toContain('may add `not breaking` instead');
+    expect(found[0]).toContain('may add `contained break` instead');
   });
 
-  describe('the `not breaking` waiver', () => {
+  describe('the `contained break` waiver', () => {
     const maintainer = { login: 'reed', type: 'User', permission: 'maintain' } as const;
     const waived = (appliedBy?: LabelActor): PullRequestFacts =>
       pr('fix(deps): bump left-pad', {
         manifestChanges: majorBump,
-        labels: ['not breaking'],
-        signOffs: [{ label: 'not breaking', ...(appliedBy === undefined ? {} : { appliedBy }) }],
+        labels: ['contained break'],
+        signOffs: [{ label: 'contained break', ...(appliedBy === undefined ? {} : { appliedBy }) }],
       });
 
     it('clears the block when someone who could merge applied it, and says who', () => {
@@ -116,16 +116,16 @@ describe('decideTitle — dependency major bumps', () => {
     ] as const)('still blocks when applied by %s, and says why', (_who, appliedBy, reason) => {
       const { findings } = decideTitle(waived(appliedBy));
       expect(findings.map((finding) => finding.effect)).toEqual(['block']);
-      expect(findings[0]?.message).toContain("`not breaking` label doesn't count");
+      expect(findings[0]?.message).toContain("`contained break` label doesn't count");
       expect(findings[0]?.message).toContain(reason);
     });
 
     it.each([
-      ['a `!` title', 'fix(deps)!: bump left-pad', ['breaking change', 'not breaking']],
-      ['a breaking label', 'fix(deps): bump left-pad', ['breaking change', 'not breaking']],
+      ['a `!` title', 'fix(deps)!: bump left-pad', ['breaking change', 'contained break']],
+      ['a breaking label', 'fix(deps): bump left-pad', ['breaking change', 'contained break']],
     ])('blocks when it contradicts %s', (_what, title, labels) => {
       const found = messages(pr(title, { manifestChanges: majorBump, labels }));
-      expect(found.some((message) => message.includes('both breaking and `not breaking`'))).toBe(
+      expect(found.some((message) => message.includes('but the PR is also marked breaking'))).toBe(
         true,
       );
     });

@@ -1,7 +1,7 @@
 ---
 type: Library
 title: Title-type rules
-description: The title check — the Conventional-Commit grammar a squash title must meet, the breaking-marker and label consistency rules, the dependency-major rule and its `not breaking` waiver, dependency major bumps as breaking changes, when ci-typing is required or only recommended, the paths a docs, refactor, or test PR may change, why a shipped reusable workflow is product code, and the release-please exemption. Violations block until the title is edited; the check never renames a PR.
+description: The title check — the Conventional-Commit grammar a squash title must meet, the breaking-marker and label consistency rules, the dependency-major rule and its `contained break` waiver, dependency major bumps as breaking changes, when ci-typing is required or only recommended, the paths a docs, refactor, or test PR may change, why a shipped reusable workflow is product code, and the release-please exemption. Violations block until the title is edited; the check never renames a PR.
 resource: src/checks/title/index.ts
 tags: [pr-policy, title, conventional-commits, releases]
 ---
@@ -25,7 +25,7 @@ check never renames the PR itself.
 | **Label without `!`**    | A functional type labelled `breaking change` or `hotfix` whose title has no `!`, so the release would miss the major.                                                 | Add the `!` (the finding spells out the exact title).                                                             |
 | **`!` without label**    | A functional `!` title without `breaking change`. The two must agree.                                                                                                 | Add the label, or drop the `!`.                                                                                   |
 | **Dependency majors**    | A functional type with neither `!` nor a breaking label, whose `package.json` or `requirements*.txt` raises a dependency's major version.                             | Add the `!` and `breaking change` (the finding spells out the title), or [waive it](#waiving-a-dependency-major). |
-| **Waiver conflict**      | `not breaking` alongside a `!` title or a breaking label.                                                                                                             | Remove `not breaking`, or drop the `!` and the breaking label.                                                    |
+| **Waiver conflict**      | `contained break` alongside a `!` title or a breaking label.                                                                                                          | Remove `contained break`, or drop the `!` and the breaking label.                                                 |
 | **Sensitive tool bumps** | A version change to `eslint`, `prettier`, `black`, `ruff`, or `pylint` in a `package.json` or `requirements*.txt`, on a type that is neither `ci` nor a release type. | Retitle `ci(deps): …`. Never `!` or `breaking change` for it.                                                     |
 | **`docs` paths**         | A `docs` title on a PR that changes any non-Markdown (`.md`) file: code, CI, config, or a manifest. A rename's old path counts.                                       | Retitle to the non-docs change's type, or split the PR.                                                           |
 | **`refactor` tests**     | A `refactor` title on a PR that adds, changes, removes, or renames a non-Markdown test file.                                                                          | Land the test change first as a `test:` PR, then refactor.                                                        |
@@ -52,7 +52,7 @@ A dependency's major bump isn't always a break for the package's consumers. A
 wrapper Action that absorbs its CLI's renamed bin keeps its inputs, outputs,
 and behavior. Marking it `!` would cut a spurious major.
 
-When a reviewer confirms that, they add `not breaking` instead of the `!` and
+When a reviewer confirms that, they add `contained break` instead of the `!` and
 the label. It counts only when a user with write, maintain, or admin permission
 applied it, read through `signOffState` like every sign-off (see
 [who can sign off](uat.md#who-can-sign-off)). An agent acting with that user's

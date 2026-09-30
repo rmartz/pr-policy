@@ -37,7 +37,7 @@ export const NO_UAT_NEEDED_LABEL = 'no UAT needed';
  * written. It waives only the title check's dependency-major rule, so the PR can
  * release without `!`.
  */
-export const NOT_BREAKING_LABEL = 'not breaking';
+export const CONTAINED_BREAK_LABEL = 'contained break';
 
 /**
  * Every label that counts only when a trusted person applied it. The facts
@@ -48,7 +48,7 @@ export const SIGN_OFF_LABELS = [
   UAT_PASSED_LABEL,
   LEGACY_UAT_PASSED_LABEL,
   NO_UAT_NEEDED_LABEL,
-  NOT_BREAKING_LABEL,
+  CONTAINED_BREAK_LABEL,
 ] as const;
 
 /**

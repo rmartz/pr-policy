@@ -109,7 +109,7 @@ the title check owns it: a dependency major bump on a functional type blocks
 until the title has `!` and `breaking change`.
 
 The diff can't tell whether a bump reaches consumers, so a person decides. The
-waiver is a label, `not breaking`, trusted through `signOffState`, because it
+waiver is a label, `contained break`, trusted through `signOffState`, because it
 is the same kind of judgment as a UAT waiver. The alternatives were weaker:
 
 - Honoring a human's _removal_ of `breaking change` would read the label's
