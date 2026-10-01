@@ -81,9 +81,10 @@ what the PR touches (`src/checks/title/type-paths.ts`):
 `refactor` and `test` may both change docs alongside their main change: Markdown
 is always allowed and is never counted as a test, even under a test directory.
 
-A test path is whatever the UAT gate's [tests category](uat.md) counts: test,
-snapshot, and mock directories, `*.test.*` / `*.spec.*` JS and TS files, and the
-Python and Go test-file conventions. Both checks read the one definition in
+A test path is a test, snapshot, or mock directory, a `*.test.*` / `*.spec.*` JS
+or TS file, a Storybook story (`*.stories.*` JS and TS files, and
+`*.stories.mdx`), or a Python or Go test-file convention: whatever the UAT
+gate's [tests category](uat.md) counts. Both checks read the one definition in
 `src/checks/test-paths.ts`, so a path is never a test to one and code to the
 other.
 
