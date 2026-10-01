@@ -46,6 +46,27 @@ describe('decideUat — trivial PRs pass without a label', () => {
   });
 });
 
+describe('decideUat — a refactor passes without a label', () => {
+  it.each(['refactor: extract the parser', 'refactor(auth): split the session module'])(
+    'passes `%s` and names why',
+    (title) => {
+      const { findings } = decideUat(pr({ title, changedFiles: ['src/a.ts', 'src/b.ts'] }));
+      expect(findings.map((finding) => finding.effect)).toEqual(['info']);
+      expect(findings[0]?.message).toContain('refactor');
+    },
+  );
+
+  it.each([
+    'feat: add a thing',
+    'fix: a refactor of the parser',
+    'chore: refactor',
+    'Refactor: extract the parser',
+    'refactor extract the parser',
+  ])('still holds `%s`', (title) => {
+    expect(effects(pr({ title }))).toEqual(['hold']);
+  });
+});
+
 describe('decideUat — sign-off labels', () => {
   it.each(['UAT passed', 'tested', 'no UAT needed'])('passes on a trusted `%s`', (label) => {
     const { findings } = decideUat(labelledBy(label, MAINTAINER));
