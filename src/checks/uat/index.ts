@@ -1,6 +1,7 @@
 /**
  * Check 3: UAT sign-off. A hard merge gate that **holds by default**. It passes
- * when the PR can't need UAT (every path is in an exempt category), when a
+ * when the PR can't need UAT (every path is in an exempt category, or the title
+ * is a `refactor`), when a
  * trusted person applied `no UAT needed`, or when one applied `UAT passed` (or
  * its old name, `tested`). A missing label is a hold, never "not required", so a
  * PR approved and armed for auto-merge at any point still waits here.
@@ -12,6 +13,7 @@
 import { LEGACY_UAT_PASSED_LABEL, NO_UAT_NEEDED_LABEL, UAT_PASSED_LABEL } from '../../contract.js';
 import type { CheckResult, Finding, PolicyCheck, PullRequestFacts } from '../../policy.js';
 import { signOffState } from '../../sign-off.js';
+import { parseTitle } from '../title/conventional.js';
 import { trivialCategories } from './trivial.js';
 
 export const UAT_CHECK = 'uat';
@@ -28,6 +30,13 @@ export function decideUat(pr: PullRequestFacts): CheckResult {
   if (categories !== undefined) {
     const kinds = categories.length > 0 ? categories.join(', ') : 'no files';
     return { findings: [info(`No UAT needed: the PR changes only ${kinds}.`)] };
+  }
+
+  // A refactor changes no behaviour, so there is nothing to user-test. The
+  // title check blocks a refactor that touches a test, and a mislabeled
+  // behaviour change would also lose its release, so the type is trusted here.
+  if (parseTitle(pr.title)?.type === 'refactor') {
+    return { findings: [info('No UAT needed: a refactor changes no behaviour.')] };
   }
 
   const state = signOffState(pr, PASSING_LABELS);
