@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -88,6 +88,27 @@ A `failure` would read as a broken build and send the PR round a fix pass that
 can't clear a human gate. A `neutral` conclusion avoids the red, but it
 **passes** a required check, which would let the loosening merge unsigned. Pending avoids both: it reads as waiting, and a
 required check that isn't complete still holds the merge.
+
+### A held `pr-policy` doesn't read as running CI
+
+A pending required check could look like "CI still running" to a coordinator
+that waits on running CI before it reviews. That would be a deadlock for a UAT
+hold, because the review is what applies `no UAT needed`. It doesn't happen,
+and the reason is where the held check-run lives.
+
+A `GITHUB_TOKEN` check-run is filed into the head commit's oldest GitHub Actions
+check suite, which has already finished. Posting an `in_progress` check-run
+there doesn't reopen it: the suite stays `completed`. Observed on a PR held by
+`blocked`, the hosting suite was an earlier `pr-policy` run that read
+`completed / cancelled`, and every Actions suite on the commit was `completed`.
+A coordinator that judges CI by suite state, keeping the latest run per
+workflow, sees CI passed. The PR then moves through review and parks on the
+labels behind the hold (`UAT pending`, `CI approval needed`, or the blocking
+label), not on the check.
+
+Nothing here depends on that coordinator. The required check still holds the
+merge for any merge path. This only records why the two don't wait on each
+other.
 
 ### Title rules: `!`, labels, and what counts as CI
 
@@ -260,11 +281,3 @@ tested, and nothing clears it. That matches the fleet's current `tested`
 semantics. A stale `no UAT needed` is already covered: pr-lifecycle disarms on a
 push, and the review agent refreshes its UAT labels before the verdict.
 A stale human `UAT passed` isn't covered by either.
-
-### How the coordinator treats a pending `pr-policy`
-
-A pending required check can look like "CI still running" to the coordinator,
-which may wait on it rather than park the PR. The PR also carries
-`CI approval needed`, which `GATE_CI_APPROVAL` already parks on, so the gate
-model should key off the label and not wait out the check. Confirm in the
-coordinator before relying on it there.
