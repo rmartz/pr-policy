@@ -10,7 +10,7 @@ import { asRecord, deepEqual } from '../ci-change/structure.js';
 import type { FileChange, PullRequestFacts } from '../../policy.js';
 import { DEPENDENCY_FIELDS, isManifestPath } from '../title/sensitive-bump.js';
 import { isShippedReusableWorkflow } from '../title/workflow-change.js';
-import { isTestPath } from '../test-paths.js';
+import { isStoryPath, isTestPath } from '../test-paths.js';
 
 export const TRIVIAL_CATEGORIES = ['docs', 'tests', 'ci', 'dependencies', 'metadata'] as const;
 export type TrivialCategory = (typeof TRIVIAL_CATEGORIES)[number];
@@ -61,6 +61,9 @@ function categoryOf(path: string, pr: PullRequestFacts): TrivialCategory | undef
   const name = parts[parts.length - 1] ?? '';
 
   if (name.endsWith('.md') || parts[0] === 'docs') return 'docs';
+  // A story is a test, but it renders as UI, so whether it needs UAT stays the
+  // review's call.
+  if (isStoryPath(path)) return undefined;
   if (isTestPath(path)) return 'tests';
   if (path.startsWith('.github/workflows/') || path.startsWith('.github/actions/')) {
     // A shipped reusable workflow is the product consumers call, not this repo's CI.

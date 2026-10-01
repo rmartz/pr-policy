@@ -16,6 +16,11 @@ describe('isTestPath', () => {
     'pkg/util_test.py',
     'pkg/conftest.py',
     'cmd/main_test.go',
+    'src/app/(auth)/forgot-password/ForgotPasswordFormView.stories.tsx',
+    'src/Button.stories.ts',
+    'src/Button.stories.jsx',
+    'src/Button.stories.mts',
+    'docs/Intro.stories.mdx',
   ])('recognises %s', (path) => {
     expect(isTestPath(path)).toBe(true);
   });
@@ -27,6 +32,10 @@ describe('isTestPath', () => {
     'src/latest.ts',
     'attest.py',
     'vitest.config.ts',
+    'src/stories.ts',
+    'src/stories/Button.tsx',
+    'src/Button.stories.css',
+    '.storybook/main.ts',
   ])('does not flag %s', (path) => {
     expect(isTestPath(path)).toBe(false);
   });

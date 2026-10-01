@@ -7,10 +7,25 @@
 
 const TEST_DIRS = new Set(['test', 'tests', '__tests__', '__snapshots__', '__mocks__', 'e2e']);
 const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$|^test_.*\.py$|_test\.(py|go)$|^conftest\.py$/;
+const STORY_FILE = /\.stories\.([cm]?[jt]sx?|mdx)$/;
 
-/** Whether a changed path is a test, fixture, snapshot, or mock. */
+/**
+ * Whether a changed path is a Storybook story. Stories are tests (the Storybook
+ * test runner gates on them, and they never ship in the app), so `isTestPath`
+ * includes them. They also render as UI, so the UAT gate asks this separately
+ * and doesn't exempt them.
+ */
+export function isStoryPath(path: string): boolean {
+  return STORY_FILE.test(path.split('/').at(-1) ?? '');
+}
+
+/** Whether a changed path is a test, fixture, snapshot, mock, or Storybook story. */
 export function isTestPath(path: string): boolean {
   const parts = path.split('/');
   const name = parts.at(-1) ?? '';
-  return parts.slice(0, -1).some((dir) => TEST_DIRS.has(dir)) || TEST_FILE.test(name);
+  return (
+    parts.slice(0, -1).some((dir) => TEST_DIRS.has(dir)) ||
+    TEST_FILE.test(name) ||
+    isStoryPath(path)
+  );
 }

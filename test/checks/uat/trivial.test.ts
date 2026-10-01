@@ -50,7 +50,9 @@ describe('trivialCategories — anything else holds', () => {
     ['an MDX page, which renders as UI', ['src/stories/Intro.mdx']],
     ['a root config file', ['next.config.ts']],
     ['a script', ['scripts/build.mjs']],
-    ['a Storybook story', ['src/Button.stories.tsx']],
+    ['a Storybook story, which renders as UI', ['src/Button.stories.tsx']],
+    ['an MDX story', ['src/Intro.stories.mdx']],
+    ['a story alongside tests', ['src/a.test.ts', 'src/Button.stories.tsx']],
   ])('does not exempt %s', (_what, files) => {
     expect(trivialCategories(pr(files))).toBeUndefined();
   });
