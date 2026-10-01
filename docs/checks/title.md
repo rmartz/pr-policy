@@ -83,9 +83,8 @@ is always allowed and is never counted as a test, even under a test directory.
 
 A test path is a test, snapshot, or mock directory, a `*.test.*` / `*.spec.*` JS
 or TS file, a Storybook story (`*.stories.*` JS and TS files, and
-`*.stories.mdx`), or a Python or Go test-file convention. That is the UAT gate's
-[tests category](uat.md), except that the gate doesn't exempt stories, because
-they render as UI. Both checks read the one definition in
+`*.stories.mdx`), or a Python or Go test-file convention: whatever the UAT
+gate's [tests category](uat.md) counts. Both checks read the one definition in
 `src/checks/test-paths.ts`, so a path is never a test to one and code to the
 other.
 
