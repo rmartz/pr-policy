@@ -34,17 +34,18 @@ function block(message: string): Finding {
 }
 
 /**
- * Every title rule violated by this PR's current title, labels, and diff. A
- * `[WIP]` marker blocks on its own, and the other rules judge the title without
- * it, so a leading marker reads as "not ready" rather than "not a Conventional
- * Commit".
+ * Every title rule violated by this PR's current title, labels, and diff. A WIP
+ * marker requires the PR to be a draft, which GitHub won't merge; a WIP draft is
+ * fine. The other rules judge the title without the marker, so a leading one
+ * reads as "not ready" rather than "not a Conventional Commit".
  */
 export function decideTitle(pr: PullRequestFacts): CheckResult {
   const { title, marked } = stripWipMarker(pr.title);
   const { findings } = titleRules(pr, title);
-  if (!marked) return { findings };
+  // An absent `draft` reads as ready for review, so a WIP title fails closed.
+  if (!marked || pr.draft === true) return { findings };
   const wip = block(
-    `The title still carries a \`[WIP]\` marker, so the PR isn't ready to merge. Remove \`[WIP]\` from the title when the work is done.`,
+    `The title carries a WIP marker, but the PR isn't a draft, so it could merge unfinished. Convert the PR to a draft while the work is in progress, or remove the marker from the title when it's done.`,
   );
   return { findings: [wip, ...findings] };
 }

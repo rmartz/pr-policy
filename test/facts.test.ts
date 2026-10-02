@@ -37,6 +37,13 @@ describe('parseFacts', () => {
     expect(facts.author).toEqual(author);
   });
 
+  it('accepts the draft status when present, and leaves it absent otherwise', () => {
+    const draft = JSON.stringify({ title: 't', draft: true, labels: [], changedFiles: [] });
+    const plain = JSON.stringify({ title: 't', labels: [], changedFiles: [] });
+    expect(parseFacts(draft).draft).toBe(true);
+    expect(parseFacts(plain)).not.toHaveProperty('draft');
+  });
+
   it('accepts the base branch, defaulting the PRs it heads to none', () => {
     const raw = JSON.stringify({
       title: 't',
@@ -96,6 +103,11 @@ describe('parseFacts', () => {
       'a base PR without a number',
       '{"title":"t","base":{"branch":"x","defaultBranch":"main","headOf":[{"labels":[]}]},"labels":[],"changedFiles":[]}',
       'facts.base.headOf[0].number',
+    ],
+    [
+      'a non-boolean draft status',
+      '{"title":"t","draft":"yes","labels":[],"changedFiles":[]}',
+      'facts.draft must be a boolean',
     ],
     [
       'a sign-off with an unknown permission',
