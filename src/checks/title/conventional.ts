@@ -1,7 +1,7 @@
 /**
  * The Conventional-Commit grammar a squash subject must satisfy. It mirrors the
- * fleet's `pr-title-lint.yml` and `commit-convention.yml` exactly, so a title
- * this accepts is one the post-merge tripwire accepts too.
+ * fleet's `commit-convention.yml`, the post-merge tripwire, exactly, so a title
+ * this accepts is one the tripwire accepts too.
  */
 
 export const COMMIT_TYPES = [
