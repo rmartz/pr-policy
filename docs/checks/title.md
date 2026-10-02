@@ -1,7 +1,7 @@
 ---
 type: Library
 title: Title-type rules
-description: The title check — the Conventional-Commit grammar a squash title must meet, the breaking-marker and label consistency rules, the dependency-major rule and its `contained break` waiver, dependency major bumps as breaking changes, when ci-typing is required or only recommended, the paths a docs, refactor, or test PR may change, why a shipped reusable workflow is product code, and the release-please exemption. Violations block until the title is edited; the check never renames a PR.
+description: The title check — the Conventional-Commit grammar a squash title must meet, the `[WIP]` marker block, the breaking-marker and label consistency rules, the dependency-major rule and its `contained break` waiver, dependency major bumps as breaking changes, when ci-typing is required or only recommended, the paths a docs, refactor, or test PR may change, why a shipped reusable workflow is product code, and the release-please exemption. Violations block until the title is edited; the check never renames a PR.
 resource: src/checks/title/index.ts
 tags: [pr-policy, title, conventional-commits, releases]
 ---
@@ -19,7 +19,8 @@ check never renames the PR itself.
 
 | Rule                     | Blocks when                                                                                                                                                           | Fix                                                                                                               |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Grammar**              | The title isn't `<type>[(<scope>)][!]: <subject>` with a known type. Same grammar as `pr-title-lint.yml` and `commit-convention.yml`.                                 | Retitle.                                                                                                          |
+| **`[WIP]` marker**       | The title contains `[WIP]` anywhere (any case). A marker inside a word or without brackets doesn't count. The other rules judge the title without it.                 | Remove `[WIP]` when the work is done.                                                                             |
+| **Grammar**              | The title isn't `<type>[(<scope>)][!]: <subject>` with a known type. Same grammar as `commit-convention.yml`, the post-merge tripwire.                                | Retitle.                                                                                                          |
 | **`!` type**             | `!` on a non-functional type (anything but `feat`/`fix`/`perf`/`revert`). It would cut a spurious major.                                                              | Drop the `!`.                                                                                                     |
 | **Label type**           | `breaking change` on a non-functional type.                                                                                                                           | Remove the label, or retitle to the functional type.                                                              |
 | **Label without `!`**    | A functional type labelled `breaking change` or `hotfix` whose title has no `!`, so the release would miss the major.                                                 | Add the `!` (the finding spells out the exact title).                                                             |

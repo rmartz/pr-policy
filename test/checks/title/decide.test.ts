@@ -39,7 +39,8 @@ describe('decideTitle — grammar', () => {
     expect(messages(pr('feat(cli): add --json'))).toEqual([]);
   });
 
-  it.each(['Add a feature', 'feature: add x', 'feat:no space', '[WIP] feat: x', 'feat!(cli): x'])(
+  // A leading `[WIP]` gets its own finding instead; see wip.test.ts.
+  it.each(['Add a feature', 'feature: add x', 'feat:no space', 'feat!(cli): x'])(
     'blocks a non-conventional title: %s',
     (title) => {
       expect(messages(pr(title))[0]).toContain('is not a Conventional Commit');
