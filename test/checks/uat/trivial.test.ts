@@ -30,6 +30,8 @@ describe('trivialCategories — exempt categories', () => {
         'e2e/login.ts',
         'tests/test_cli.py',
         'conftest.py',
+        'src/Button.stories.tsx',
+        'src/Intro.stories.mdx',
       ],
     ],
     ['ci', ['.github/workflows/ci.yml', '.github/actions/setup/action.yml']],
@@ -50,7 +52,7 @@ describe('trivialCategories — anything else holds', () => {
     ['an MDX page, which renders as UI', ['src/stories/Intro.mdx']],
     ['a root config file', ['next.config.ts']],
     ['a script', ['scripts/build.mjs']],
-    ['a Storybook story', ['src/Button.stories.tsx']],
+    ['a story alongside the component it covers', ['src/Button.stories.tsx', 'src/Button.tsx']],
   ])('does not exempt %s', (_what, files) => {
     expect(trivialCategories(pr(files))).toBeUndefined();
   });

@@ -1,7 +1,7 @@
 ---
 type: Library
 title: UAT sign-off
-description: The uat check — a hard merge gate that holds every PR until it is statically trivial or carries a trusted no UAT needed or UAT passed label — the trivial-PR rules and their fleet replay, the label actor check, turning the gate off for a repo without UAT, and what it deliberately leaves to other parties.
+description: The uat check — a hard merge gate that holds every PR until it is statically trivial, is titled refactor, or carries a trusted no UAT needed or UAT passed label — the trivial-PR rules and their fleet replay, the label actor check, turning the gate off for a repo without UAT, and what it deliberately leaves to other parties.
 resource: src/checks/uat/index.ts
 tags: [pr-policy, uat, sign-off, merge-gate]
 ---
@@ -13,7 +13,7 @@ gate. It **holds by default**: `pr-policy` stays pending until one of these is
 true.
 
 1. **The PR is statically trivial:** every path it touches is in an exempt
-   category (below).
+   category (below), or its title is a [`refactor`](#refactors).
 2. **`no UAT needed` is on the PR,** applied by the review agent or a person.
 3. **`UAT passed` is on the PR,** applied by a person. Its old name, `tested`,
    counts too while the fleet rename is in progress.
@@ -29,13 +29,13 @@ rename) falls in one of these categories. One path outside them and the gate
 holds. The rules **only ever exempt**; they never add a requirement. Deciding a
 PR _does_ need UAT is the review agent's judgment, expressed through the labels.
 
-| Category         | Paths                                                                                                                                                                                                                                                                                             |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **docs**         | `*.md` anywhere, and anything under `docs/`. Not `*.mdx`, which renders as UI.                                                                                                                                                                                                                    |
-| **tests**        | Anything under a `test`, `tests`, `__tests__`, `__snapshots__`, `__mocks__`, or `e2e` directory; `*.test.*` / `*.spec.*` JS and TS files; `test_*.py`, `*_test.py`, `conftest.py`; `*_test.go`. The title check's `test` and `refactor` rules share this definition (`src/checks/test-paths.ts`). |
-| **ci**           | `.github/workflows/**` and `.github/actions/**`, except a [shipped reusable workflow](title.md#shipped-reusable-workflows-are-product-code) (`workflow_call`-only), which is the product consumers call.                                                                                          |
-| **dependencies** | Lockfiles (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`, `poetry.lock`, `uv.lock`, …), `requirements*.txt`, and a `package.json` whose change touches **only** the dependency blocks and `packageManager`. A change to `scripts`, `exports`, or `pnpm.overrides` doesn't qualify.           |
-| **metadata**     | The rest of `.github/**` (Dependabot config, `CODEOWNERS`, templates), `.vscode/**`, and root-level `LICENSE`, `CODEOWNERS`, `.gitignore`, `.gitattributes`, `.editorconfig`.                                                                                                                     |
+| Category         | Paths                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **docs**         | `*.md` anywhere, and anything under `docs/`. Not `*.mdx`, which renders as UI.                                                                                                                                                                                                                                                                                                                                                                             |
+| **tests**        | Anything under a `test`, `tests`, `__tests__`, `__snapshots__`, `__mocks__`, or `e2e` directory; `*.test.*` / `*.spec.*` JS and TS files; Storybook stories (`*.stories.*` JS and TS files, and `*.stories.mdx`); `test_*.py`, `*_test.py`, `conftest.py`; `*_test.go`. A test-only change has nothing to user-test, and a story never ships in the app. The title check's `test` and `refactor` rules share this definition (`src/checks/test-paths.ts`). |
+| **ci**           | `.github/workflows/**` and `.github/actions/**`, except a [shipped reusable workflow](title.md#shipped-reusable-workflows-are-product-code) (`workflow_call`-only), which is the product consumers call.                                                                                                                                                                                                                                                   |
+| **dependencies** | Lockfiles (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`, `poetry.lock`, `uv.lock`, …), `requirements*.txt`, and a `package.json` whose change touches **only** the dependency blocks and `packageManager`. A change to `scripts`, `exports`, or `pnpm.overrides` doesn't qualify.                                                                                                                                                                    |
+| **metadata**     | The rest of `.github/**` (Dependabot config, `CODEOWNERS`, templates), `.vscode/**`, and root-level `LICENSE`, `CODEOWNERS`, `.gitignore`, `.gitattributes`, `.editorconfig`.                                                                                                                                                                                                                                                                              |
 
 The `package.json` rule parses both sides and compares what's left after
 removing the dependency fields. The same structural helpers back the
@@ -59,6 +59,14 @@ storybook-ci, and compared with the UAT label `/review` gave each one:
 
 There is no per-repo override yet. Add one only if a repo's replay shows rules
 that don't fit it.
+
+### Refactors
+
+A PR whose title parses as `refactor` (any scope) passes too, whatever code it
+changes. A refactor changes no behaviour, so there is nothing to user-test. The
+[title check](title.md) already blocks a `refactor` that touches a test file,
+and a behaviour change mislabeled `refactor` would also lose its release. Why a
+title may exempt here is in [decisions.md](../decisions.md#uat-needs-a-behaviour-change).
 
 ## Who can sign off
 

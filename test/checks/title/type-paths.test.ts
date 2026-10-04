@@ -98,4 +98,12 @@ describe('decideTitle — test changes only tests and docs', () => {
   it('counts a snapshot as a test', () => {
     expect(findings('test: update snapshots', ['src/__snapshots__/a.test.ts.snap'])).toEqual([]);
   });
+
+  it('counts a Storybook story as a test', () => {
+    expect(
+      findings('test(auth): add a story', [
+        'src/app/(auth)/forgot-password/ForgotPasswordFormView.stories.tsx',
+      ]),
+    ).toEqual([]);
+  });
 });
