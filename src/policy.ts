@@ -77,6 +77,11 @@ export interface PullRequestFacts {
   author?: PullRequestAuthor;
   /** The branch the PR merges into. `gatherFacts` always sets it. */
   base?: PullRequestBase;
+  /**
+   * Whether the PR is a draft, which GitHub won't merge. `gatherFacts` always
+   * sets it; absent reads as ready for review, so a WIP title fails closed.
+   */
+  draft?: boolean;
   labels: readonly string[];
   /** Every path the PR touches, including the old path of a rename. */
   changedFiles: readonly string[];

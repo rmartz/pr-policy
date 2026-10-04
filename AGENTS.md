@@ -166,8 +166,9 @@ Most of these are enforced by eslint. The intent:
   production bump is `fix(deps):` → patch, and a dev-dependency bump is a
   release-less `chore(deps):`.
 - **Three release guards** back the automatic flow:
-  [pr-title-lint.yml](.github/workflows/pr-title-lint.yml) checks the title
-  before merge.
+  the `title` check inside this repo's own required `pr-policy` check (which
+  runs the _released_ policy via pr-policy-action) checks the title before
+  merge.
   [commit-convention.yml](.github/workflows/commit-convention.yml) is the
   post-merge tripwire, because a non-conventional subject on `main` makes
   semantic-release skip the release. The shared

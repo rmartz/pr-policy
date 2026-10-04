@@ -282,8 +282,8 @@ The policy changed as it moved:
   would ever release it. Here it is a `block`: the fix is a retarget, which the
   author can make. A stacked PR still waiting on its base is a `hold`.
 
-The barrier is still in merge-safety until it is removed there; while both run,
-the stricter verdict wins. See [checks/base-branch.md](checks/base-branch.md).
+merge-safety has since removed its barrier (rmartz/merge-safety#80), so this
+check is the only one. See [checks/base-branch.md](checks/base-branch.md).
 
 ## Open
 

@@ -97,7 +97,7 @@ function parseBase(value: unknown): PullRequestBase | undefined {
 /**
  * Parse and validate a JSON facts document into `PullRequestFacts`.
  * `workflowChanges`, `manifestChanges`, and `signOffs` are optional and default
- * to none; `body`, `author`, and `base` are optional and stay absent. With no
+ * to none; `body`, `author`, `base`, and `draft` are optional and stay absent. With no
  * `signOffs`, no sign-off label counts: trust fails closed.
  */
 export function parseFacts(raw: string): PullRequestFacts {
@@ -110,6 +110,7 @@ export function parseFacts(raw: string): PullRequestFacts {
     body,
     author,
     base,
+    draft,
     labels,
     changedFiles,
     workflowChanges,
@@ -118,6 +119,9 @@ export function parseFacts(raw: string): PullRequestFacts {
   } = parsed as Record<string, unknown>;
   if (typeof title !== 'string') throw new Error('facts.title must be a string');
   if (!isOptionalString(body)) throw new Error('facts.body must be a string');
+  if (draft !== undefined && typeof draft !== 'boolean') {
+    throw new Error('facts.draft must be a boolean');
+  }
   if (!isStringArray(labels)) throw new Error('facts.labels must be a string array');
   if (!isStringArray(changedFiles)) throw new Error('facts.changedFiles must be a string array');
   const pr: PullRequestFacts = {
@@ -133,5 +137,6 @@ export function parseFacts(raw: string): PullRequestFacts {
   if (body !== undefined) pr.body = body;
   if (parsedAuthor !== undefined) pr.author = parsedAuthor;
   if (parsedBase !== undefined) pr.base = parsedBase;
+  if (draft !== undefined) pr.draft = draft;
   return pr;
 }

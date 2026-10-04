@@ -15,7 +15,18 @@ name: pr-policy
 
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+    # ready_for_review / converted_to_draft re-judge a WIP title on a draft flip.
+    types:
+      [
+        opened,
+        synchronize,
+        reopened,
+        edited,
+        labeled,
+        unlabeled,
+        ready_for_review,
+        converted_to_draft,
+      ]
 
 permissions:
   checks: write # post the pr-policy check-run

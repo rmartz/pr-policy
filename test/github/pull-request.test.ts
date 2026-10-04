@@ -19,6 +19,7 @@ const target = { repo: 'o/r', pr: 7 };
 const PR = JSON.stringify({
   title: 'ci: tweak',
   body: null,
+  draft: true,
   user: { login: 'dependabot[bot]', type: 'Bot' },
   head: { sha: 'head1' },
   base: { ref: 'main', repo: { default_branch: 'main' } },
@@ -50,6 +51,7 @@ describe('gatherFacts', () => {
     expect(facts.labels).toEqual(['DevOps']);
     expect(facts.author).toEqual({ login: 'dependabot[bot]', type: 'Bot' });
     expect(facts.body).toBe(''); // a null description reads as empty, never absent
+    expect(facts.draft).toBe(true);
     expect(facts.changedFiles).toEqual(['.github/workflows/ci.yml', 'src/a.ts']);
     expect(facts.workflowChanges).toEqual([
       { path: '.github/workflows/ci.yml', baseText: 'on: push\n', headText: 'on: [push]\n' },
