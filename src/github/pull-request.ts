@@ -19,6 +19,7 @@ export interface PullRequestTarget {
 interface PrApiShape {
   title: string;
   body: string | null;
+  draft: boolean;
   user: { login: string; type: string };
   head: { sha: string };
   base: { ref: string; repo: { default_branch: string } };
@@ -164,6 +165,7 @@ export async function gatherFacts(
     body: view.body ?? '',
     author: { login: view.user.login, type: view.user.type },
     base: await gatherBase(target, view),
+    draft: view.draft,
     labels,
     // A rename's old path counts too: moving code into docs/ is not docs-only.
     changedFiles: files.flatMap((file) =>

@@ -23,6 +23,7 @@ import { majorBumps } from './major-bump.js';
 import { sensitiveBumps } from './sensitive-bump.js';
 import { typePathViolation } from './type-paths.js';
 import { substantiveWorkflowChanges } from './workflow-change.js';
+import { stripWipMarker } from './wip.js';
 
 export const TITLE_CHECK = 'title';
 
@@ -32,19 +33,35 @@ function block(message: string): Finding {
   return { check: TITLE_CHECK, message, effect: 'block' };
 }
 
-/** Every title rule violated by this PR's current title, labels, and diff. */
+/**
+ * Every title rule violated by this PR's current title, labels, and diff. A WIP
+ * marker requires the PR to be a draft, which GitHub won't merge; a WIP draft is
+ * fine. The other rules judge the title without the marker, so a leading one
+ * reads as "not ready" rather than "not a Conventional Commit".
+ */
 export function decideTitle(pr: PullRequestFacts): CheckResult {
+  const { title, marked } = stripWipMarker(pr.title);
+  const { findings } = titleRules(pr, title);
+  // An absent `draft` reads as ready for review, so a WIP title fails closed.
+  if (!marked || pr.draft === true) return { findings };
+  const wip = block(
+    `The title carries a WIP marker, but the PR isn't a draft, so it could merge unfinished. Convert the PR to a draft while the work is in progress, or remove the marker from the title when it's done.`,
+  );
+  return { findings: [wip, ...findings] };
+}
+
+function titleRules(pr: PullRequestFacts, text: string): CheckResult {
   const labels = new Set(pr.labels.map((label) => label.toLowerCase()));
-  if (labels.has(RELEASE_PLEASE_PENDING_LABEL) || isReleasePleaseTitle(pr.title)) {
+  if (labels.has(RELEASE_PLEASE_PENDING_LABEL) || isReleasePleaseTitle(text)) {
     return { findings: [] };
   }
 
-  const title = parseTitle(pr.title);
+  const title = parseTitle(text);
   if (title === null) {
     return {
       findings: [
         block(
-          `\`${pr.title}\` is not a Conventional Commit. Expected \`<type>[(<scope>)][!]: <subject>\` with a type of ${COMMIT_TYPES.join(', ')}. Edit the title; it becomes the squash commit on \`main\`.`,
+          `\`${text}\` is not a Conventional Commit. Expected \`<type>[(<scope>)][!]: <subject>\` with a type of ${COMMIT_TYPES.join(', ')}. Edit the title; it becomes the squash commit on \`main\`.`,
         ),
       ],
     };

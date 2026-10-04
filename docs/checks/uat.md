@@ -1,7 +1,7 @@
 ---
 type: Library
 title: UAT sign-off
-description: The uat check — a hard merge gate that holds every PR until it is statically trivial or carries a trusted no UAT needed or UAT passed label — the trivial-PR rules and their fleet replay, the label actor check, turning the gate off for a repo without UAT, and what it deliberately leaves to other parties.
+description: The uat check — a hard merge gate that holds every PR until it is statically trivial, is titled refactor, or carries a trusted no UAT needed or UAT passed label — the trivial-PR rules and their fleet replay, the label actor check, turning the gate off for a repo without UAT, and what it deliberately leaves to other parties.
 resource: src/checks/uat/index.ts
 tags: [pr-policy, uat, sign-off, merge-gate]
 ---
@@ -13,7 +13,7 @@ gate. It **holds by default**: `pr-policy` stays pending until one of these is
 true.
 
 1. **The PR is statically trivial:** every path it touches is in an exempt
-   category (below).
+   category (below), or its title is a [`refactor`](#refactors).
 2. **`no UAT needed` is on the PR,** applied by the review agent or a person.
 3. **`UAT passed` is on the PR,** applied by a person. Its old name, `tested`,
    counts too while the fleet rename is in progress.
@@ -59,6 +59,14 @@ storybook-ci, and compared with the UAT label `/review` gave each one:
 
 There is no per-repo override yet. Add one only if a repo's replay shows rules
 that don't fit it.
+
+### Refactors
+
+A PR whose title parses as `refactor` (any scope) passes too, whatever code it
+changes. A refactor changes no behaviour, so there is nothing to user-test. The
+[title check](title.md) already blocks a `refactor` that touches a test file,
+and a behaviour change mislabeled `refactor` would also lose its release. Why a
+title may exempt here is in [decisions.md](../decisions.md#uat-needs-a-behaviour-change).
 
 ## Who can sign off
 

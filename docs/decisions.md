@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -183,6 +183,19 @@ satisfied. So the UAT gate moved in from pr-lifecycle as a check that
 Static rules **only exempt** a PR from UAT, never require it. Requiring UAT is
 a judgment the review agent makes and expresses through the labels.
 
+### UAT needs a behaviour change
+
+UAT tests behaviour, so a PR that can't change behaviour has nothing to test. Two
+kinds of PR are exempt on that ground:
+
+- **Test-only changes,** including Storybook stories. A test locks in behaviour
+  without changing it, and a story never ships in the app.
+- **Refactors,** judged by the `refactor` title type rather than by paths. The
+  title is the one signal of intent the paths can't give, and it is safe to
+  trust here: the title check blocks a `refactor` that touches a test, and a
+  behaviour change mislabeled `refactor` would also lose its release. It is
+  still current content, so it stays inside "content, not history".
+
 ### A repo without UAT turns the gate off in its caller
 
 Some repos have nothing to user-test (this one ships a library and an Action),
@@ -269,8 +282,8 @@ The policy changed as it moved:
   would ever release it. Here it is a `block`: the fix is a retarget, which the
   author can make. A stacked PR still waiting on its base is a `hold`.
 
-The barrier is still in merge-safety until it is removed there; while both run,
-the stricter verdict wins. See [checks/base-branch.md](checks/base-branch.md).
+merge-safety has since removed its barrier (rmartz/merge-safety#80), so this
+check is the only one. See [checks/base-branch.md](checks/base-branch.md).
 
 ## Open
 

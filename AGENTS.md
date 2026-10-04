@@ -158,16 +158,17 @@ Most of these are enforced by eslint. The intent:
   `package.json` by hand.** Its `version` is a frozen `0.0.0` placeholder, and
   nothing commits a version back to `main`. Config lives in
   [`.releaserc.json`](.releaserc.json).
-- **Version mapping (v0):** `feat:` → minor; `fix:` / `perf:` → patch. While
-  pre-1.0, a breaking change (`!`) is capped at a minor bump, so an accidental
-  `!` can't jump to `1.0.0`. `docs:` / `chore:` / `style:` / `refactor:` /
-  `test:` / `ci:` / `build:` don't release. Dependabot uses the split-prefix
-  convention: a production bump is `fix(deps):` → patch, and a
-  dev-dependency bump is a release-less `chore(deps):`. **Leaving v0 is a
-  deliberate act:** cut `1.0.0` manually and remove the cap rule.
+- **Version mapping:** a breaking change (`!`) → major; `feat:` → minor;
+  `fix:` / `perf:` → patch. A major reaches every consumer as a Dependabot
+  major bump, so reserve `!` for a real break in the library API or in what a
+  check enforces. `docs:` / `chore:` / `style:` / `refactor:` / `test:` / `ci:`
+  / `build:` don't release. Dependabot uses the split-prefix convention: a
+  production bump is `fix(deps):` → patch, and a dev-dependency bump is a
+  release-less `chore(deps):`.
 - **Three release guards** back the automatic flow:
-  [pr-title-lint.yml](.github/workflows/pr-title-lint.yml) checks the title
-  before merge.
+  the `title` check inside this repo's own required `pr-policy` check (which
+  runs the _released_ policy via pr-policy-action) checks the title before
+  merge.
   [commit-convention.yml](.github/workflows/commit-convention.yml) is the
   post-merge tripwire, because a non-conventional subject on `main` makes
   semantic-release skip the release. The shared
