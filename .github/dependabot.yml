@@ -21,10 +21,14 @@ updates:
       prefix: chore
       include: scope
     groups:
-      # Catch-all, majors included (repository checklist default).
+      # Catch-all for patch and minor only; each major opens its own PR
+      # (repository checklist default).
       github-actions:
         patterns:
           - '*'
+        update-types:
+          - minor
+          - patch
   - package-ecosystem: npm
     directory: /
     schedule:
@@ -50,11 +54,18 @@ updates:
       typescript:
         patterns:
           - 'typescript'
-      # Catch-all groups, majors included (repository checklist default).
+      # Catch-all groups for patch and minor only; each major opens its own PR
+      # (repository checklist default).
       dev-dependencies:
         dependency-type: development
         exclude-patterns:
           - 'prettier'
           - 'typescript'
+        update-types:
+          - minor
+          - patch
       production-dependencies:
         dependency-type: production
+        update-types:
+          - minor
+          - patch
