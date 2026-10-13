@@ -41,12 +41,17 @@ updates:
       prefix-development: chore
       include: scope
     groups:
-      # Prettier isolated into its own group (a recorded case-by-case call) so a
-      # reformatting bump can't hide in the catch-all — a Prettier minor can
-      # reformat the whole tree.
-      prettier:
+      # CI-sensitive tools in one group: pr-policy requires a `ci` title for any
+      # eslint/prettier version change (the formatter/linter can fail files a PR
+      # never touched), so they must not ride in a catch-all where they would
+      # block every routine bump. Plugins and configs move in lockstep with their
+      # tool. No update-types filter, so a major brings its family with it.
+      ci:
         patterns:
           - 'prettier'
+          - 'eslint'
+          - 'eslint-*'
+          - '@typescript-eslint/*'
       # TypeScript isolated (case-by-case choice): a compiler bump can change
       # type-checking across the whole codebase, and typescript-eslint pins a
       # supported TS range, so it warrants its own reviewable PR that can wait
