@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: read
+  statuses: write # post one `repo-hygiene / <check>` status per check
   packages: read
 
 jobs:
