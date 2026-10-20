@@ -54,10 +54,14 @@ function parseSignOffs(value: unknown): SignOff[] {
   return value.map((item, index) => {
     const where = `facts.signOffs[${index}]`;
     if (typeof item !== 'object' || item === null) throw new Error(`${where} must be an object`);
-    const { label, appliedBy } = item as Record<string, unknown>;
+    const { label, appliedBy, appliedAt } = item as Record<string, unknown>;
     if (typeof label !== 'string') throw new Error(`${where}.label must be a string`);
+    if (!isOptionalString(appliedAt)) throw new Error(`${where}.appliedAt must be a string`);
+    const signOff: SignOff = { label };
     const actor = parseActor(`${where}.appliedBy`, appliedBy);
-    return actor === undefined ? { label } : { label, appliedBy: actor };
+    if (actor !== undefined) signOff.appliedBy = actor;
+    if (appliedAt !== undefined) signOff.appliedAt = appliedAt;
+    return signOff;
   });
 }
 
@@ -97,8 +101,9 @@ function parseBase(value: unknown): PullRequestBase | undefined {
 /**
  * Parse and validate a JSON facts document into `PullRequestFacts`.
  * `workflowChanges`, `manifestChanges`, and `signOffs` are optional and default
- * to none; `body`, `author`, `base`, and `draft` are optional and stay absent. With no
- * `signOffs`, no sign-off label counts: trust fails closed.
+ * to none; `body`, `author`, `base`, `draft`, and `headPushedAt` are optional and
+ * stay absent. With no `signOffs`, no sign-off label counts, and with no
+ * `headPushedAt`, no `UAT passed` does: trust fails closed.
  */
 export function parseFacts(raw: string): PullRequestFacts {
   const parsed: unknown = JSON.parse(raw);
@@ -116,9 +121,11 @@ export function parseFacts(raw: string): PullRequestFacts {
     workflowChanges,
     manifestChanges,
     signOffs,
+    headPushedAt,
   } = parsed as Record<string, unknown>;
   if (typeof title !== 'string') throw new Error('facts.title must be a string');
   if (!isOptionalString(body)) throw new Error('facts.body must be a string');
+  if (!isOptionalString(headPushedAt)) throw new Error('facts.headPushedAt must be a string');
   if (draft !== undefined && typeof draft !== 'boolean') {
     throw new Error('facts.draft must be a boolean');
   }
@@ -138,5 +145,6 @@ export function parseFacts(raw: string): PullRequestFacts {
   if (parsedAuthor !== undefined) pr.author = parsedAuthor;
   if (parsedBase !== undefined) pr.base = parsedBase;
   if (draft !== undefined) pr.draft = draft;
+  if (headPushedAt !== undefined) pr.headPushedAt = headPushedAt;
   return pr;
 }

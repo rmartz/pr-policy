@@ -33,6 +33,8 @@ export interface LabelActor {
 export interface SignOff {
   label: string;
   appliedBy?: LabelActor;
+  /** When its latest `labeled` event happened (ISO 8601), as GitHub records it. */
+  appliedAt?: string;
 }
 
 /** The account that opened a PR, as GitHub reports it (`dependabot[bot]`, `Bot`). */
@@ -91,6 +93,13 @@ export interface PullRequestFacts {
   manifestChanges: readonly FileChange[];
   /** Who applied each sign-off label present on the PR. */
   signOffs: readonly SignOff[];
+  /**
+   * When the current head was pushed (ISO 8601), from times the author can't
+   * forge: the latest force-push event and the head commit's earliest check
+   * suite, never a commit date. `gatherFacts` sets it whenever a head-bound
+   * sign-off (`UAT passed`, `tested`) is on the PR; absent, those don't count.
+   */
+  headPushedAt?: string;
 }
 
 /**

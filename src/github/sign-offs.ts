@@ -15,6 +15,7 @@ interface LabelEvent {
   label: string;
   login: string | null;
   type: string | null;
+  at: string;
 }
 
 async function listLabelEvents(target: PullRequestTarget): Promise<LabelEvent[]> {
@@ -26,7 +27,7 @@ async function listLabelEvents(target: PullRequestTarget): Promise<LabelEvent[]>
         '--paginate',
         `repos/${target.repo}/issues/${target.pr}/events`,
         '--jq',
-        '.[] | select(.event == "labeled") | {label: .label.name, login: .actor.login, type: .actor.type}',
+        '.[] | select(.event == "labeled") | {label: .label.name, login: .actor.login, type: .actor.type, at: .created_at}',
       ],
     },
     null,
@@ -82,11 +83,12 @@ export async function gatherSignOffs(
   return Promise.all(
     present.map(async (label): Promise<SignOff> => {
       const event = latest.get(label);
-      if (event === undefined || event.login === null) return { label };
+      if (event === undefined) return { label };
+      if (event.login === null) return { label, appliedAt: event.at };
       const type = event.type ?? 'unknown actor';
       // Only a person can sign off, so a bot skips the permission lookup.
       const permission = type === 'User' ? await lookupPermission(target, event.login) : 'none';
-      return { label, appliedBy: { login: event.login, type, permission } };
+      return { label, appliedBy: { login: event.login, type, permission }, appliedAt: event.at };
     }),
   );
 }

@@ -99,16 +99,49 @@ describe('gatherFacts', () => {
     responses.set('repos/o/r/pulls/7/files', '');
     responses.set(
       'repos/o/r/issues/7/events',
-      JSON.stringify({ label: 'UAT passed', login: 'reed', type: 'User' }),
+      JSON.stringify({
+        label: 'UAT passed',
+        login: 'reed',
+        type: 'User',
+        at: '2026-10-01T13:00:00Z',
+      }),
     );
     responses.set(
       'repos/o/r/collaborators/reed/permission',
       JSON.stringify({ permission: 'admin', role_name: 'admin' }),
     );
+    responses.set('repos/o/r/commits/head1/check-suites', '2026-10-01T12:00:00Z');
     const { facts } = await gatherFacts(target);
     expect(facts.signOffs).toEqual([
-      { label: 'UAT passed', appliedBy: { login: 'reed', type: 'User', permission: 'admin' } },
+      {
+        label: 'UAT passed',
+        appliedBy: { login: 'reed', type: 'User', permission: 'admin' },
+        appliedAt: '2026-10-01T13:00:00Z',
+      },
     ]);
+  });
+
+  it('gathers when the head was pushed while a head-bound sign-off is on the PR', async () => {
+    responses.set(
+      'repos/o/r/pulls/7',
+      JSON.stringify({ ...JSON.parse(PR), labels: [{ name: 'tested' }] }),
+    );
+    responses.set('repos/o/r/pulls/7/files', '');
+    responses.set('repos/o/r/issues/7/events', '');
+    responses.set('repos/o/r/commits/head1/check-suites', '2026-10-01T12:00:00Z');
+    const { facts } = await gatherFacts(target);
+    expect(facts.headPushedAt).toBe('2026-10-01T12:00:00.000Z');
+  });
+
+  it('skips the push-time reads when only a waiver is on the PR', async () => {
+    responses.set(
+      'repos/o/r/pulls/7',
+      JSON.stringify({ ...JSON.parse(PR), labels: [{ name: 'no UAT needed' }] }),
+    );
+    responses.set('repos/o/r/pulls/7/files', '');
+    responses.set('repos/o/r/issues/7/events', '');
+    const { facts } = await gatherFacts(target);
+    expect(facts.headPushedAt).toBeUndefined();
   });
 
   it('gathers a default base without looking up the PRs it heads', async () => {

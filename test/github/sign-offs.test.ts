@@ -45,6 +45,28 @@ describe('gatherSignOffs', () => {
     ]);
   });
 
+  it('records when the latest labeling happened', async () => {
+    responses.set(
+      EVENTS,
+      [
+        JSON.stringify({
+          label: 'UAT passed',
+          login: 'reed',
+          type: 'User',
+          at: '2026-10-01T10:00:00Z',
+        }),
+        JSON.stringify({
+          label: 'UAT passed',
+          login: 'reed',
+          type: 'User',
+          at: '2026-10-02T10:00:00Z',
+        }),
+      ].join('\n'),
+    );
+    const [signOff] = await gatherSignOffs(target, ['UAT passed']);
+    expect(signOff?.appliedAt).toBe('2026-10-02T10:00:00Z');
+  });
+
   it('falls back to the legacy level for a custom role', async () => {
     responses.set(EVENTS, event('tested', 'reed'));
     responses.set(
