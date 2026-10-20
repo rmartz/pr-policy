@@ -105,9 +105,10 @@ only when a user with write, maintain, or admin permission applied it (see
 
 Read-only here. **This package never applies or removes them.** Any one of them,
 applied by a trusted user, passes the [UAT gate](checks/uat.md). `UAT passed`
-is a person's statement that they tested the PR. `tested` is its old name, read
-until the fleet finishes the rename. `no UAT needed` is a waiver from
-the review agent or a person.
+is a person's statement that they tested the PR's current head, so it (and
+`tested`) counts only when applied after that head was pushed. `tested` is its
+old name, read until the fleet finishes the rename. `no UAT needed` is a waiver
+from the review agent or a person, and isn't bound to a head.
 
 ## `contained break`: the dependency-major waiver
 

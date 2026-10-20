@@ -23,6 +23,24 @@ describe('parseFacts', () => {
     expect(parseFacts(raw).signOffs).toEqual(signOffs);
   });
 
+  it('accepts when a sign-off was applied and when the head was pushed', () => {
+    const raw = JSON.stringify({
+      title: 't',
+      labels: [],
+      changedFiles: [],
+      signOffs: [{ label: 'UAT passed', appliedAt: '2026-10-01T13:00:00Z' }],
+      headPushedAt: '2026-10-01T12:00:00Z',
+    });
+    const facts = parseFacts(raw);
+    expect(facts.signOffs[0]?.appliedAt).toBe('2026-10-01T13:00:00Z');
+    expect(facts.headPushedAt).toBe('2026-10-01T12:00:00Z');
+  });
+
+  it('leaves the head push time absent when the document has none', () => {
+    const raw = JSON.stringify({ title: 't', labels: [], changedFiles: [] });
+    expect(parseFacts(raw)).not.toHaveProperty('headPushedAt');
+  });
+
   it('accepts the description and author when present', () => {
     const author = { login: 'dependabot[bot]', type: 'Bot' };
     const raw = JSON.stringify({
@@ -113,6 +131,16 @@ describe('parseFacts', () => {
       'a sign-off with an unknown permission',
       '{"title":"t","labels":[],"changedFiles":[],"signOffs":[{"label":"tested","appliedBy":{"login":"a","type":"User","permission":"owner"}}]}',
       'facts.signOffs[0].appliedBy.permission',
+    ],
+    [
+      'a non-string sign-off time',
+      '{"title":"t","labels":[],"changedFiles":[],"signOffs":[{"label":"tested","appliedAt":1}]}',
+      'facts.signOffs[0].appliedAt must be a string',
+    ],
+    [
+      'a non-string head push time',
+      '{"title":"t","labels":[],"changedFiles":[],"headPushedAt":1}',
+      'facts.headPushedAt must be a string',
     ],
   ])('rejects %s', (_case, raw, message) => {
     expect(() => parseFacts(raw)).toThrow(message);
