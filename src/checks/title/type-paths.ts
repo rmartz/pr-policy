@@ -22,13 +22,15 @@ export type TypePathFacts = PathContext & { changedFiles: readonly string[] };
  * Path kinds a CI or tooling change may touch. A CI-sensitive tool's version
  * bump is a `tooling-manifest`, so the `ci(deps):` retitle the sensitive-bump
  * rule asks for always passes here. Tests never ship, and a CI change often
- * updates a test that pins workflow behaviour, so they are allowed too.
+ * updates a test that pins workflow behaviour, so they are allowed too, as are
+ * the repo's own `scripts/` (audits, CI checks, release helpers).
  */
 const CI_KINDS: ReadonlySet<PathKind> = new Set([
   'docs',
   'tests',
   'ci',
   'tooling-config',
+  'repo-script',
   'lockfile',
   'tooling-manifest',
   'metadata',
@@ -65,7 +67,7 @@ export function typePathViolation(type: CommitType, facts: TypePathFacts): strin
       return kind === undefined || !CI_KINDS.has(kind);
     });
     if (offending.length === 0) return undefined;
-    return `A \`ci\` PR may change only CI and tooling (\`.github/\`, linter, formatter, and test-runner config, lockfiles, dev-tool versions, tests, and docs), but this one changes ${quote(offending)}. A \`package.json\` counts only when nothing but dev-dependency or lint/format tool versions changed. \`ci\` doesn't release and needs no UAT, so that change would ship untested in someone else's release. Retitle to the type of that change, or split it into its own PR.`;
+    return `A \`ci\` PR may change only CI and tooling (\`.github/\`, linter, formatter, and test-runner config, \`scripts/\`, lockfiles, dev-tool versions, tests, and docs), but this one changes ${quote(offending)}. A \`package.json\` counts only when nothing but dev-dependency or lint/format tool versions changed. \`ci\` doesn't release and needs no UAT, so that change would ship untested in someone else's release. Retitle to the type of that change, or split it into its own PR.`;
   }
   return undefined;
 }

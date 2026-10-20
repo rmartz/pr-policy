@@ -127,12 +127,25 @@ A `ci` PR may change:
   `vitest.config.*`, `jest.config.*`, `playwright.config.*`, `ruff.toml`,
   `.flake8`, `pylintrc`, `mypy.ini`, `pytest.ini`, `.pre-commit-config.yaml`,
   `.repo-hygiene.yml`, `.releaserc*`, `commitlint.config.*`, and the like;
+- the repo's own scripts under a top-level `scripts/` (audits, CI check scripts,
+  release helpers);
 - lockfiles, and a manifest whose only change is to a dev or tooling dependency;
 - tests, since a CI change often updates a test that pins workflow behaviour,
   and docs.
 
-Build and app config (`tsconfig.json`, `next.config.*`, bundler config) and
-scripts outside `.github/` are not CI paths: they can change what ships.
+Two kinds of change stay blocked, because each can change what ships:
+
+- **`package.json` outside the dependency blocks:** `scripts`, `publishConfig`,
+  `exports`, release config. These decide how the package builds and what it
+  publishes.
+- **Build, app, and deploy config:** `tsconfig.json`, `next.config.*`, bundler
+  config, `vercel.json`, `turbo.json`.
+
+A `scripts/` file can also feed a build (`vercel-ignore-build.mjs` decides
+whether a deploy happens), but in the fleet replay every `ci` PR that changed
+one was repo tooling, so `ci` may change it and the review judges the rest. A
+`scripts/` directory nested in a package is not covered. The UAT gate still
+doesn't exempt `scripts/`.
 
 The `ci(deps):` retitle that the [sensitive-tool rule](#the-rules) asks for
 always passes. A bump of `eslint`, `prettier`, `black`, `ruff`, or `pylint`

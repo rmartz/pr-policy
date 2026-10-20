@@ -228,10 +228,49 @@ describe('decideTitle — ci changes only CI and tooling', () => {
     ).toEqual([]);
   });
 
-  it('blocks a ci PR that changes a CI script outside .github/', () => {
-    expect(findings('ci: audit config', ['scripts/audit.mjs'])[0]?.message).toContain(
-      '`scripts/audit.mjs`',
+  it('passes a ci PR that changes repo scripts, at any depth under scripts/', () => {
+    expect(
+      findings('ci(hygiene): move checks', [
+        '.github/workflows/hygiene.yml',
+        'scripts/check-action-pins.mjs',
+        'scripts/lib/dependabot-audit.mjs',
+      ]),
+    ).toEqual([]);
+  });
+
+  it('blocks a ci PR that changes a scripts/ directory nested in a package', () => {
+    expect(findings('ci: tweak', ['packages/web/scripts/build.mjs'])[0]?.message).toContain(
+      '`packages/web/scripts/build.mjs`',
     );
+  });
+
+  it('counts a rename out of source into scripts/ as a source change', () => {
+    const [finding] = findings('ci: move helper', ['src/release.ts', 'scripts/release.ts']);
+    expect(finding?.message).toContain('`src/release.ts`');
+    expect(finding?.message).not.toContain('`scripts/release.ts`');
+  });
+
+  it.each([
+    ['publishConfig', { publishConfig: { provenance: true } }],
+    ['scripts', { scripts: { build: 'tsup', lint: 'eslint .' } }],
+  ])(
+    'blocks a ci PR whose package.json changes %s, which can change what ships',
+    (_field, extra) => {
+      const facts = manifest({ ...BASE_MANIFEST, ...extra });
+      expect(
+        findings('ci(release): publish via OIDC', ['package.json'], facts)[0]?.message,
+      ).toContain('`package.json`');
+    },
+  );
+
+  it('blocks a ci PR that changes deploy config', () => {
+    const [finding] = findings('ci(preview): adopt shared workflow', [
+      '.github/workflows/preview.yml',
+      'scripts/vercel-ignore-build.mjs',
+      'vercel.json',
+    ]);
+    expect(finding?.message).toContain('`vercel.json`');
+    expect(finding?.message).not.toContain('`scripts/vercel-ignore-build.mjs`');
   });
 
   it('blocks a ci(deps) bump of a runtime dependency', () => {

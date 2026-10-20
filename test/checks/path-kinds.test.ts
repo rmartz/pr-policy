@@ -28,11 +28,12 @@ describe('pathKind — by path', () => {
     ['eslint.config.mjs', 'tooling-config'],
     ['packages/web/vitest.config.ts', 'tooling-config'],
     ['.pre-commit-config.yaml', 'tooling-config'],
+    ['scripts/lib/audit.mjs', 'repo-script'],
   ])('reads %s as %s', (path, kind) => {
     expect(pathKind(path, none)).toBe(kind);
   });
 
-  it.each(['src/index.ts', 'tsconfig.json', 'next.config.ts', 'scripts/build.mjs', 'action.yml'])(
+  it.each(['src/index.ts', 'tsconfig.json', 'next.config.ts', 'vercel.json', 'action.yml'])(
     'reads %s as possible product code',
     (path) => {
       expect(pathKind(path, none)).toBeUndefined();

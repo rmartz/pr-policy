@@ -157,6 +157,12 @@ lands first as a `test:` PR. The strictness is deliberate: a refactor that must
 update test imports is split too. The rules read the changed paths, plus both
 sides of a changed workflow or manifest, so they stay content-only.
 
+The `ci` rule allows the repo's own `scripts/**`, because a replay of 283 fleet
+`ci:` PRs found those changes were always repo tooling (audits, CI checks,
+release helpers). It keeps blocking `package.json` fields outside the
+dependency blocks and build or deploy config (`vercel.json`, `tsconfig.json`):
+each decides what is built, published, or deployed, so it can change what ships.
+
 The `ci` rule exists because rmartz/pr-lifecycle#115 exempts these four types
 from UAT, and the author picks the title. An unchecked type would be a way
 around UAT, so the exemption is only as strong as these rules. The `ci` rule and

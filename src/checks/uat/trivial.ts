@@ -29,6 +29,7 @@ function categoryOf(kind: PathKind | undefined): TrivialCategory | undefined {
     case 'runtime-manifest':
       return 'dependencies';
     case 'tooling-config':
+    case 'repo-script':
     case undefined:
       return undefined;
   }

@@ -21,6 +21,7 @@ export const PATH_KINDS = [
   'tests',
   'ci',
   'tooling-config',
+  'repo-script',
   'lockfile',
   'tooling-manifest',
   'runtime-manifest',
@@ -192,5 +193,8 @@ export function pathKind(path: string, context: PathContext): PathKind | undefin
   if (parts[0] === '.github' || parts[0] === '.vscode') return 'metadata';
   if (parts.length === 1 && ROOT_METADATA.test(name)) return 'metadata';
   if (TOOLING_CONFIG.test(name)) return 'tooling-config';
+  // The repo's own tooling scripts (audits, CI checks, release helpers). One can
+  // still feed a build, so the UAT gate doesn't exempt it; `ci` may change it.
+  if (parts[0] === 'scripts' && parts.length > 1) return 'repo-script';
   return undefined;
 }
