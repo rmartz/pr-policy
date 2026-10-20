@@ -139,7 +139,7 @@ function titleRules(pr: PullRequestFacts, text: string): CheckResult {
     }
   }
 
-  const pathViolation = typePathViolation(title.type, pr.changedFiles);
+  const pathViolation = typePathViolation(title.type, pr);
   if (pathViolation !== undefined) findings.push(block(pathViolation));
 
   // A release type is never told to become `ci`: that would suppress the

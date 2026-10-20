@@ -3,79 +3,35 @@
  * only ever **exempt**: a PR is trivial when every path it touches falls in an
  * exempt category, and a single path outside them leaves the gate holding. They
  * never add a requirement; the review agent's judgment, expressed through the
- * labels, covers that. Replay against merged fleet PRs is recorded in
+ * labels, covers that. The path kinds themselves live in ../path-kinds.ts,
+ * shared with the title check. Replay against merged fleet PRs is recorded in
  * docs/checks/uat.md.
  */
-import { asRecord, deepEqual } from '../ci-change/structure.js';
-import type { FileChange, PullRequestFacts } from '../../policy.js';
-import { DEPENDENCY_FIELDS, isManifestPath } from '../title/sensitive-bump.js';
-import { isShippedReusableWorkflow } from '../title/workflow-change.js';
-import { isTestPath } from '../test-paths.js';
+import type { PullRequestFacts } from '../../policy.js';
+import { pathKind, type PathKind } from '../path-kinds.js';
 
 export const TRIVIAL_CATEGORIES = ['docs', 'tests', 'ci', 'dependencies', 'metadata'] as const;
 export type TrivialCategory = (typeof TRIVIAL_CATEGORIES)[number];
 
-export const LOCKFILES = new Set([
-  'pnpm-lock.yaml',
-  'package-lock.json',
-  'npm-shrinkwrap.json',
-  'yarn.lock',
-  'poetry.lock',
-  'uv.lock',
-  'Pipfile.lock',
-  'Cargo.lock',
-  'go.sum',
-]);
-
-const ROOT_METADATA =
-  /^(LICEN[CS]E|COPYING)(\..+)?$|^CODEOWNERS$|^\.(gitignore|gitattributes|editorconfig)$/;
-
 /**
- * Whether a `package.json` change touches only dependency versions: the
- * dependency blocks and `packageManager` may differ, and nothing else. A change
- * to `scripts`, `exports`, or `pnpm.overrides` can change what ships, so it
- * doesn't qualify. An added, deleted, or unparseable manifest doesn't either.
+ * The UAT category of a path kind. Tooling config can change what a check lets
+ * through, so it stays with the review's judgment.
  */
-function isDependencyOnlyManifest(change: FileChange | undefined): boolean {
-  if (change?.baseText === undefined || change.headText === undefined) return false;
-  const strip = (text: string): unknown => {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
+function categoryOf(kind: PathKind | undefined): TrivialCategory | undefined {
+  switch (kind) {
+    case 'docs':
+    case 'tests':
+    case 'ci':
+    case 'metadata':
+      return kind;
+    case 'lockfile':
+    case 'tooling-manifest':
+    case 'runtime-manifest':
+      return 'dependencies';
+    case 'tooling-config':
+    case undefined:
       return undefined;
-    }
-    const record = asRecord(parsed);
-    if (record === undefined) return undefined;
-    const rest = { ...record };
-    for (const field of [...DEPENDENCY_FIELDS, 'packageManager']) delete rest[field];
-    return rest;
-  };
-  const before = strip(change.baseText);
-  const after = strip(change.headText);
-  return before !== undefined && after !== undefined && deepEqual(before, after);
-}
-
-function categoryOf(path: string, pr: PullRequestFacts): TrivialCategory | undefined {
-  const parts = path.split('/');
-  const name = parts[parts.length - 1] ?? '';
-
-  if (name.endsWith('.md') || parts[0] === 'docs') return 'docs';
-  if (isTestPath(path)) return 'tests';
-  if (path.startsWith('.github/workflows/') || path.startsWith('.github/actions/')) {
-    // A shipped reusable workflow is the product consumers call, not this repo's CI.
-    const change = pr.workflowChanges.find((file) => file.path === path);
-    return change !== undefined && isShippedReusableWorkflow(change) ? undefined : 'ci';
   }
-  if (LOCKFILES.has(name)) return 'dependencies';
-  if (isManifestPath(path)) {
-    if (name !== 'package.json') return 'dependencies'; // requirements*.txt holds only pins
-    const change = pr.manifestChanges.find((file) => file.path === path);
-    return isDependencyOnlyManifest(change) ? 'dependencies' : undefined;
-  }
-  if (parts[0] === '.github' || parts[0] === '.vscode') return 'metadata';
-  if (parts.length === 1 && ROOT_METADATA.test(name)) return 'metadata';
-  return undefined;
 }
 
 /**
@@ -85,7 +41,7 @@ function categoryOf(path: string, pr: PullRequestFacts): TrivialCategory | undef
 export function trivialCategories(pr: PullRequestFacts): TrivialCategory[] | undefined {
   const found = new Set<TrivialCategory>();
   for (const path of pr.changedFiles) {
-    const category = categoryOf(path, pr);
+    const category = categoryOf(pathKind(path, pr));
     if (category === undefined) return undefined;
     found.add(category);
   }

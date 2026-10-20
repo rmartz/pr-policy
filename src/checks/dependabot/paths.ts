@@ -9,8 +9,8 @@
  *   The check says so rather than implying it read them.
  */
 import { isWorkflowPath } from '../ci-change/workflow-paths.js';
+import { isLockfile } from '../path-kinds.js';
 import { isManifestPath } from '../title/sensitive-bump.js';
-import { LOCKFILES } from '../uat/trivial.js';
 
 export const DEPENDENCY_PATH_KINDS = [
   'manifest',
@@ -43,8 +43,8 @@ const DOCKERFILE = /^(Dockerfile|Containerfile)([.-].+)?$|\.Dockerfile$|^docker-
 export function dependencyPathKind(path: string): DependencyPathKind | undefined {
   if (isWorkflowPath(path)) return 'workflow';
   if (isManifestPath(path)) return 'manifest';
+  if (isLockfile(path)) return 'lockfile';
   const name = path.slice(path.lastIndexOf('/') + 1);
-  if (LOCKFILES.has(name)) return 'lockfile';
   if (OTHER_ECOSYSTEM_FILES.has(name) || DOCKERFILE.test(name)) return 'other-ecosystem';
   return undefined;
 }
