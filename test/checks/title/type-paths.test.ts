@@ -134,101 +134,36 @@ const manifest = (head: object): { manifestChanges: FileChange[] } => ({
   ],
 });
 
-const devBump = manifest({
-  ...BASE_MANIFEST,
-  devDependencies: { vitest: '^3.2.0', eslint: '^9.30.0' },
-});
 const runtimeBump = manifest({ ...BASE_MANIFEST, dependencies: { yaml: '^2.9.0' } });
 const eslintBump = manifest({
   ...BASE_MANIFEST,
   devDependencies: { vitest: '^3.1.0', eslint: '^9.31.0' },
 });
 
-const pinBump: FileChange = {
-  path: '.github/workflows/ci.yml',
-  baseText:
-    'on: push\njobs:\n  a:\n    runs-on: x\n    steps:\n      - uses: actions/checkout@aaa # v4.1.0\n',
-  headText:
-    'on: push\njobs:\n  a:\n    runs-on: x\n    steps:\n      - uses: actions/checkout@bbb # v4.2.0\n',
-};
-
-describe('decideTitle — chore changes nothing that ships', () => {
-  it('passes a chore(deps) dev-dependency bump with its lockfile', () => {
+describe('decideTitle — chore is left to the review', () => {
+  it('says nothing about the paths a chore changes, even source and runtime dependencies', () => {
+    // "Changes no behaviour" is a content judgement, so no path rule applies.
     expect(
-      findings('chore(deps): bump vitest', ['package.json', 'pnpm-lock.yaml'], devBump),
+      findings(
+        'chore: restructure modules',
+        ['src/a/index.ts', 'src/b/index.ts', 'package.json'],
+        runtimeBump,
+      ),
     ).toEqual([]);
   });
+});
 
-  it('passes a chore(deps) GitHub Actions bump', () => {
-    const facts = { workflowChanges: [pinBump] };
-    expect(findings('chore(deps): bump actions/checkout', [pinBump.path], facts)).toEqual([]);
-  });
-
-  it('passes a chore that touches docs, tests, metadata, and CI together', () => {
-    expect(
-      findings('chore: tidy repo', [
-        'README.md',
-        'test/a.test.ts',
-        '.gitignore',
-        '.github/dependabot.yml',
-      ]),
-    ).toEqual([]);
-  });
-
-  it('blocks a chore that touches source, naming only the offending path', () => {
-    const [finding] = findings('chore: tidy', ['README.md', 'src/index.ts']);
-    expect(finding?.effect).toBe('block');
-    expect(finding?.message).toContain('`src/index.ts`');
-    expect(finding?.message).not.toContain('`README.md`');
-    expect(finding?.message).toContain('Retitle');
-  });
-
-  it('blocks a chore(deps) that bumps a runtime dependency', () => {
-    const [finding] = findings(
-      'chore(deps): bump yaml',
-      ['package.json', 'pnpm-lock.yaml'],
-      runtimeBump,
-    );
-    expect(finding?.message).toContain('`package.json`');
-  });
-
-  it('blocks a chore whose manifest change reaches past the dependency blocks', () => {
-    const scripts = manifest({ ...BASE_MANIFEST, scripts: { build: 'tsc' } });
-    expect(findings('chore: switch build', ['package.json'], scripts)[0]?.message).toContain(
-      '`package.json`',
-    );
-  });
-
-  it('blocks a chore that edits linter config, which is a ci change', () => {
-    expect(findings('chore: relax lint', ['eslint.config.mjs'])[0]?.message).toContain(
-      '`eslint.config.mjs`',
-    );
-  });
-
-  it('blocks a chore that edits a shipped reusable workflow', () => {
+describe('decideTitle — ci changes only CI and tooling', () => {
+  it('blocks a ci PR that edits a shipped reusable workflow, which is product code', () => {
     const shipped: FileChange = {
       path: '.github/workflows/release.yml',
       baseText: 'on: workflow_call\njobs: {}\n',
       headText: 'on: workflow_call\njobs: { a: {} }\n',
     };
-    const [finding] = findings('chore: tweak release', [shipped.path], {
-      workflowChanges: [shipped],
-    });
+    const [finding] = findings('ci: tweak release', [shipped.path], { workflowChanges: [shipped] });
     expect(finding?.message).toContain('`.github/workflows/release.yml`');
   });
 
-  it('counts a rename out of source into an allowed path as a source change', () => {
-    // pull-request.ts records a rename's old path alongside the new one.
-    const [finding] = findings('chore: move notes', ['src/notes.ts', 'docs/notes.ts']);
-    expect(finding?.message).toContain('`src/notes.ts`');
-  });
-
-  it('leaves a release-please release PR alone', () => {
-    expect(findings('chore(main): release 1.2.0', ['package.json', 'CHANGELOG.md'])).toEqual([]);
-  });
-});
-
-describe('decideTitle — ci changes only CI and tooling', () => {
   it('passes a ci PR that touches only workflows', () => {
     expect(
       findings('ci: cache pnpm', ['.github/workflows/ci.yml', '.github/workflows/lint.yml']),

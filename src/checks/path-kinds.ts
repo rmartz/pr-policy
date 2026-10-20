@@ -2,7 +2,7 @@
  * What kind of file a changed path is, judged from the path and, for a workflow
  * or a manifest, from both sides of its content. One definition backs every
  * check that sorts paths: the UAT gate's trivial-path exemptions and the title
- * check's `chore` and `ci` rules. Keep them reading the same kinds, so a path is
+ * check's `ci` rule. Keep them reading the same kinds, so a path is
  * never harmless to one check and product code to another.
  */
 import { asRecord, deepEqual } from './ci-change/structure.js';

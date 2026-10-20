@@ -144,12 +144,11 @@ It stays a `block`, not a `hold`: the author can always clear it by adding the
 add-only label, which re-added itself after every human removal
 (rmartz/merge-safety#82).
 
-### Every non-releasing type is checked against its paths
+### `docs`, `refactor`, `test`, and `ci` are checked against their paths
 
 A `docs` PR may change only Markdown, a `test` PR only test files and Markdown,
-and a `refactor` PR no test file (rmartz/pr-policy#28). A `chore` PR may change
-only files that can't change what ships, and a `ci` PR only CI and tooling
-(rmartz/pr-policy#86). All five block.
+and a `refactor` PR no test file (rmartz/pr-policy#28). A `ci` PR may change
+only CI and tooling (rmartz/pr-policy#86). All four block.
 Markdown is always docs, so `test` and `refactor` may update docs alongside
 their change. A `docs` or
 `test` title on code hides the change from the release. A refactor that edits
@@ -158,11 +157,21 @@ lands first as a `test:` PR. The strictness is deliberate: a refactor that must
 update test imports is split too. The rules read the changed paths, plus both
 sides of a changed workflow or manifest, so they stay content-only.
 
-The `chore` and `ci` rules exist because rmartz/pr-lifecycle#115 exempts all
-five types from UAT, and the author picks the title. An unchecked type would be
-a way around UAT, so the exemption is only as strong as these rules. `chore`
-reuses the UAT trivial-path kinds rather than its own list, from one module
-(`src/checks/path-kinds.ts`), so the two can't drift.
+The `ci` rule exists because rmartz/pr-lifecycle#115 exempts these four types
+from UAT, and the author picks the title. An unchecked type would be a way
+around UAT, so the exemption is only as strong as these rules. The `ci` rule and
+the UAT trivial-path rules read one module (`src/checks/path-kinds.ts`), so they
+can't drift.
+
+### `chore` is left to the review
+
+`chore` claims the PR changes no behaviour, and that is a judgement about
+content that no path list captures. Moving modules from a horizontal to a
+vertical layout touches only source and changes nothing; a one-line config edit
+can change everything. A static rule would either block honest chores or pass
+dishonest ones, so the review judges it. The consequence is that a `chore`
+title can't exempt a PR from UAT: pr-lifecycle#115 judges it by the trivial-path
+rules, like `feat` or `fix`, and leaves the rest to the review.
 
 ### An own-CI change is never forced to `ci`
 
