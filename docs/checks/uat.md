@@ -1,7 +1,7 @@
 ---
 type: Library
 title: UAT sign-off
-description: The uat check — a hard merge gate that holds every PR until it is statically trivial, is titled refactor, or carries a trusted no UAT needed or UAT passed label — the trivial-PR rules and their fleet replay, the label actor check, turning the gate off for a repo without UAT, and what it deliberately leaves to other parties.
+description: The uat check — a hard merge gate that holds every PR until it is statically trivial, is titled refactor, or carries a trusted no UAT needed, or a UAT passed applied after the current head was pushed — the trivial-PR rules and their fleet replay, the label actor check, the head binding and the push time it reads, turning the gate off for a repo without UAT, and what it deliberately leaves to other parties.
 resource: src/checks/uat/index.ts
 tags: [pr-policy, uat, sign-off, merge-gate]
 ---
@@ -15,8 +15,9 @@ true.
 1. **The PR is statically trivial:** every path it touches is in an exempt
    category (below), or its title is a [`refactor`](#refactors).
 2. **`no UAT needed` is on the PR,** applied by the review agent or a person.
-3. **`UAT passed` is on the PR,** applied by a person. Its old name, `tested`,
-   counts too while the fleet rename is in progress.
+3. **`UAT passed` is on the PR,** applied by a person **after the current head
+   was pushed** (see [below](#uat-passed-is-bound-to-the-head)). Its old name,
+   `tested`, counts too while the fleet rename is in progress.
 
 A missing label is a `hold`, never "not required". That's what makes the gate
 race-free: pr-lifecycle can approve a PR and arm auto-merge at any point, and
@@ -88,6 +89,7 @@ person".
 | Trivial                                | `info`: the categories it touches | passes this gate |
 | Trusted sign-off label                 | `info` headline: label and who    | passes this gate |
 | Sign-off label from an untrusted actor | `hold`, plus `info` saying why    | pending          |
+| `UAT passed` from before the head      | `hold`, plus `info` saying why    | pending          |
 | No sign-off label                      | `hold`                            | pending          |
 
 The caller runs on `labeled` / `unlabeled`, so applying a label re-evaluates
@@ -103,12 +105,41 @@ status. The title and CI-change checks, and the `CI change approved` trust
 check, are unchanged. The setting belongs to the caller, never the PR. See
 [decisions.md](../decisions.md).
 
-## Stale labels across pushes
+## `UAT passed` is bound to the head
 
-A `no UAT needed` applied to an earlier head stays on the PR after a push that
-might need UAT. This check doesn't track heads, because two other parties cover
-it: pr-lifecycle disarms auto-merge on a push (the approval goes stale), and the
-review agent updates its UAT labels **before** posting its verdict.
-A re-armed PR therefore never passes on a stale
-exemption. Whether a person's `UAT passed` should survive a push that changes
-what was tested is still open. See [decisions.md](../decisions.md).
+`UAT passed` (and `tested`) says a person tested the code, so it counts only
+when it was applied **after the current head was pushed**. Any new head needs a
+person to look again, including a verified clean rebase. Why is in
+[decisions.md](../decisions.md#uat-passed-doesnt-survive-a-new-head).
+
+The check compares two times GitHub records, never a commit date, which the
+pusher writes and can forge:
+
+- **Applied at:** the time of the label's latest `labeled` event, the same event
+  the [actor check](#who-can-sign-off) reads.
+- **Pushed at:** the later of the PR's latest `head_ref_force_pushed` event and
+  the creation of the head commit's earliest check suite. GitHub creates a
+  commit's check suites when it is first pushed.
+
+The label must be strictly later. When either time is unknown, the label doesn't
+count, so the gate fails closed. A stale `UAT passed` is set aside before trust
+is judged: the check holds with an `info` finding saying why, and a trusted
+`no UAT needed` beside it still passes. The check never removes the stale
+label.
+
+A commit first pushed to another branch has its earliest check suite from that
+first push. So a commit pushed elsewhere, then fast-forwarded onto the PR after
+`UAT passed` was applied, would read as already pushed. A force push is caught
+by its event.
+
+The push time is read only while `UAT passed` or `tested` is on the PR. A
+caller passing a facts document sets `headPushedAt` and each sign-off's
+`appliedAt`; without them, `UAT passed` doesn't count.
+
+### `no UAT needed` isn't bound to the head
+
+A `no UAT needed` applied to an earlier head still counts. Its staleness is
+pr-lifecycle's job. A push that isn't a verified clean rebase makes the approval
+stale and disarms auto-merge, and the review agent refreshes its UAT labels
+before the next verdict. The waiver carries across exactly the rebases an
+approval does, so a stale waiver never sits on an armed PR.

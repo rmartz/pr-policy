@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why `UAT passed` is bound to the head, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -285,12 +285,28 @@ The policy changed as it moved:
 merge-safety has since removed its barrier (rmartz/merge-safety#80), so this
 check is the only one. See [checks/base-branch.md](checks/base-branch.md).
 
+### `UAT passed` doesn't survive a new head
+
+A new head needs a person to look again. `UAT passed` (and `tested`) counts only
+when it was applied after the current head was pushed (rmartz/pr-policy#85). That
+holds even for a verified clean rebase, which carries an approval across in
+pr-lifecycle: an approval judges the diff, but UAT judges the running code, and a
+rebase changes the code it runs with.
+
+pr-policy enforces the binding itself rather than leaving it to pr-lifecycle.
+After a clean rebase the approval carries over and the PR stays armed, and
+pr-policy re-runs on `synchronize`. Reading the label alone, it could pass on the
+stale `UAT passed` before pr-lifecycle replaced it, and the PR would merge in
+that window.
+
+The push time must be one the author can't forge, so it comes from GitHub's own
+records (the force-push event and the head's earliest check suite), never a
+commit date. Like who applied a label, when they applied it is a fact about the
+label on the PR now, so the rule stays inside "content, not history". See
+[checks/uat.md](checks/uat.md#uat-passed-is-bound-to-the-head).
+
+`no UAT needed` isn't bound: pr-lifecycle keeps a stale waiver off an armed PR.
+
 ## Open
 
-### Should `UAT passed` survive a push?
-
-A person's `UAT passed` stays on the PR after a later push that changes what was
-tested, and nothing clears it. That matches the fleet's current `tested`
-semantics. A stale `no UAT needed` is already covered: pr-lifecycle disarms on a
-push, and the review agent refreshes its UAT labels before the verdict.
-A stale human `UAT passed` isn't covered by either.
+No questions are open.

@@ -4,10 +4,12 @@
  * Everything goes through the vendored `gh` transport in src/lib/.
  */
 import { isWorkflowPath } from '../checks/ci-change/workflow-paths.js';
+import { HEAD_BOUND_SIGN_OFFS } from '../checks/uat/index.js';
 import { isManifestPath } from '../checks/title/sensitive-bump.js';
 import type { PolicyEvaluation } from '../evaluate.js';
 import { addLabels, ghCall, removeLabel } from '../lib/github.js';
 import type { FileChange, OpenPullRequest, PullRequestBase, PullRequestFacts } from '../policy.js';
+import { gatherHeadPushedAt } from './head-push.js';
 import { gatherSignOffs } from './sign-offs.js';
 
 export interface PullRequestTarget {
@@ -177,6 +179,11 @@ export async function gatherFacts(
     manifestChanges,
     signOffs: await gatherSignOffs(target, labels),
   };
+  // Only a head-bound sign-off needs the push time, so most PRs skip the reads.
+  if (HEAD_BOUND_SIGN_OFFS.some((label) => labels.includes(label))) {
+    const pushedAt = await gatherHeadPushedAt(target, headSha);
+    if (pushedAt !== undefined) facts.headPushedAt = pushedAt;
+  }
   return { facts, headSha };
 }
 
