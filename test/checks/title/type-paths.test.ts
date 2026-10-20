@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { decideTitle } from '../../../src/checks/title/index.js';
-import type { PullRequestFacts } from '../../../src/policy.js';
+import type { FileChange, PullRequestFacts } from '../../../src/policy.js';
 
-function pr(title: string, changedFiles: string[]): PullRequestFacts {
+function pr(
+  title: string,
+  changedFiles: string[],
+  overrides: Partial<PullRequestFacts> = {},
+): PullRequestFacts {
   return {
     title,
     labels: [],
@@ -10,11 +14,15 @@ function pr(title: string, changedFiles: string[]): PullRequestFacts {
     workflowChanges: [],
     manifestChanges: [],
     signOffs: [],
+    ...overrides,
   };
 }
 
-const findings = (title: string, changedFiles: string[]) =>
-  decideTitle(pr(title, changedFiles)).findings;
+const findings = (
+  title: string,
+  changedFiles: string[],
+  overrides: Partial<PullRequestFacts> = {},
+) => decideTitle(pr(title, changedFiles, overrides)).findings;
 
 describe('decideTitle — docs changes only Markdown', () => {
   it('passes a docs PR that changes only Markdown, anywhere in the tree', () => {
@@ -105,5 +113,180 @@ describe('decideTitle — test changes only tests and docs', () => {
         'src/app/(auth)/forgot-password/ForgotPasswordFormView.stories.tsx',
       ]),
     ).toEqual([]);
+  });
+});
+
+const BASE_MANIFEST = {
+  name: 'app',
+  scripts: { build: 'tsup' },
+  dependencies: { yaml: '^2.8.0' },
+  devDependencies: { vitest: '^3.1.0', eslint: '^9.30.0' },
+};
+
+/** A `package.json` change from `BASE_MANIFEST` to `head`. */
+const manifest = (head: object): { manifestChanges: FileChange[] } => ({
+  manifestChanges: [
+    {
+      path: 'package.json',
+      baseText: JSON.stringify(BASE_MANIFEST),
+      headText: JSON.stringify(head),
+    },
+  ],
+});
+
+const runtimeBump = manifest({ ...BASE_MANIFEST, dependencies: { yaml: '^2.9.0' } });
+const eslintBump = manifest({
+  ...BASE_MANIFEST,
+  devDependencies: { vitest: '^3.1.0', eslint: '^9.31.0' },
+});
+
+describe('decideTitle — chore is left to the review', () => {
+  it('says nothing about the paths a chore changes, even source and runtime dependencies', () => {
+    // "Changes no behaviour" is a content judgement, so no path rule applies.
+    expect(
+      findings(
+        'chore: restructure modules',
+        ['src/a/index.ts', 'src/b/index.ts', 'package.json'],
+        runtimeBump,
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('decideTitle — ci changes only CI and tooling', () => {
+  it('blocks a ci PR that edits a shipped reusable workflow, which is product code', () => {
+    const shipped: FileChange = {
+      path: '.github/workflows/release.yml',
+      baseText: 'on: workflow_call\njobs: {}\n',
+      headText: 'on: workflow_call\njobs: { a: {} }\n',
+    };
+    const [finding] = findings('ci: tweak release', [shipped.path], { workflowChanges: [shipped] });
+    expect(finding?.message).toContain('`.github/workflows/release.yml`');
+  });
+
+  it('passes a ci PR that touches only workflows', () => {
+    expect(
+      findings('ci: cache pnpm', ['.github/workflows/ci.yml', '.github/workflows/lint.yml']),
+    ).toEqual([]);
+  });
+
+  it('passes a ci PR that changes lint, format, and test-runner config with docs', () => {
+    expect(
+      findings('ci: tighten lint', [
+        'eslint.config.mjs',
+        '.prettierrc.json',
+        'vitest.config.ts',
+        'ruff.toml',
+        '.repo-hygiene.yml',
+        'AGENTS.md',
+      ]),
+    ).toEqual([]);
+  });
+
+  it('passes a ci(deps) sensitive-tool bump, as the sensitive-bump rule asks', () => {
+    expect(
+      findings('ci(deps): bump eslint', ['package.json', 'pnpm-lock.yaml'], eslintBump),
+    ).toEqual([]);
+  });
+
+  it('passes a ci(deps) sensitive-tool bump declared under dependencies', () => {
+    const base = { name: 'config', dependencies: { prettier: '^3.5.0' } };
+    const facts = {
+      manifestChanges: [
+        {
+          path: 'package.json',
+          baseText: JSON.stringify(base),
+          headText: JSON.stringify({ ...base, dependencies: { prettier: '^3.6.0' } }),
+        },
+      ],
+    };
+    expect(findings('ci(deps): bump prettier', ['package.json'], facts)).toEqual([]);
+  });
+
+  it('passes a ci(deps) sensitive-tool bump in a requirements file', () => {
+    const facts = {
+      manifestChanges: [
+        { path: 'requirements.txt', baseText: 'ruff==0.5.0\n', headText: 'ruff==0.6.0\n' },
+      ],
+    };
+    expect(findings('ci(deps): bump ruff', ['requirements.txt'], facts)).toEqual([]);
+  });
+
+  it('blocks a ci PR that touches source, naming only the offending path', () => {
+    const [finding] = findings('ci: wire up check', ['.github/workflows/ci.yml', 'src/check.ts']);
+    expect(finding?.effect).toBe('block');
+    expect(finding?.message).toContain('`src/check.ts`');
+    expect(finding?.message).not.toContain('`.github/workflows/ci.yml`');
+  });
+
+  it('passes a ci PR that updates a test pinning workflow behaviour', () => {
+    expect(
+      findings('ci: raise job timeouts', [
+        '.github/workflows/ci.yml',
+        'src/workflow-timeouts.spec.ts',
+      ]),
+    ).toEqual([]);
+  });
+
+  it('passes a ci PR that changes repo scripts, at any depth under scripts/', () => {
+    expect(
+      findings('ci(hygiene): move checks', [
+        '.github/workflows/hygiene.yml',
+        'scripts/check-action-pins.mjs',
+        'scripts/lib/dependabot-audit.mjs',
+      ]),
+    ).toEqual([]);
+  });
+
+  it('blocks a ci PR that changes a scripts/ directory nested in a package', () => {
+    expect(findings('ci: tweak', ['packages/web/scripts/build.mjs'])[0]?.message).toContain(
+      '`packages/web/scripts/build.mjs`',
+    );
+  });
+
+  it('counts a rename out of source into scripts/ as a source change', () => {
+    const [finding] = findings('ci: move helper', ['src/release.ts', 'scripts/release.ts']);
+    expect(finding?.message).toContain('`src/release.ts`');
+    expect(finding?.message).not.toContain('`scripts/release.ts`');
+  });
+
+  it.each([
+    ['publishConfig', { publishConfig: { provenance: true } }],
+    ['scripts', { scripts: { build: 'tsup', lint: 'eslint .' } }],
+  ])(
+    'blocks a ci PR whose package.json changes %s, which can change what ships',
+    (_field, extra) => {
+      const facts = manifest({ ...BASE_MANIFEST, ...extra });
+      expect(
+        findings('ci(release): publish via OIDC', ['package.json'], facts)[0]?.message,
+      ).toContain('`package.json`');
+    },
+  );
+
+  it('blocks a ci PR that changes deploy config', () => {
+    const [finding] = findings('ci(preview): adopt shared workflow', [
+      '.github/workflows/preview.yml',
+      'scripts/vercel-ignore-build.mjs',
+      'vercel.json',
+    ]);
+    expect(finding?.message).toContain('`vercel.json`');
+    expect(finding?.message).not.toContain('`scripts/vercel-ignore-build.mjs`');
+  });
+
+  it('blocks a ci(deps) bump of a runtime dependency', () => {
+    expect(findings('ci(deps): bump yaml', ['package.json'], runtimeBump)[0]?.message).toContain(
+      '`package.json`',
+    );
+  });
+
+  it('blocks a ci PR that changes build config', () => {
+    expect(findings('ci: target es2023', ['tsconfig.json'])[0]?.message).toContain(
+      '`tsconfig.json`',
+    );
+  });
+
+  it('counts a rename out of source into CI as a source change', () => {
+    const [finding] = findings('ci: move script', ['src/release.ts', '.github/scripts/release.ts']);
+    expect(finding?.message).toContain('`src/release.ts`');
   });
 });

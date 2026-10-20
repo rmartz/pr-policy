@@ -40,7 +40,9 @@ PR _does_ need UAT is the review agent's judgment, expressed through the labels.
 
 The `package.json` rule parses both sides and compares what's left after
 removing the dependency fields. The same structural helpers back the
-[ci-change](ci-change.md) and [title](title.md) checks.
+[ci-change](ci-change.md) and [title](title.md) checks. The categories are
+defined once, in `src/checks/path-kinds.ts`, which the title check's
+[`ci` rule](title.md#ci-changes-only-ci-and-tooling) reads too.
 
 ### Validated against merged fleet PRs
 

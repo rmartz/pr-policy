@@ -1,7 +1,7 @@
 ---
 type: Library
 title: Title-type rules
-description: The title check — the Conventional-Commit grammar a squash title must meet, the rule that a WIP-marked PR must be a draft, the breaking-marker and label consistency rules, the dependency-major rule and its `contained break` waiver, dependency major bumps as breaking changes, when ci-typing is required or only recommended, the paths a docs, refactor, or test PR may change, why a shipped reusable workflow is product code, and the release-please exemption. Violations block until the title is edited; the check never renames a PR.
+description: The title check — the Conventional-Commit grammar a squash title must meet, the rule that a WIP-marked PR must be a draft, the breaking-marker and label consistency rules, the dependency-major rule and its `contained break` waiver, dependency major bumps as breaking changes, when ci-typing is required or only recommended, the paths a docs, refactor, test, or ci PR may change, why pr-lifecycle's UAT exemption depends on them, and why chore has no path rule, why a shipped reusable workflow is product code, and the release-please exemption. Violations block until the title is edited; the check never renames a PR.
 resource: src/checks/title/index.ts
 tags: [pr-policy, title, conventional-commits, releases]
 ---
@@ -31,6 +31,7 @@ check never renames the PR itself.
 | **`docs` paths**         | A `docs` title on a PR that changes any non-Markdown (`.md`) file: code, CI, config, or a manifest. A rename's old path counts.                                       | Retitle to the non-docs change's type, or split the PR.                                                           |
 | **`refactor` tests**     | A `refactor` title on a PR that adds, changes, removes, or renames a non-Markdown test file.                                                                          | Land the test change first as a `test:` PR, then refactor.                                                        |
 | **`test` paths**         | A `test` title on a PR that changes any file that is neither a test nor Markdown: code, CI, or config.                                                                | Retitle to the non-test change's type, or split the PR.                                                           |
+| **`ci` paths**           | A `ci` title on a PR that changes a file outside CI and tooling. See [`ci`](#ci-changes-only-ci-and-tooling). A rename's old path counts.                             | Retitle to that change's type, or split the PR.                                                                   |
 
 A new linter or formatter can change results on files a PR never touched, so the
 coordinator must re-test in-flight PRs against it, and it keys that off the `ci`
@@ -85,8 +86,8 @@ it contradicts the `!`, so the check blocks until one of them goes.
 
 ## Type-versus-paths rules
 
-`docs`, `refactor`, and `test` don't release, so each type makes a promise about
-what the PR touches (`src/checks/title/type-paths.ts`):
+`docs`, `refactor`, `test`, and `ci` don't release, so each type makes a promise
+about what the PR touches (`src/checks/title/type-paths.ts`):
 
 - **`docs` changes only Markdown.** Otherwise a code, CI, or config change
   merges under a type that never releases, and never ships.
@@ -98,9 +99,69 @@ what the PR touches (`src/checks/title/type-paths.ts`):
 - **`test` changes only tests.** It locks in current behaviour, so it may add or
   change test files and fixtures but no code. Test tooling config (such as
   `vitest.config.ts`) is not a test path, so it needs its own type.
+- **`ci` changes only CI and tooling.** See
+  [below](#ci-changes-only-ci-and-tooling).
 
 `refactor` and `test` may both change docs alongside their main change: Markdown
 is always allowed and is never counted as a test, even under a test directory.
+
+**pr-lifecycle's UAT exemption depends on these rules.** rmartz/pr-lifecycle#115
+exempts a PR from UAT by its title type (`docs`, `test`, `refactor`, `ci`), and
+trusts the type only because these four rules make it truthful. The author picks
+the title, and is often an agent, so loosening any of them also loosens UAT.
+
+**`chore` has no path rule.** "Changes no behaviour" is a judgement about
+content, not paths: moving modules from a horizontal to a vertical layout
+touches source without changing behaviour, and a one-line config edit can change
+it. The review owns that judgement. Because nothing here checks it, a `chore`
+title is not a UAT exemption: pr-lifecycle judges a `chore` PR by the
+trivial-path rules, like `feat` or `fix`, and otherwise leaves it to the review.
+
+### `ci` changes only CI and tooling
+
+A `ci` PR may change:
+
+- `.github/**`, except a shipped reusable workflow;
+- linter, formatter, test-runner, and repo-tooling config, by file name at any
+  depth: `eslint.config.*`, `.eslintrc*`, `.prettierrc*`, `prettier.config.*`,
+  `vitest.config.*`, `jest.config.*`, `playwright.config.*`, `ruff.toml`,
+  `.flake8`, `pylintrc`, `mypy.ini`, `pytest.ini`, `.pre-commit-config.yaml`,
+  `.repo-hygiene.yml`, `.releaserc*`, `commitlint.config.*`, and the like;
+- the repo's own scripts under a top-level `scripts/` (audits, CI check scripts,
+  release helpers);
+- lockfiles, and a manifest whose only change is to a dev or tooling dependency;
+- tests, since a CI change often updates a test that pins workflow behaviour,
+  and docs.
+
+Two kinds of change stay blocked, because each can change what ships:
+
+- **`package.json` outside the dependency blocks:** `scripts`, `publishConfig`,
+  `exports`, release config. These decide how the package builds and what it
+  publishes.
+- **Build, app, and deploy config:** `tsconfig.json`, `next.config.*`, bundler
+  config, `vercel.json`, `turbo.json`.
+
+A `scripts/` file can also feed a build (`vercel-ignore-build.mjs` decides
+whether a deploy happens), but in the fleet replay every `ci` PR that changed
+one was repo tooling, so `ci` may change it and the review judges the rest. A
+`scripts/` directory nested in a package is not covered. The UAT gate still
+doesn't exempt `scripts/`.
+
+The `ci(deps):` retitle that the [sensitive-tool rule](#the-rules) asks for
+always passes. A bump of `eslint`, `prettier`, `black`, `ruff`, or `pylint`
+counts as a tooling change in any dependency block, so the two rules never
+contradict each other.
+
+### Which manifest changes count as tooling
+
+A `package.json` counts for `ci` only when nothing outside its
+dependency blocks and `packageManager` changed, and within them only
+`devDependencies` or a CI-sensitive tool's version did. A change to
+`dependencies`, `peerDependencies`, or `optionalDependencies` is a runtime
+change. A `requirements*.txt` counts when it is a dev requirements file
+(`requirements-dev.txt`, `requirements-test.txt`, `requirements-lint.txt`, …) or
+every pin it changes is a CI-sensitive tool. Both sides are parsed and
+compared, as everywhere else.
 
 A test path is a test, snapshot, or mock directory, a `*.test.*` / `*.spec.*` JS
 or TS file, a Storybook story (`*.stories.*` JS and TS files, and
