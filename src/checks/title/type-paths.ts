@@ -30,10 +30,12 @@ const CHORE_KINDS: ReadonlySet<PathKind> = new Set([
 /**
  * Path kinds a CI or tooling change may touch. A CI-sensitive tool's version
  * bump is a `tooling-manifest`, so the `ci(deps):` retitle the sensitive-bump
- * rule asks for always passes here.
+ * rule asks for always passes here. Tests never ship, and a CI change often
+ * updates a test that pins workflow behaviour, so they are allowed too.
  */
 const CI_KINDS: ReadonlySet<PathKind> = new Set([
   'docs',
+  'tests',
   'ci',
   'tooling-config',
   'lockfile',

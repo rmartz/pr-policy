@@ -284,9 +284,18 @@ describe('decideTitle — ci changes only CI and tooling', () => {
     expect(finding?.message).not.toContain('`.github/workflows/ci.yml`');
   });
 
-  it('blocks a ci PR that changes a test', () => {
-    expect(findings('ci: fix flaky job', ['test/a.test.ts'])[0]?.message).toContain(
-      '`test/a.test.ts`',
+  it('passes a ci PR that updates a test pinning workflow behaviour', () => {
+    expect(
+      findings('ci: raise job timeouts', [
+        '.github/workflows/ci.yml',
+        'src/workflow-timeouts.spec.ts',
+      ]),
+    ).toEqual([]);
+  });
+
+  it('blocks a ci PR that changes a CI script outside .github/', () => {
+    expect(findings('ci: audit config', ['scripts/audit.mjs'])[0]?.message).toContain(
+      '`scripts/audit.mjs`',
     );
   });
 
