@@ -12,6 +12,7 @@ import {
   NO_UAT_NEEDED_LABEL,
   CONTAINED_BREAK_LABEL,
   PR_POLICY_CHECK_NAME,
+  SIGN_OFF_STATUS_CONTEXT,
   UAT_PASSED_LABEL,
 } from '../src/contract.js';
 
@@ -21,6 +22,10 @@ import {
 describe('external contract names', () => {
   it('pins the check-run name', () => {
     expect(PR_POLICY_CHECK_NAME).toBe('pr-policy');
+  });
+
+  it("pins pr-lifecycle's sign-off status context", () => {
+    expect(SIGN_OFF_STATUS_CONTEXT).toBe('pr-lifecycle/sign-off');
   });
 
   it('pins the CI merge-gate labels', () => {

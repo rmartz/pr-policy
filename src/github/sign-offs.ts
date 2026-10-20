@@ -47,7 +47,10 @@ async function listLabelEvents(target: PullRequestTarget): Promise<LabelEvent[]>
  * triage apart) over the legacy level. A non-collaborator's 404, or any failed
  * lookup, is `none`: an unknown actor never passes a gate.
  */
-async function lookupPermission(target: PullRequestTarget, login: string): Promise<RepoPermission> {
+export async function lookupPermission(
+  target: Pick<PullRequestTarget, 'repo' | 'cwd'>,
+  login: string,
+): Promise<RepoPermission> {
   const out = await ghCall(
     {
       argv: [

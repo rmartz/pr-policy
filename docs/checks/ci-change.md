@@ -1,17 +1,44 @@
 ---
 type: Library
 title: CI-change classification
-description: The ci-change check — every loosening, ambiguous, and tightening indicator it detects structurally in a PR's workflow diff, the containment backstop, and how it drives the CI approval needed label and the pr-policy check-run.
+description: The ci-change check — how it gates on pr-lifecycle's sign-off status (requirement=ci or loosening=yes needs CI change approved), and before a repo cuts over, every loosening, ambiguous, and tightening indicator it detects structurally in a PR's workflow diff, the containment backstop, and how it drives the CI approval needed label and the pr-policy check-run.
 resource: src/checks/ci-change/index.ts
 tags: [pr-policy, ci-change, classification, merge-gate]
 ---
 
 # CI-change classification
 
-The `ci-change` check (`src/checks/ci-change/`) classifies a PR's
+The `ci-change` check (`src/checks/ci-change/`) gates a PR on the CI sign-off,
+`CI change approved`. Which PRs need it comes from pr-lifecycle's
+[sign-off status](#under-pr-lifecycles-sign-off-status) once a repo has cut
+over; until then, from this check's own classification of the PR's
 `.github/workflows/**` diff as tightening or loosening.
 
-## What it reports
+## Under pr-lifecycle's sign-off status
+
+When the head carries a valid `pr-lifecycle/sign-off` status
+([format](../check-run-contract.md#pr-lifecyclesign-off-the-classification-the-gate-reads)),
+it decides:
+
+| Status                                    | `ci-change` check                          |
+| ----------------------------------------- | ------------------------------------------ |
+| `requirement=ci`                          | holds until a trusted `CI change approved` |
+| `loosening=yes`, on any requirement       | holds until a trusted `CI change approved` |
+| `requirement=none` or `uat`, no loosening | nothing                                    |
+
+`requirement=ci` covers more than a loosening: pr-lifecycle also asks for the CI
+sign-off on a `ci` PR that changes tooling paths that aren't statically safe
+(rmartz/pr-lifecycle#119). `loosening=yes` keeps a loosening bundled into a
+non-`ci` PR from passing without the CI sign-off; that PR needs UAT as well.
+This check's own indicators still appear as notes, so the reviewer sees the
+evidence.
+
+Under a status this check **edits no label**: pr-lifecycle writes
+`CI approval needed`. With no status, or one the gate rejects (the
+[`uat` check](uat.md#pr-lifecycles-sign-off-status) holds on that), it behaves as
+below, labels included. rmartz/pr-policy#85 removes that fallback.
+
+## Before the cutover: what it reports
 
 | Verdict               | Findings                                                    | `CI approval needed`                                  |
 | --------------------- | ----------------------------------------------------------- | ----------------------------------------------------- |

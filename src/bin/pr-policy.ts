@@ -7,16 +7,20 @@ import { selectChecks } from '../checks/index.js';
 import { evaluatePolicy } from '../evaluate.js';
 import { parseFacts } from '../facts.js';
 import { postVerdict } from '../github/check-run.js';
-import { applyLabelEdits, gatherFacts } from '../github/pull-request.js';
+import { applyLabelEdits, gatherFacts, openPullRequestsAtHead } from '../github/pull-request.js';
 import { resolveRepoTarget } from '../lib/github.js';
 
 const USAGE = `Usage:
   pr-policy evaluate --pr <n> [--repo <owner/repo>] [--json] [--skip-uat]
+  pr-policy evaluate --sha <sha> [--repo <owner/repo>] [--json] [--skip-uat]
   pr-policy evaluate --facts <path|-> [--skip-uat]
 
 --pr     Evaluate a live PR, post the pr-policy check-run and commit status on
          its head, and apply the label edits the checks planned. --json
          prints the evaluation instead and changes nothing.
+--sha    Evaluate every open PR whose head is <sha>, as --pr does. For a
+         caller's "status" trigger, which carries a SHA, not a PR: re-run when
+         pr-lifecycle posts its pr-lifecycle/sign-off status.
 --facts  Evaluate an offline JSON facts document ("-" reads stdin) and print
          the evaluation. Exits 1 only on "failure" ("pending" exits 0).
 --skip-uat
@@ -36,6 +40,7 @@ async function main(argv: readonly string[]): Promise<number> {
     options: {
       facts: { type: 'string' },
       pr: { type: 'string' },
+      sha: { type: 'string' },
       repo: { type: 'string' },
       json: { type: 'boolean' },
       'skip-uat': { type: 'boolean' },
@@ -59,7 +64,8 @@ async function main(argv: readonly string[]): Promise<number> {
   }
 
   const pr = Number(values.pr);
-  if (!Number.isInteger(pr) || pr <= 0) {
+  const bySha = values.sha !== undefined && values.pr === undefined;
+  if (!bySha && (!Number.isInteger(pr) || pr <= 0)) {
     console.error(USAGE);
     return 2;
   }
@@ -68,17 +74,29 @@ async function main(argv: readonly string[]): Promise<number> {
     console.error('Could not resolve owner/repo — pass --repo <owner/repo>.');
     return 2;
   }
-  const target = { repo, pr };
+  const prs = bySha ? await openPullRequestsAtHead({ repo }, values.sha ?? '') : [pr];
+  if (bySha && prs.length === 0)
+    console.log(`${repo}@${values.sha ?? ''}: no open PR at that head`);
+  for (const number of prs) {
+    await evaluateOne({ repo, pr: number }, checks, values.json === true);
+  }
+  return 0;
+}
+
+async function evaluateOne(
+  target: { repo: string; pr: number },
+  checks: ReturnType<typeof selectChecks>,
+  json: boolean,
+): Promise<void> {
   const { facts, headSha } = await gatherFacts(target);
   const evaluation = await evaluatePolicy(facts, checks);
-  if (values.json) {
+  if (json) {
     console.log(JSON.stringify(evaluation, null, 2));
-    return 0;
+    return;
   }
   await applyLabelEdits(target, evaluation);
   await postVerdict(target, headSha, evaluation);
-  console.log(`${repo}#${pr}: ${evaluation.outcome} — ${evaluation.title}`);
-  return 0;
+  console.log(`${target.repo}#${target.pr}: ${evaluation.outcome} — ${evaluation.title}`);
 }
 
 try {

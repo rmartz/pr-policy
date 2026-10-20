@@ -37,6 +37,17 @@ export interface SignOff {
   appliedAt?: string;
 }
 
+/**
+ * The latest commit status on the head SHA for one context, as GitHub reports
+ * it. `creator` is absent when GitHub names no live account.
+ */
+export interface CommitStatus {
+  /** `success`, `pending`, `failure`, or `error`. */
+  state: string;
+  description: string;
+  creator?: LabelActor;
+}
+
 /** The account that opened a PR, as GitHub reports it (`dependabot[bot]`, `Bot`). */
 export interface PullRequestAuthor {
   login: string;
@@ -100,6 +111,13 @@ export interface PullRequestFacts {
    * sign-off (`UAT passed`, `tested`) is on the PR; absent, those don't count.
    */
   headPushedAt?: string;
+  /**
+   * The latest `pr-lifecycle/sign-off` status on the head SHA: pr-lifecycle's
+   * classification of which human sign-off this head needs. Absent when
+   * pr-lifecycle hasn't posted one, which keeps the checks on their own
+   * classification until the repo cuts over (src/sign-off-status.ts).
+   */
+  signOffStatus?: CommitStatus;
 }
 
 /**

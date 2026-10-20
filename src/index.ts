@@ -1,4 +1,16 @@
 export { CHECKS, selectChecks, type PolicyOptions } from './checks/index.js';
+export {
+  parseSignOffDescription,
+  readSignOffStatus,
+  SIGN_OFF_REQUIREMENTS,
+  SIGN_OFF_STATUS_CONTEXT,
+  SIGN_OFF_STATUS_VERSIONS,
+  WAIVER_STATES,
+  type SignOffClassification,
+  type SignOffRequirement,
+  type SignOffStatusReading,
+  type WaiverState,
+} from './sign-off-status.js';
 export { CI_CHANGE_CHECK, ciChangeCheck, decideCiChange } from './checks/ci-change/index.js';
 export {
   classifyWorkflowChanges,
@@ -55,9 +67,15 @@ export {
 export { evaluatePolicy, type PolicyEvaluation } from './evaluate.js';
 export { parseFacts } from './facts.js';
 export { checkRunBody, postCheckRun, postVerdict, statusBody } from './github/check-run.js';
-export { applyLabelEdits, gatherFacts, type PullRequestTarget } from './github/pull-request.js';
+export {
+  applyLabelEdits,
+  gatherFacts,
+  openPullRequestsAtHead,
+  type PullRequestTarget,
+} from './github/pull-request.js';
 export type {
   CheckResult,
+  CommitStatus,
   FileChange,
   Finding,
   PolicyCheck,
