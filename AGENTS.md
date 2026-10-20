@@ -102,8 +102,10 @@ something.
 - **Self-consumption:** [pr-policy.yml](.github/workflows/pr-policy.yml) runs
   the released `rmartz/pr-policy-action` on this repo's PRs, and `pr-policy` is
   a required check. A check change gates this repo only after it ships through
-  the Action. It passes `skip-uat: true`: the repo ships only a library, so
-  there is nothing to user-test. See [docs/distribution.md](docs/distribution.md).
+  the Action. The repo ships only a library, so there is nothing to user-test:
+  [`.github/pr-policy.yml`](.github/pr-policy.yml) sets `uat: off`. The caller
+  also still passes the deprecated `skip-uat: true` until the Action ships a
+  release that reads the file. See [docs/distribution.md](docs/distribution.md).
 
 ## Common commands
 

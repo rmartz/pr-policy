@@ -196,3 +196,33 @@ describe('decideUat — UAT passed is bound to the head', () => {
     expect(decideUat(facts).findings[0]?.message).toContain('`tested`');
   });
 });
+
+describe('decideUat — the shared classifier decides whether UAT applies', () => {
+  it('passes a docs-titled PR as statically safe', () => {
+    expect(effects(pr({ title: 'docs: explain', changedFiles: ['README.md'] }))).toEqual(['info']);
+  });
+
+  it('adds no UAT hold when the CI sign-off covers the PR', () => {
+    const loosening = {
+      path: '.github/workflows/ci.yml',
+      baseText: 'on: push\njobs:\n  a:\n    runs-on: x\n    steps:\n      - run: pnpm test\n',
+      headText:
+        'on: push\njobs:\n  a:\n    runs-on: x\n    continue-on-error: true\n    steps:\n      - run: pnpm test\n',
+    };
+    const facts = pr({
+      title: 'ci: tolerate flakes',
+      changedFiles: [loosening.path],
+      workflowChanges: [loosening],
+    });
+    const { findings } = decideUat(facts);
+    expect(findings.map((finding) => finding.effect)).toEqual(['info']);
+    expect(findings[0]?.message).toContain('CI sign-off');
+  });
+
+  it('passes a code change when the repo config turns UAT off', () => {
+    expect(effects(pr())).toEqual(['hold']);
+    expect(
+      decideUat(pr(), { config: { uat: 'off' }, problems: [] }).findings.map((f) => f.effect),
+    ).toEqual(['info']);
+  });
+});

@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why `UAT passed` is bound to the head, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, why tests and refactors are UAT-exempt, how a repo turns it off in its config file, why one sign-off classifier is shared with pr-lifecycle, who can sign off, why `UAT passed` is bound to the head, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -176,8 +176,9 @@ content that no path list captures. Moving modules from a horizontal to a
 vertical layout touches only source and changes nothing; a one-line config edit
 can change everything. A static rule would either block honest chores or pass
 dishonest ones, so the review judges it. The consequence is that a `chore`
-title can't exempt a PR from UAT: pr-lifecycle#115 judges it by the trivial-path
-rules, like `feat` or `fix`, and leaves the rest to the review.
+title can't exempt a PR from UAT: the [sign-off classifier](sign-off-classifier.md)
+judges it by the trivial-path rules, like `feat` or `fix`, and leaves the rest
+to the review.
 
 ### An own-CI change is never forced to `ci`
 
@@ -206,28 +207,47 @@ satisfied. So the UAT gate moved in from pr-lifecycle as a check that
 Static rules **only exempt** a PR from UAT, never require it. Requiring UAT is
 a judgment the review agent makes and expresses through the labels.
 
+### One sign-off classifier, two callers
+
+Which sign-off a PR needs (none, a CI sign-off, or UAT) is decided by one pure
+function, `classifySignOff`, exported from this package (rmartz/pr-policy#89).
+pr-lifecycle, the only label writer, imports it to show the labels; the `uat`
+check calls it to gate. The alternative was for pr-lifecycle to classify and
+this gate to trust its `no UAT needed` label. That would make the gate trust a
+label another tool wrote, and a bug in the writer would open the gate. With one
+shared function, each tool computes the answer itself and neither reads the
+other's output, which keeps "neither package reads the other's outputs" true.
+
+CI sign-off and UAT are mutually exclusive. A `ci` PR that needs a person on its
+CI change is not also asked for UAT: that person is already looking at it. See
+[sign-off-classifier.md](sign-off-classifier.md).
+
 ### UAT needs a behaviour change
 
-UAT tests behaviour, so a PR that can't change behaviour has nothing to test. Two
-kinds of PR are exempt on that ground:
+UAT tests behaviour, so a PR that can't change behaviour has nothing to test.
+These kinds of PR are exempt on that ground:
 
-- **Test-only changes,** including Storybook stories. A test locks in behaviour
-  without changing it, and a story never ships in the app.
-- **Refactors,** judged by the `refactor` title type rather than by paths. The
-  title is the one signal of intent the paths can't give, and it is safe to
-  trust here: the title check blocks a `refactor` that touches a test, and a
-  behaviour change mislabeled `refactor` would also lose its release. It is
-  still current content, so it stays inside "content, not history".
+- **Trivial paths:** docs, tests (including Storybook stories, which never ship
+  in the app), own CI, dependency-only changes, and repo metadata.
+- **`docs`, `test`, and `refactor` titles,** judged by type rather than by paths.
+  The title is the one signal of intent the paths can't give, and it is safe to
+  trust here: the title check blocks each type when its paths contradict it, and
+  a behaviour change mislabeled any of them would also lose its release. It is
+  still current content, so it stays inside "content, not history". `chore` is
+  [left to the review](#chore-is-left-to-the-review).
 
-### A repo without UAT turns the gate off in its caller
+### A repo without UAT says so in a config file on its base branch
 
 Some repos have nothing to user-test (this one ships a library and an Action),
 so every non-trivial PR would wait on a `no UAT needed` label that says nothing.
-Such a repo runs the suite with `skipUat` (`--skip-uat`), set in its caller
-workflow. The option lives with the caller, not in a file in the repo: a
-`pull_request_target` caller runs from the base branch, so a PR can't switch off
-a gate it would otherwise wait on. Options default to the strictest policy, and
-a skipped check is left out entirely rather than reported as passed.
+Such a repo sets `uat: off` in [`.github/pr-policy.yml`](config.md).
+
+The setting moved there from the caller's `skip-uat` input so that pr-policy and
+pr-lifecycle read one setting, not two inputs that could drift apart. It is read
+from the **base branch**, never the PR head, so a PR still can't switch off a
+gate it would otherwise wait on. A file that doesn't parse fails closed (UAT on)
+and says so. `skip-uat` stays as a deprecated override until
+rmartz/pr-policy#85 removes it.
 
 ### Who applied a sign-off is current state, not history
 

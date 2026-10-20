@@ -109,4 +109,34 @@ describe('selectChecks', () => {
     expect(report.outcome).toBe('success');
     expect(report.findings).toEqual([]);
   });
+
+  it('keeps the UAT gate, and passes a code change, when the repo config turns UAT off', async () => {
+    const checks = selectChecks({ repoConfig: { config: { uat: 'off' }, problems: [] } });
+    expect(checks.map((check) => check.name)).toContain('uat');
+    const report = await evaluatePolicy(pr, checks);
+    expect(report.outcome).toBe('success');
+    expect(report.findings.map((finding) => finding.message)).toContain(
+      'No UAT needed: UAT is off for this repo.',
+    );
+  });
+
+  it('holds a code change under a config that failed to parse, and says why', async () => {
+    const repoConfig = {
+      config: { uat: 'on' as const },
+      problems: ['.github/pr-policy.yml was ignored: bad'],
+    };
+    const report = await evaluatePolicy(pr, selectChecks({ repoConfig }));
+    expect(report.outcome).toBe('pending');
+    expect(report.findings.map((finding) => finding.message)).toContain(
+      '.github/pr-policy.yml was ignored: bad, so UAT stays on.',
+    );
+  });
+
+  it('lets the deprecated skipUat win over a config that keeps UAT on', () => {
+    const checks = selectChecks({
+      skipUat: true,
+      repoConfig: { config: { uat: 'on' }, problems: [] },
+    });
+    expect(checks.map((check) => check.name)).not.toContain('uat');
+  });
 });

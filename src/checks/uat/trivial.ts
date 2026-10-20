@@ -39,7 +39,9 @@ function categoryOf(kind: PathKind | undefined): TrivialCategory | undefined {
  * The exempt categories this PR's paths fall in, or `undefined` when any path
  * falls outside them. A PR that touches no files is trivially exempt.
  */
-export function trivialCategories(pr: PullRequestFacts): TrivialCategory[] | undefined {
+export function trivialCategories(
+  pr: Pick<PullRequestFacts, 'changedFiles' | 'workflowChanges' | 'manifestChanges'>,
+): TrivialCategory[] | undefined {
   const found = new Set<TrivialCategory>();
   for (const path of pr.changedFiles) {
     const category = categoryOf(pathKind(path, pr));

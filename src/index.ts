@@ -1,4 +1,29 @@
 export { CHECKS, selectChecks, type PolicyOptions } from './checks/index.js';
+export {
+  classifySignOff,
+  SIGN_OFF_REQUIREMENTS,
+  type SignOffFacts,
+  type SignOffRequirement,
+} from './classify-sign-off.js';
+export {
+  DEFAULT_REPO_CONFIG,
+  parseRepoConfig,
+  REPO_CONFIG_PATH,
+  UAT_SETTINGS,
+  type RepoConfig,
+  type RepoConfigLoad,
+  type UatSetting,
+} from './repo-config.js';
+export { loadRepoConfig } from './github/repo-config.js';
+export { signOffState, type SignOffState } from './sign-off.js';
+export {
+  decideUat,
+  HEAD_BOUND_SIGN_OFFS,
+  readUatSignOff,
+  UAT_CHECK,
+  uatCheck,
+  type UatSignOff,
+} from './checks/uat/index.js';
 export { CI_CHANGE_CHECK, ciChangeCheck, decideCiChange } from './checks/ci-change/index.js';
 export {
   classifyWorkflowChanges,
@@ -49,8 +74,12 @@ export {
   DO_NOT_MERGE_LABEL,
   ESCALATION_NEEDED_LABEL,
   HOTFIX_LABEL,
+  LEGACY_UAT_PASSED_LABEL,
+  NO_UAT_NEEDED_LABEL,
   PR_POLICY_CHECK_NAME,
   RELEASE_PLEASE_PENDING_LABEL,
+  SIGN_OFF_LABELS,
+  UAT_PASSED_LABEL,
 } from './contract.js';
 export { evaluatePolicy, type PolicyEvaluation } from './evaluate.js';
 export { parseFacts } from './facts.js';
@@ -59,10 +88,13 @@ export { applyLabelEdits, gatherFacts, type PullRequestTarget } from './github/p
 export type {
   CheckResult,
   FileChange,
+  LabelActor,
   Finding,
   PolicyCheck,
   PullRequestAuthor,
   PullRequestFacts,
+  RepoPermission,
+  SignOff,
 } from './policy.js';
 export { buildReport } from './report.js';
 export { POLICY_OUTCOMES } from './report.js';

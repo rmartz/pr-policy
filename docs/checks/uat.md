@@ -1,7 +1,7 @@
 ---
 type: Library
 title: UAT sign-off
-description: The uat check — a hard merge gate that holds every PR until it is statically trivial, is titled refactor, or carries a trusted no UAT needed, or a UAT passed applied after the current head was pushed — the trivial-PR rules and their fleet replay, the label actor check, the head binding and the push time it reads, turning the gate off for a repo without UAT, and what it deliberately leaves to other parties.
+description: The uat check — a hard merge gate that holds every PR until the shared sign-off classifier says it needs no UAT (UAT off, a docs, test, or refactor title, trivial paths, or a ci PR covered by the CI sign-off), or it carries a trusted no UAT needed, or a UAT passed applied after the current head was pushed — the trivial-PR rules and their fleet replay, the label actor check, the head binding and the push time it reads, turning the gate off with the repo config, and what it deliberately leaves to other parties.
 resource: src/checks/uat/index.ts
 tags: [pr-policy, uat, sign-off, merge-gate]
 ---
@@ -12,12 +12,18 @@ The `uat` check (`src/checks/uat/`) makes user-acceptance testing a hard merge
 gate. It **holds by default**: `pr-policy` stays pending until one of these is
 true.
 
-1. **The PR is statically trivial:** every path it touches is in an exempt
-   category (below), or its title is a [`refactor`](#refactors).
+1. **The PR doesn't need UAT,** according to the shared
+   [sign-off classifier](../sign-off-classifier.md): the repo config sets
+   `uat: off`, the title is [`docs`, `test`, or `refactor`](#statically-safe-titles),
+   every path is in a [trivial category](#trivial-prs), or a `ci` PR's CI
+   sign-off covers it instead.
 2. **`no UAT needed` is on the PR,** applied by the review agent or a person.
 3. **`UAT passed` is on the PR,** applied by a person **after the current head
    was pushed** (see [below](#uat-passed-is-bound-to-the-head)). Its old name,
    `tested`, counts too while the fleet rename is in progress.
+
+rmartz/pr-lifecycle calls the same classifier to decide which UAT label to show,
+so the label a PR carries and this gate always agree.
 
 A missing label is a `hold`, never "not required". That's what makes the gate
 race-free: pr-lifecycle can approve a PR and arm auto-merge at any point, and
@@ -60,16 +66,19 @@ storybook-ci, and compared with the UAT label `/review` gave each one:
   (`eslint.config.js`), or `.repo-hygiene.yml`. Those can change what ships, or
   what a check lets through, so they stay with the review's judgment.
 
-There is no per-repo override yet. Add one only if a repo's replay shows rules
-that don't fit it.
+There is no per-path override. A repo with nothing to user-test turns UAT off
+as a whole, in its [repo config](../config.md).
 
-### Refactors
+### Statically safe titles
 
-A PR whose title parses as `refactor` (any scope) passes too, whatever code it
-changes. A refactor changes no behaviour, so there is nothing to user-test. The
-[title check](title.md) already blocks a `refactor` that touches a test file,
-and a behaviour change mislabeled `refactor` would also lose its release. Why a
-title may exempt here is in [decisions.md](../decisions.md#uat-needs-a-behaviour-change).
+A PR titled `docs`, `test`, or `refactor` (any scope) passes too, whatever paths
+it changes. None of them changes behaviour, so there is nothing to user-test,
+and the [title check](title.md#type-versus-paths-rules) blocks each one when its
+paths contradict it: `docs` changes only Markdown, `test` only tests, and
+`refactor` no test. A behaviour change mislabeled any of them would also lose
+its release. `chore` is not on the list: no path rule can check it, so the
+review judges it. Why a title may exempt here is in
+[decisions.md](../decisions.md#uat-needs-a-behaviour-change).
 
 ## Who can sign off
 
@@ -88,7 +97,8 @@ person".
 
 | PR state                               | Findings                          | `pr-policy`      |
 | -------------------------------------- | --------------------------------- | ---------------- |
-| Trivial                                | `info`: the categories it touches | passes this gate |
+| Classifier says `none`                 | `info`: why, e.g. the categories  | passes this gate |
+| Classifier says `ci`                   | `info`: the CI sign-off covers it | passes this gate |
 | Trusted sign-off label                 | `info` headline: label and who    | passes this gate |
 | Sign-off label from an untrusted actor | `hold`, plus `info` saying why    | pending          |
 | `UAT passed` from before the head      | `hold`, plus `info` saying why    | pending          |
@@ -100,12 +110,15 @@ the PR straight away. See the Action's consumer guide in
 
 ## Repos without UAT
 
-A repo with nothing to user-test can drop the gate. Pass `--skip-uat` to the
-CLI, or `selectChecks({ skipUat: true })` to `evaluatePolicy` in the library.
-The `uat` check then doesn't run: it adds no findings and gets no per-check
-status. The title and CI-change checks, and the `CI change approved` trust
-check, are unchanged. The setting belongs to the caller, never the PR. See
-[decisions.md](../decisions.md).
+A repo with nothing to user-test sets `uat: off` in
+[`.github/pr-policy.yml`](../config.md), read from the base branch. The `uat`
+check still runs and passes every PR with an `info` finding. The title and
+CI-change checks, and the `CI change approved` trust check, are unchanged. A
+file that can't be parsed is ignored, UAT stays on, and the check says why.
+
+The older `--skip-uat` / `selectChecks({ skipUat: true })` override still works
+but is deprecated: it drops the `uat` check entirely, so it adds no findings and
+gets no per-check status. See [decisions.md](../decisions.md).
 
 ## `UAT passed` is bound to the head
 

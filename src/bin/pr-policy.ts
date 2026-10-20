@@ -8,19 +8,25 @@ import { evaluatePolicy } from '../evaluate.js';
 import { parseFacts } from '../facts.js';
 import { postVerdict } from '../github/check-run.js';
 import { applyLabelEdits, gatherFacts } from '../github/pull-request.js';
+import { loadRepoConfig } from '../github/repo-config.js';
 import { resolveRepoTarget } from '../lib/github.js';
+import { parseRepoConfig } from '../repo-config.js';
 
 const USAGE = `Usage:
   pr-policy evaluate --pr <n> [--repo <owner/repo>] [--json] [--skip-uat]
-  pr-policy evaluate --facts <path|-> [--skip-uat]
+  pr-policy evaluate --facts <path|-> [--config <path>] [--skip-uat]
 
 --pr     Evaluate a live PR, post the pr-policy check-run and commit status on
          its head, and apply the label edits the checks planned. --json
-         prints the evaluation instead and changes nothing.
+         prints the evaluation instead and changes nothing. The repo config
+         (.github/pr-policy.yml) is read from the PR's base branch.
 --facts  Evaluate an offline JSON facts document ("-" reads stdin) and print
          the evaluation. Exits 1 only on "failure" ("pending" exits 0).
+--config A local file to use as the repo config with --facts. Without it,
+         the defaults apply.
 --skip-uat
-         Don't run the UAT gate, for a repo with no user-acceptance testing.`;
+         Deprecated: set "uat: off" in .github/pr-policy.yml instead. Don't run
+         the UAT gate, for a repo with no user-acceptance testing.`;
 
 async function readInput(path: string): Promise<string> {
   if (path !== '-') return readFile(path, 'utf8');
@@ -35,6 +41,7 @@ async function main(argv: readonly string[]): Promise<number> {
     allowPositionals: true,
     options: {
       facts: { type: 'string' },
+      config: { type: 'string' },
       pr: { type: 'string' },
       repo: { type: 'string' },
       json: { type: 'boolean' },
@@ -50,9 +57,17 @@ async function main(argv: readonly string[]): Promise<number> {
     console.error(USAGE);
     return 2;
   }
-  const checks = selectChecks({ skipUat: values['skip-uat'] });
+  const skipUat = values['skip-uat'];
+  if (skipUat) {
+    console.error('warning: --skip-uat is deprecated; set "uat: off" in .github/pr-policy.yml.');
+  }
 
   if (values.facts !== undefined) {
+    const repoConfig =
+      values.config === undefined
+        ? undefined
+        : parseRepoConfig(await readFile(values.config, 'utf8'));
+    const checks = selectChecks({ skipUat, repoConfig });
     const evaluation = await evaluatePolicy(parseFacts(await readInput(values.facts)), checks);
     console.log(JSON.stringify(evaluation, null, 2));
     return evaluation.outcome === 'failure' ? 1 : 0;
@@ -70,7 +85,12 @@ async function main(argv: readonly string[]): Promise<number> {
   }
   const target = { repo, pr };
   const { facts, headSha } = await gatherFacts(target);
-  const evaluation = await evaluatePolicy(facts, checks);
+  // Read from the base branch, never the head, so a PR can't turn a gate off.
+  const repoConfig =
+    skipUat || facts.base === undefined
+      ? undefined
+      : await loadRepoConfig(target, facts.base.branch);
+  const evaluation = await evaluatePolicy(facts, selectChecks({ skipUat, repoConfig }));
   if (values.json) {
     console.log(JSON.stringify(evaluation, null, 2));
     return 0;

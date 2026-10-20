@@ -13,6 +13,11 @@ Documentation for `@rmartz/pr-policy`, written in
   this package is bound to, what failure, pending, and success mean, and why
   the verdict is mirrored to a commit status.
 - [Policy checks](checks/index.md): one page per registered check.
+- [Sign-off classifier](sign-off-classifier.md): the shared `classifySignOff`
+  that decides whether a PR needs no sign-off, a CI sign-off, or UAT, and the
+  sign-off reading exported with it for pr-lifecycle.
+- [Repo config](config.md): `.github/pr-policy.yml`, read from the base branch,
+  and its loader.
 - [Adding a policy check](adding-a-check.md): the module, registration, tests,
   and docs a new check needs.
 - [How pr-policy reaches consuming repos](distribution.md): the package, the

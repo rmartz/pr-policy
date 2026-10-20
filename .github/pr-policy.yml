@@ -1,0 +1,4 @@
+# pr-policy and pr-lifecycle settings for this repo, read from the base branch
+# (docs/config.md). This repo ships only a library and an Action wrapper, so
+# there is nothing to user-test.
+uat: off
