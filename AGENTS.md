@@ -105,9 +105,7 @@ something.
   the Action. It passes `skip-uat: true`: the repo ships only a library, so
   there is nothing to user-test. See [docs/distribution.md](docs/distribution.md).
 - **PR lifecycle labels:** [pr-lifecycle.yml](.github/workflows/pr-lifecycle.yml)
-  runs `rmartz/pr-lifecycle-action` labels-only (no arming, no real-actor token)
-  with `uat: 'off'`, matching `skip-uat`: it keeps each PR's lifecycle labels
-  current and marks every PR `no UAT needed`. `bot-automerge.yml` still does the
+  runs `rmartz/pr-lifecycle-action` without arming, with `uat: 'off'` matching `skip-uat`: it keeps each PR's lifecycle labels current, marks every PR `no UAT needed`, and posts the `pr-lifecycle/sign-off` status (with the merge-bot App token, which the `pr-policy` caller trusts). `bot-automerge.yml` still does the
   merging.
 
 ## Common commands
