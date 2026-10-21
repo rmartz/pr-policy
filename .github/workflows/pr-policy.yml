@@ -38,8 +38,12 @@ permissions:
   statuses: write # post the pr-policy commit status and one per policy check (pr-policy / <check>)
 
 concurrency:
-  # A status event has no PR number; group it by its commit instead.
-  group: pr-policy-${{ github.event.pull_request.number || github.event.sha }}
+  # A status event has no PR number; group it by its commit and context. The
+  # context matters: the job `if` only skips the job, the run still enters the
+  # group, so an ungrouped status (pr-policy's own, Vercel's, merge-safety's)
+  # would cancel an evaluate run that is still posting. Only a newer sign-off
+  # status then supersedes an older one.
+  group: pr-policy-${{ github.event.pull_request.number || format('{0}-{1}', github.event.sha, github.event.context) }}
   cancel-in-progress: true
 
 jobs:
