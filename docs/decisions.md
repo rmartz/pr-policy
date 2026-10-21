@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why `UAT passed` is bound to the head, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, why it reads pr-lifecycle's classification from a commit status, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why `UAT passed` is bound to the head, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -25,8 +25,11 @@ never grows. See [check-run-contract.md](check-run-contract.md).
 Overwriting labels another party owns (verdict labels, UAT labels, approval
 freshness) is a larger trust grant than reporting. Reading a UAT label to gate
 the merge is not; see [the UAT gate](#uat-is-a-hard-gate-here-the-lifecycle-stays-in-pr-lifecycle). Those reconcilers live in
-`rmartz/pr-lifecycle`. This package writes only labels it
-owns outright, and neither package reads the other's outputs.
+`rmartz/pr-lifecycle`, and so does the classification of which sign-off a PR
+needs. This package writes only labels it owns outright, and only until a repo
+cuts over to pr-lifecycle's sign-off status. It reads exactly one thing
+pr-lifecycle writes, that [status](#the-gate-reads-pr-lifecycles-classification-from-a-commit-status),
+and never pr-lifecycle's labels.
 
 ### Title rules block; they never rename
 
@@ -205,6 +208,33 @@ satisfied. So the UAT gate moved in from pr-lifecycle as a check that
 
 Static rules **only exempt** a PR from UAT, never require it. Requiring UAT is
 a judgment the review agent makes and expresses through the labels.
+
+### The gate reads pr-lifecycle's classification from a commit status
+
+Which human sign-off a PR needs (none, a CI sign-off, or UAT) is decided in one
+place, pr-lifecycle (rmartz/pr-lifecycle#119), and handed to this gate as the
+`pr-lifecycle/sign-off` commit status on the head SHA (rmartz/pr-policy#89).
+Two alternatives were weighed:
+
+- **A classifier library both tools import.** Two pinned copies of one library
+  can drift apart between releases, so the label a PR shows and the gate could
+  disagree.
+- **Reading pr-lifecycle's labels.** Labels are for people, anyone can edit
+  them, and a label isn't tied to a commit, so it can describe an older head.
+
+A commit status is tied to its SHA by GitHub, so a push can never leave the gate
+reading an old classification, with no timestamp to get right. The gate still
+checks it as it checks a sign-off: the creator must be a `User` who could merge,
+so a status any workflow could post as `github-actions[bot]` is rejected, and an
+unknown format version holds. pr-lifecycle judges whether a `no UAT needed`
+waiver is current (`waiver=`), because only it can verify a clean rebase.
+
+The gate keeps what blocks a merge directly: the title rules (whose
+type-versus-paths rules are what make a title type trustworthy to classify on),
+dependency and merge-target rules, and who applied a person's sign-off. Its own
+classification stays as the fallback while no status is present, so each repo
+cuts over when its pr-lifecycle starts posting; rmartz/pr-policy#85 removes the
+fallback.
 
 ### UAT needs a behaviour change
 

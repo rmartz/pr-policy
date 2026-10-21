@@ -1,6 +1,7 @@
 import { REPO_PERMISSIONS } from './policy.js';
 import { isRepoPermission } from './sign-off.js';
 import type {
+  CommitStatus,
   FileChange,
   LabelActor,
   OpenPullRequest,
@@ -98,12 +99,25 @@ function parseBase(value: unknown): PullRequestBase | undefined {
   return { branch, defaultBranch, headOf: (headOf ?? []).map(parseOpenPullRequest) };
 }
 
+function parseSignOffStatus(value: unknown): CommitStatus | undefined {
+  if (value === undefined) return undefined;
+  const where = 'facts.signOffStatus';
+  if (typeof value !== 'object' || value === null) throw new Error(`${where} must be an object`);
+  const { state, description, creator } = value as Record<string, unknown>;
+  if (typeof state !== 'string' || typeof description !== 'string') {
+    throw new Error(`${where}.state / description must be strings`);
+  }
+  const actor = parseActor(`${where}.creator`, creator);
+  return actor === undefined ? { state, description } : { state, description, creator: actor };
+}
+
 /**
  * Parse and validate a JSON facts document into `PullRequestFacts`.
  * `workflowChanges`, `manifestChanges`, and `signOffs` are optional and default
- * to none; `body`, `author`, `base`, `draft`, and `headPushedAt` are optional and
- * stay absent. With no `signOffs`, no sign-off label counts, and with no
- * `headPushedAt`, no `UAT passed` does: trust fails closed.
+ * to none; `body`, `author`, `base`, `draft`, `headPushedAt`, and
+ * `signOffStatus` are optional and stay absent. With no `signOffs`, no sign-off
+ * label counts, and with no `headPushedAt`, no `UAT passed` does: trust fails
+ * closed. With no `signOffStatus`, the checks classify the PR themselves.
  */
 export function parseFacts(raw: string): PullRequestFacts {
   const parsed: unknown = JSON.parse(raw);
@@ -122,6 +136,7 @@ export function parseFacts(raw: string): PullRequestFacts {
     manifestChanges,
     signOffs,
     headPushedAt,
+    signOffStatus,
   } = parsed as Record<string, unknown>;
   if (typeof title !== 'string') throw new Error('facts.title must be a string');
   if (!isOptionalString(body)) throw new Error('facts.body must be a string');
@@ -146,5 +161,7 @@ export function parseFacts(raw: string): PullRequestFacts {
   if (parsedBase !== undefined) pr.base = parsedBase;
   if (draft !== undefined) pr.draft = draft;
   if (headPushedAt !== undefined) pr.headPushedAt = headPushedAt;
+  const parsedStatus = parseSignOffStatus(signOffStatus);
+  if (parsedStatus !== undefined) pr.signOffStatus = parsedStatus;
   return pr;
 }

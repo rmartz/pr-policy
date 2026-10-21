@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: The check-run and label contract
-description: The external names pr-policy is bound to — the pr-policy check-run and its mirrored commit status, the CI gate labels, the UAT sign-off labels, the breaking-waiver label, the blocking labels, and the epic label — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
+description: The external names pr-policy is bound to — the pr-policy check-run and its mirrored commit status, the pr-lifecycle/sign-off status it reads and its v1 format, the CI gate labels, the UAT sign-off labels, the breaking-waiver label, the blocking labels, and the epic label — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
 tags: [pr-policy, contract, labels, check-run, commit-status]
 ---
 
@@ -84,9 +84,35 @@ check reports into it rather than posting its own, so adding a check never
 requires a ruleset edit in every consumer. `repo-hygiene` bundles its checks
 behind a single status for the same reason.
 
+## `pr-lifecycle/sign-off`: the classification the gate reads
+
+Read-only here. **This package never posts it.** rmartz/pr-lifecycle posts this
+commit status on every head with its classification of the human sign-off that
+head needs, and the [`uat`](checks/uat.md#pr-lifecycles-sign-off-status) and
+[`ci-change`](checks/ci-change.md) checks gate on it. The context name and the
+description format belong to pr-lifecycle (its `docs/sign-off-status.md`,
+rmartz/pr-lifecycle#119), so both repos must change them together.
+
+Format `v1` is a version token followed by `key=value` pairs, in any order:
+
+| Key           | Values                       | Meaning                                                                                   |
+| ------------- | ---------------------------- | ----------------------------------------------------------------------------------------- |
+| `requirement` | `none`, `ci`, `uat`          | The one sign-off the head needs. Required.                                                |
+| `waiver`      | `current`, `stale`, `absent` | Whether a trusted `no UAT needed` counts for this head. Required with `uat`, else absent. |
+| `loosening`   | `yes`, `no` (default)        | Whether the PR loosens CI, so a bundled loosening still needs `CI change approved`.       |
+
+For example `v1 requirement=uat waiver=current` or `v1 requirement=ci
+loosening=yes`. The gate rejects, and holds on, a status in any other form: an
+unknown version, an unknown or repeated key, an unknown value, a state other
+than `success`, or a creator who couldn't merge (a `User` with write, maintain,
+or admin; `github-actions[bot]` is rejected, since any workflow can post as it).
+So pr-lifecycle bumps the version for any new key.
+
 ## `CI approval needed`: the CI merge-gate label
 
-Owned by the [CI-change check](checks/ci-change.md). It is applied when a
+Owned by the [CI-change check](checks/ci-change.md) until a repo cuts over to
+pr-lifecycle's sign-off status; from then on pr-lifecycle writes it, and this
+package edits it no more on a PR that carries the status. It is applied when a
 workflow change is classified as loosening or ambiguous, and it stays on after
 sign-off as the audit record. The coordinator's gate model already parks
 a PR carrying it until `CI change approved` is also present. While it is present

@@ -10,6 +10,7 @@ import type { PolicyEvaluation } from '../evaluate.js';
 import { addLabels, ghCall, removeLabel } from '../lib/github.js';
 import type { FileChange, OpenPullRequest, PullRequestBase, PullRequestFacts } from '../policy.js';
 import { gatherHeadPushedAt } from './head-push.js';
+import { gatherSignOffStatus } from './sign-off-status.js';
 import { gatherSignOffs } from './sign-offs.js';
 
 export interface PullRequestTarget {
@@ -184,7 +185,43 @@ export async function gatherFacts(
     const pushedAt = await gatherHeadPushedAt(target, headSha);
     if (pushedAt !== undefined) facts.headPushedAt = pushedAt;
   }
+  const signOffStatus = await gatherSignOffStatus(target, headSha);
+  if (signOffStatus !== undefined) facts.signOffStatus = signOffStatus;
   return { facts, headSha };
+}
+
+/**
+ * The open PRs whose head is `sha`. A `status` event carries a SHA, not a PR,
+ * so this is how a caller re-evaluates when pr-lifecycle posts its sign-off
+ * status. A PR whose head has since moved isn't returned: its newer head gets
+ * its own status. A failed lookup throws.
+ */
+export async function openPullRequestsAtHead(
+  target: { repo: string; cwd?: string },
+  sha: string,
+): Promise<number[]> {
+  const endpoint = `repos/${target.repo}/commits/${sha}/pulls`;
+  const out = await ghCall(
+    {
+      argv: [
+        'gh',
+        'api',
+        '--paginate',
+        endpoint,
+        '--jq',
+        '.[] | select(.state == "open") | {number, head: .head.sha}',
+      ],
+    },
+    null,
+    { cwd: target.cwd },
+  );
+  if (out === null) throw new Error(`could not read ${endpoint}`);
+  return out
+    .split('\n')
+    .filter((line) => line.trim() !== '')
+    .map((line) => JSON.parse(line) as { number: number; head: string })
+    .filter((pull) => pull.head === sha)
+    .map((pull) => pull.number);
 }
 
 /** Apply the label edits the checks planned (labels this package owns). */

@@ -12,6 +12,13 @@
  */
 export const PR_POLICY_CHECK_NAME = 'pr-policy';
 
+/**
+ * The commit status pr-lifecycle posts on each head with its classification of
+ * the sign-off that head needs. Read here, never written; pr-lifecycle owns the
+ * name and the description format (rmartz/pr-lifecycle#119).
+ */
+export const SIGN_OFF_STATUS_CONTEXT = 'pr-lifecycle/sign-off';
+
 /** The merge-gate label the CI-change check applies to an unsigned loosening. */
 export const CI_APPROVAL_NEEDED_LABEL = 'CI approval needed';
 

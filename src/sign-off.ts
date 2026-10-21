@@ -19,8 +19,11 @@ export type SignOffState =
   | { status: 'trusted'; label: string; appliedBy: LabelActor }
   | { status: 'untrusted'; label: string; reason: string };
 
-/** The actor when they can sign off, otherwise why they can't. */
-function vet(actor: LabelActor | undefined): LabelActor | string {
+/**
+ * The actor when they can sign off, otherwise why they can't. Also vets who
+ * posted pr-lifecycle's sign-off status (src/sign-off-status.ts).
+ */
+export function vet(actor: LabelActor | undefined): LabelActor | string {
   if (actor === undefined) return 'no labeling event names a live account';
   if (actor.type !== 'User') return `\`${actor.login}\` is a ${actor.type}, not a person`;
   if (!MERGE_PERMISSIONS.has(actor.permission)) {

@@ -29,6 +29,7 @@ const PR = JSON.stringify({
 beforeEach(() => {
   responses.clear();
   responses.set('repos/o/r/pulls/7', PR);
+  responses.set('repos/o/r/commits/head1/statuses', '');
   responses.set(
     'repos/o/r/compare/main...head1',
     JSON.stringify({ merge_base_commit: { sha: 'base1' } }),
@@ -89,6 +90,32 @@ describe('gatherFacts', () => {
     );
     const { facts } = await gatherFacts(target);
     expect(facts.changedFiles).toEqual(['src/a.ts', 'docs/a.md']);
+  });
+
+  it('gathers pr-lifecycle sign-off status on the head', async () => {
+    responses.set('repos/o/r/pulls/7/files', '');
+    responses.set(
+      'repos/o/r/commits/head1/statuses',
+      JSON.stringify({
+        context: 'pr-lifecycle/sign-off',
+        state: 'success',
+        description: 'v1 requirement=ci',
+        login: 'bot',
+        type: 'Bot',
+      }),
+    );
+    const { facts } = await gatherFacts(target);
+    expect(facts.signOffStatus).toEqual({
+      state: 'success',
+      description: 'v1 requirement=ci',
+      creator: { login: 'bot', type: 'Bot', permission: 'none' },
+    });
+  });
+
+  it('leaves the sign-off status absent when pr-lifecycle posted none', async () => {
+    responses.set('repos/o/r/pulls/7/files', '');
+    const { facts } = await gatherFacts(target);
+    expect(facts).not.toHaveProperty('signOffStatus');
   });
 
   it('gathers who applied each sign-off label', async () => {
