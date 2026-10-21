@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   parseSignOffDescription,
+  parseSignOffStatusCreators,
   readSignOffStatus,
   SIGN_OFF_STATUS_CONTEXT,
   type CommitStatus,
@@ -72,7 +73,7 @@ describe('readSignOffStatus — trust', () => {
     [
       'a forged status from github-actions[bot]',
       { creator: { login: 'github-actions[bot]', type: 'Bot', permission: 'none' as const } },
-      'is a Bot, not a person',
+      'any workflow in the repo can post as',
     ],
     [
       'a triage-only user',
@@ -91,5 +92,112 @@ describe('readSignOffStatus — trust', () => {
   it('rejects a trusted creator whose format it does not know', () => {
     const reading = readSignOffStatus({ signOffStatus: status('v9 requirement=none') });
     expect(reading.kind).toBe('rejected');
+  });
+});
+
+const APP: LabelActor = { login: 'rmartz-merge-bot[bot]', type: 'Bot', permission: 'none' };
+const MERGE_BOT = ['rmartz-merge-bot[bot]'];
+
+describe('readSignOffStatus — caller-named GitHub Apps', () => {
+  it('accepts a status from an App the caller names', () => {
+    const reading = readSignOffStatus(
+      { signOffStatus: status('v1 requirement=none', { creator: APP }) },
+      MERGE_BOT,
+    );
+    expect(reading).toEqual({
+      kind: 'valid',
+      classification: { requirement: 'none', loosening: false },
+      postedBy: 'rmartz-merge-bot[bot]',
+    });
+  });
+
+  it('holds a status from an App the caller does not name, and says how to trust it', () => {
+    const other: LabelActor = { login: 'some-app[bot]', type: 'Bot', permission: 'none' };
+    const reading = readSignOffStatus(
+      { signOffStatus: status('v1 requirement=none', { creator: other }) },
+      MERGE_BOT,
+    );
+    expect(reading.kind).toBe('rejected');
+    const reason = reading.kind === 'rejected' ? reading.reason : '';
+    expect(reason).toContain('`some-app[bot]`');
+    expect(reason).toContain('sign-off-status-creators');
+  });
+
+  it('holds an App status by default, when the caller names none', () => {
+    expect(
+      readSignOffStatus({ signOffStatus: status('v1 requirement=none', { creator: APP }) }).kind,
+    ).toBe('rejected');
+  });
+
+  it('matches exactly: a differently cased login is not the named App', () => {
+    const cased: LabelActor = { ...APP, login: 'RMartz-Merge-Bot[bot]' };
+    expect(
+      readSignOffStatus(
+        { signOffStatus: status('v1 requirement=none', { creator: cased }) },
+        MERGE_BOT,
+      ).kind,
+    ).toBe('rejected');
+  });
+
+  it('only trusts a named login when GitHub reports it as a Bot', () => {
+    const impostor: LabelActor = {
+      login: 'rmartz-merge-bot[bot]',
+      type: 'User',
+      permission: 'read',
+    };
+    expect(
+      readSignOffStatus(
+        { signOffStatus: status('v1 requirement=none', { creator: impostor }) },
+        MERGE_BOT,
+      ).kind,
+    ).toBe('rejected');
+  });
+
+  it('still holds a User without write, whatever Apps are named', () => {
+    const reader: LabelActor = { login: 'fan', type: 'User', permission: 'read' };
+    expect(
+      readSignOffStatus(
+        { signOffStatus: status('v1 requirement=none', { creator: reader }) },
+        MERGE_BOT,
+      ).kind,
+    ).toBe('rejected');
+  });
+
+  it('still needs a valid v1 description from a named App', () => {
+    const reading = readSignOffStatus(
+      { signOffStatus: status('v2 requirement=none', { creator: APP }) },
+      MERGE_BOT,
+    );
+    expect(reading.kind).toBe('rejected');
+  });
+});
+
+describe('parseSignOffStatusCreators', () => {
+  it('keeps exact App logins and drops blanks and repeats', () => {
+    expect(
+      parseSignOffStatusCreators([
+        'rmartz-merge-bot[bot]',
+        ' ',
+        'lifecycle[bot] ',
+        'rmartz-merge-bot[bot]',
+      ]),
+    ).toEqual(['rmartz-merge-bot[bot]', 'lifecycle[bot]']);
+  });
+
+  it('is empty by default', () => {
+    expect(parseSignOffStatusCreators([''])).toEqual([]);
+  });
+
+  it.each(['github-actions[bot]', 'GitHub-Actions[bot]'])(
+    'refuses %s, which any workflow can post as',
+    (login) => {
+      expect(() => parseSignOffStatusCreators([login])).toThrow(
+        'any workflow in the repo can post as it',
+      );
+    },
+  );
+
+  it('refuses a login that is not a GitHub App', () => {
+    expect(() => parseSignOffStatusCreators(['reed'])).toThrow("isn't a GitHub App login");
   });
 });

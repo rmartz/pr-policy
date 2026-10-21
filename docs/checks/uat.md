@@ -1,7 +1,7 @@
 ---
 type: Library
 title: UAT sign-off
-description: The uat check — a hard merge gate that holds every PR until pr-lifecycle's sign-off status (or, before a repo cuts over, the check's own classification) says the head needs no UAT, or it carries a trusted no UAT needed the status reports current, or a UAT passed applied after the current head was pushed — how it reads and rejects the status, the per-repo cutover and the status re-run trigger, the trivial-PR rules and their fleet replay, the label actor check, the head binding and the push time it reads, turning the gate off for a repo without UAT, and what it deliberately leaves to other parties.
+description: The uat check — a hard merge gate that holds every PR until pr-lifecycle's sign-off status (or, before a repo cuts over, the check's own classification) says the head needs no UAT, or it carries a trusted no UAT needed the status reports current, or a UAT passed applied after the current head was pushed — how it reads and rejects the status and which creators it trusts, the per-repo cutover and the status re-run trigger, the trivial-PR rules and their fleet replay, the label actor check, the head binding and the push time it reads, turning the gate off for a repo without UAT, and what it deliberately leaves to other parties.
 resource: src/checks/uat/index.ts
 tags: [pr-policy, uat, sign-off, merge-gate]
 ---
@@ -43,6 +43,13 @@ classification of an older head.
 | `requirement=uat`                                             | holds until a current `UAT passed`, or `no UAT needed` with `waiver=current` |
 | rejected: unknown format, bad creator, or state not `success` | holds, "Waiting on pr-lifecycle"                                             |
 | absent                                                        | falls back to this check's own classification                                |
+
+The status counts only from a person who could merge, or from a GitHub App the
+caller names in `sign-off-status-creators`, such as the App token the fleet's
+pr-lifecycle runs with; never from `github-actions[bot]`. See
+[who may post it](../check-run-contract.md#who-may-post-it). A status from an App
+the caller didn't name holds, and the finding names the App and the input that
+trusts it.
 
 Only pr-lifecycle can tell whether a waiver survived a push (a verified clean
 rebase carries it), so under a status a `no UAT needed` counts only with

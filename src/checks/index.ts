@@ -1,10 +1,11 @@
 import type { PolicyCheck } from '../policy.js';
+import { parseSignOffStatusCreators } from '../sign-off-status.js';
 import { baseBranchCheck } from './base-branch.js';
-import { ciChangeCheck } from './ci-change/index.js';
+import { ciChangeCheck, ciChangeCheckFor } from './ci-change/index.js';
 import { dependabotCheck } from './dependabot/index.js';
 import { mergeBlockCheck } from './merge-block.js';
 import { titleCheck } from './title/index.js';
-import { uatCheck } from './uat/index.js';
+import { uatCheck, uatCheckFor } from './uat/index.js';
 
 /**
  * Every registered policy check, in report order. Each check lives in its own
@@ -28,9 +29,28 @@ export const CHECKS: readonly PolicyCheck[] = [
 export interface PolicyOptions {
   /** Drop the UAT gate, for a repo with no user-acceptance testing to wait on. */
   skipUat?: boolean;
+  /**
+   * GitHub App logins (exact, ending in `[bot]`) trusted to post the
+   * `pr-lifecycle/sign-off` status, besides a person who could merge. Empty by
+   * default. `github-actions[bot]` is refused. Human sign-off labels are
+   * unaffected: they still need a trusted person.
+   */
+  signOffStatusCreators?: readonly string[];
 }
 
-/** The checks to run for a repo configured with `options`, in report order. */
+/**
+ * The checks to run for a repo configured with `options`, in report order.
+ * Throws on an invalid `signOffStatusCreators` entry.
+ */
 export function selectChecks(options: PolicyOptions = {}): readonly PolicyCheck[] {
-  return options.skipUat ? CHECKS.filter((check) => check !== uatCheck) : CHECKS;
+  const trustedBots = parseSignOffStatusCreators(options.signOffStatusCreators ?? []);
+  const configured =
+    trustedBots.length === 0
+      ? CHECKS
+      : CHECKS.map((check) => {
+          if (check === uatCheck) return uatCheckFor(trustedBots);
+          if (check === ciChangeCheck) return ciChangeCheckFor(trustedBots);
+          return check;
+        });
+  return options.skipUat ? configured.filter((check) => check.name !== uatCheck.name) : configured;
 }

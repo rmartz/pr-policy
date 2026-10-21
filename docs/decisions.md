@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, why it reads pr-lifecycle's classification from a commit status, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why `UAT passed` is bound to the head, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, why it reads pr-lifecycle's classification from a commit status, why a named GitHub App may post that status but github-actions[bot] never, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why `UAT passed` is bound to the head, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -224,10 +224,10 @@ Two alternatives were weighed:
 
 A commit status is tied to its SHA by GitHub, so a push can never leave the gate
 reading an old classification, with no timestamp to get right. The gate still
-checks it as it checks a sign-off: the creator must be a `User` who could merge,
-so a status any workflow could post as `github-actions[bot]` is rejected, and an
-unknown format version holds. pr-lifecycle judges whether a `no UAT needed`
-waiver is current (`waiver=`), because only it can verify a clean rebase.
+checks who posted it ([below](#a-named-github-app-may-post-the-status-github-actionsbot-never)),
+and an unknown format version holds. pr-lifecycle judges whether a `no UAT
+needed` waiver is current (`waiver=`), because only it can verify a clean
+rebase.
 
 The gate keeps what blocks a merge directly: the title rules (whose
 type-versus-paths rules are what make a title type trustworthy to classify on),
@@ -235,6 +235,28 @@ dependency and merge-target rules, and who applied a person's sign-off. Its own
 classification stays as the fallback while no status is present, so each repo
 cuts over when its pr-lifecycle starts posting; rmartz/pr-policy#85 removes the
 fallback.
+
+### A named GitHub App may post the status; `github-actions[bot]` never
+
+The status counts when a `User` who could merge posted it, or a GitHub App the
+caller names by exact login in `sign-off-status-creators` (rmartz/pr-policy#97).
+The fleet runs pr-lifecycle with an App token, not a personal one, so trusting
+only people would reject every status it posts.
+
+The protection is the token, not the account type. A dedicated App's token can
+only be minted by a workflow holding that App's private key, a secret, just as a
+personal token is. `github-actions[bot]` is different: any workflow in the repo
+can post as it with its `GITHUB_TOKEN`, including one a PR adds, so it can never
+be trusted, and the option refuses it rather than leaving that to the caller.
+Matching is exact and case-sensitive, with no globs, so the caller names the one
+identity it means.
+
+The list belongs to the caller, like `skip-uat`, never to the PR. It is a list
+rather than one login so pr-lifecycle can move to its own App (planned, to tell
+its activity from the merge bot's) by changing an input, with no pr-policy
+release, and so a repo can trust both during the switch. It covers only the
+status: a person's sign-off labels still need a person, because an App applying
+`UAT passed` would claim testing nobody did.
 
 ### UAT needs a behaviour change
 
