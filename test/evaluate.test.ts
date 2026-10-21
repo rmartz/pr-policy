@@ -110,3 +110,61 @@ describe('selectChecks', () => {
     expect(report.findings).toEqual([]);
   });
 });
+
+describe('selectChecks — sign-off status creators', () => {
+  const fromApp = (description: string): PullRequestFacts => ({
+    ...pr,
+    signOffStatus: {
+      state: 'success',
+      description,
+      creator: { login: 'rmartz-merge-bot[bot]', type: 'Bot', permission: 'none' },
+    },
+  });
+  const creators = { signOffStatusCreators: ['rmartz-merge-bot[bot]'] };
+
+  it('lets the UAT check trust a status from a named App', async () => {
+    const report = await evaluatePolicy(fromApp('v1 requirement=none'), selectChecks(creators));
+    expect(report.outcome).toBe('success');
+  });
+
+  it('lets the CI-change check trust a status from a named App', async () => {
+    const report = await evaluatePolicy(fromApp('v1 requirement=ci'), selectChecks(creators));
+    expect(report.findings.map((finding) => `${finding.check}:${finding.effect}`)).toContain(
+      'ci-change:hold',
+    );
+    expect(report.findings.map((finding) => finding.check)).not.toContain('title');
+  });
+
+  it('holds on the same App status when the caller names no App', async () => {
+    const report = await evaluatePolicy(fromApp('v1 requirement=none'), selectChecks());
+    expect(report.outcome).toBe('pending');
+    expect(report.findings[0]?.message).toContain('rmartz-merge-bot[bot]');
+  });
+
+  it('keeps human sign-off labels on people only, whatever Apps are named', async () => {
+    const facts: PullRequestFacts = {
+      ...fromApp('v1 requirement=uat waiver=current'),
+      labels: ['no UAT needed'],
+      signOffs: [
+        {
+          label: 'no UAT needed',
+          appliedBy: { login: 'rmartz-merge-bot[bot]', type: 'Bot', permission: 'none' },
+        },
+      ],
+    };
+    const report = await evaluatePolicy(facts, selectChecks(creators));
+    expect(report.outcome).toBe('pending');
+  });
+
+  it('refuses github-actions[bot] as a creator', () => {
+    expect(() => selectChecks({ signOffStatusCreators: ['github-actions[bot]'] })).toThrow(
+      'any workflow in the repo can post as it',
+    );
+  });
+
+  it('keeps skipUat working alongside named creators', () => {
+    const names = selectChecks({ ...creators, skipUat: true }).map((check) => check.name);
+    expect(names).not.toContain('uat');
+    expect(names).toContain('ci-change');
+  });
+});

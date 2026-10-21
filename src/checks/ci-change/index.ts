@@ -34,10 +34,15 @@ type CiFacts = Pick<PullRequestFacts, 'labels' | 'signOffs' | 'signOffStatus'>;
  * needed, and this check edits no label: pr-lifecycle writes `CI approval
  * needed` then. Without one, or with one the gate can't trust (the `uat` check
  * holds on that), this check classifies the workflow diff itself, as before
- * the cutover.
+ * the cutover. `trustedBots` are the GitHub Apps the caller trusts to post the
+ * status, besides a trusted person.
  */
-export function decideCiChange(classification: Classification, pr: CiFacts): CheckResult {
-  const reading = readSignOffStatus(pr);
+export function decideCiChange(
+  classification: Classification,
+  pr: CiFacts,
+  trustedBots: readonly string[] = [],
+): CheckResult {
+  const reading = readSignOffStatus(pr, trustedBots);
   switch (reading.kind) {
     case 'valid':
       return decideFromStatus(classification, pr, reading.classification);
@@ -141,8 +146,14 @@ function decideWithoutStatus(classification: Classification, pr: CiFacts): Check
   };
 }
 
-export const ciChangeCheck: PolicyCheck = {
-  name: CI_CHANGE_CHECK,
-  evaluate: async (pr: PullRequestFacts) =>
-    decideCiChange(classifyWorkflowChanges(pr.workflowChanges), pr),
-};
+/** The CI-change check for a caller that trusts `trustedBots` to post the sign-off status. */
+export function ciChangeCheckFor(trustedBots: readonly string[]): PolicyCheck {
+  return {
+    name: CI_CHANGE_CHECK,
+    evaluate: async (pr: PullRequestFacts) =>
+      decideCiChange(classifyWorkflowChanges(pr.workflowChanges), pr, trustedBots),
+  };
+}
+
+/** The CI-change check trusting only people to post the sign-off status. */
+export const ciChangeCheck: PolicyCheck = ciChangeCheckFor([]);

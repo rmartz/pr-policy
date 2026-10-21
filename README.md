@@ -41,6 +41,7 @@ pr-policy evaluate --pr 12 --repo rmartz/pr-policy            # post the check-r
 pr-policy evaluate --pr 12 --repo rmartz/pr-policy --json     # evaluate only, change nothing
 pr-policy evaluate --facts pr.json                            # offline, from a JSON facts file
 pr-policy evaluate --pr 12 --repo rmartz/pr-policy --skip-uat # for a repo with no UAT
+pr-policy evaluate --pr 12 --repo rmartz/pr-policy --sign-off-status-creators "rmartz-merge-bot[bot]" # trust that App's pr-lifecycle/sign-off status
 pr-policy evaluate --sha <sha> --repo rmartz/pr-policy        # re-run every open PR at that head (status trigger)
 ```
 

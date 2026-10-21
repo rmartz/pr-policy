@@ -24,7 +24,11 @@ const USAGE = `Usage:
 --facts  Evaluate an offline JSON facts document ("-" reads stdin) and print
          the evaluation. Exits 1 only on "failure" ("pending" exits 0).
 --skip-uat
-         Don't run the UAT gate, for a repo with no user-acceptance testing.`;
+         Don't run the UAT gate, for a repo with no user-acceptance testing.
+--sign-off-status-creators <login,...>
+         GitHub App logins trusted to post the pr-lifecycle/sign-off status,
+         e.g. rmartz-merge-bot[bot]. Exact matches only; github-actions[bot]
+         is refused. A person who could merge is always trusted.`;
 
 async function readInput(path: string): Promise<string> {
   if (path !== '-') return readFile(path, 'utf8');
@@ -44,6 +48,7 @@ async function main(argv: readonly string[]): Promise<number> {
       repo: { type: 'string' },
       json: { type: 'boolean' },
       'skip-uat': { type: 'boolean' },
+      'sign-off-status-creators': { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -55,7 +60,10 @@ async function main(argv: readonly string[]): Promise<number> {
     console.error(USAGE);
     return 2;
   }
-  const checks = selectChecks({ skipUat: values['skip-uat'] });
+  const checks = selectChecks({
+    skipUat: values['skip-uat'],
+    signOffStatusCreators: (values['sign-off-status-creators'] ?? '').split(','),
+  });
 
   if (values.facts !== undefined) {
     const evaluation = await evaluatePolicy(parseFacts(await readInput(values.facts)), checks);

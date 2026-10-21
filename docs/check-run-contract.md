@@ -104,9 +104,24 @@ Format `v1` is a version token followed by `key=value` pairs, in any order:
 For example `v1 requirement=uat waiver=current` or `v1 requirement=ci
 loosening=yes`. The gate rejects, and holds on, a status in any other form: an
 unknown version, an unknown or repeated key, an unknown value, a state other
-than `success`, or a creator who couldn't merge (a `User` with write, maintain,
-or admin; `github-actions[bot]` is rejected, since any workflow can post as it).
-So pr-lifecycle bumps the version for any new key.
+than `success`, or an untrusted creator. So pr-lifecycle bumps the version for
+any new key.
+
+### Who may post it
+
+- A **`User` with write, maintain, or admin** permission, always.
+- A **GitHub App the caller names** in `sign-off-status-creators` (CLI
+  `--sign-off-status-creators`, library `selectChecks({ signOffStatusCreators })`),
+  by its exact, case-sensitive login, such as `rmartz-merge-bot[bot]`. It must be
+  reported as a `Bot`. The default names none.
+- **Never `github-actions[bot]`.** Any workflow in the repo can post as it with
+  its `GITHUB_TOKEN`, so a status from it is rejected, and the option refuses it
+  as an entry.
+
+A rejected status's finding names its creator and, for an App the caller didn't
+name, says how to trust it. Moving pr-lifecycle to a different App is a change
+to the caller's input, with no pr-policy release. The option covers only this
+status: the human sign-off labels still need a trusted `User`.
 
 ## `CI approval needed`: the CI merge-gate label
 

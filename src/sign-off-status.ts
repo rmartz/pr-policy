@@ -79,23 +79,76 @@ export function parseSignOffDescription(description: string): SignOffClassificat
   return { requirement, loosening, waiver };
 }
 
-/** Why a posted status can't be trusted, or `undefined` when it can. */
-function untrustedReason(status: CommitStatus): string | undefined {
-  if (status.state !== 'success') return `its state is \`${status.state}\`, not \`success\``;
-  // `github-actions[bot]` is a Bot, so this also rejects a status any workflow
-  // in the repo could have posted with GITHUB_TOKEN.
-  if (status.creator === undefined) return 'GitHub names no account that posted it';
-  const vetted = vet(status.creator);
+/**
+ * The Bot any workflow in a repo can post as with its `GITHUB_TOKEN`. It can
+ * never be trusted to post the status, so a caller can't name it.
+ */
+export const GITHUB_ACTIONS_BOT = 'github-actions[bot]';
+
+/** The caller option that names trusted status creators, as the finding names it. */
+const CREATORS_OPTION = '`sign-off-status-creators` (CLI `--sign-off-status-creators`)';
+
+/**
+ * Validate a caller's list of GitHub App logins trusted to post the status
+ * (rmartz/pr-policy#97). Each entry is an exact login ending in `[bot]`, such
+ * as `rmartz-merge-bot[bot]`; blanks are dropped. `github-actions[bot]` is
+ * refused in any case, because any workflow can post as it. Throws on a bad
+ * entry, so a misconfigured caller fails loudly rather than trusting less or
+ * more than it meant to.
+ */
+export function parseSignOffStatusCreators(entries: readonly string[]): string[] {
+  const logins = entries.map((entry) => entry.trim()).filter((entry) => entry !== '');
+  for (const login of logins) {
+    if (login.toLowerCase() === GITHUB_ACTIONS_BOT) {
+      throw new Error(
+        `${GITHUB_ACTIONS_BOT} can't be a sign-off status creator: any workflow in the repo can post as it.`,
+      );
+    }
+    if (!login.endsWith('[bot]')) {
+      throw new Error(
+        `\`${login}\` isn't a GitHub App login: sign-off status creators end in \`[bot]\`. People are trusted by their repo permission, without being named.`,
+      );
+    }
+  }
+  return [...new Set(logins)];
+}
+
+/** Why a status's creator can't be trusted, or `undefined` when they can. */
+function untrustedCreator(
+  creator: NonNullable<CommitStatus['creator']>,
+  trustedBots: readonly string[],
+): string | undefined {
+  if (creator.type === 'Bot') {
+    // Exact, case-sensitive match: a caller names the identity it means.
+    if (trustedBots.includes(creator.login)) return undefined;
+    if (creator.login.toLowerCase() === GITHUB_ACTIONS_BOT) {
+      return `it was posted by \`${creator.login}\`, which any workflow in the repo can post as`;
+    }
+    return `it was posted by \`${creator.login}\`, a GitHub App this caller doesn't trust. If it is the repo's pr-lifecycle App, name it in ${CREATORS_OPTION}`;
+  }
+  const vetted = vet(creator);
   return typeof vetted === 'string' ? vetted : undefined;
 }
 
-/** Read pr-lifecycle's sign-off status on the head, judging its creator and format. */
+/** Why a posted status can't be trusted, or `undefined` when it can. */
+function untrustedReason(status: CommitStatus, trustedBots: readonly string[]): string | undefined {
+  if (status.state !== 'success') return `its state is \`${status.state}\`, not \`success\``;
+  if (status.creator === undefined) return 'GitHub names no account that posted it';
+  return untrustedCreator(status.creator, trustedBots);
+}
+
+/**
+ * Read pr-lifecycle's sign-off status on the head, judging its creator and
+ * format. The creator must be a `User` who could merge, or a Bot named in
+ * `trustedBots` (validated by `parseSignOffStatusCreators`).
+ */
 export function readSignOffStatus(
   pr: Pick<PullRequestFacts, 'signOffStatus'>,
+  trustedBots: readonly string[] = [],
 ): SignOffStatusReading {
   const status = pr.signOffStatus;
   if (status === undefined) return { kind: 'absent' };
-  const untrusted = untrustedReason(status);
+  const untrusted = untrustedReason(status, trustedBots);
   if (untrusted !== undefined) return { kind: 'rejected', reason: untrusted };
   const parsed = parseSignOffDescription(status.description);
   if (typeof parsed === 'string') return { kind: 'rejected', reason: parsed };

@@ -1,6 +1,8 @@
 export { CHECKS, selectChecks, type PolicyOptions } from './checks/index.js';
 export {
   parseSignOffDescription,
+  GITHUB_ACTIONS_BOT,
+  parseSignOffStatusCreators,
   readSignOffStatus,
   SIGN_OFF_REQUIREMENTS,
   SIGN_OFF_STATUS_CONTEXT,

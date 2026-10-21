@@ -60,10 +60,11 @@ function staleReason(pr: PullRequestFacts, label: string): string | undefined {
  * Decide the gate. pr-lifecycle's sign-off status, when present, says whether
  * this head needs UAT; a status the gate can't trust holds. With no status the
  * check classifies the PR itself, as before the cutover (fallback, removed by
- * rmartz/pr-policy#85).
+ * rmartz/pr-policy#85). `trustedBots` are the GitHub Apps the caller trusts to
+ * post the status, besides a trusted person.
  */
-export function decideUat(pr: PullRequestFacts): CheckResult {
-  const reading = readSignOffStatus(pr);
+export function decideUat(pr: PullRequestFacts, trustedBots: readonly string[] = []): CheckResult {
+  const reading = readSignOffStatus(pr, trustedBots);
   switch (reading.kind) {
     case 'absent':
       return { findings: decideWithoutStatus(pr) };
@@ -150,7 +151,10 @@ function signOffFindings(
   return [waiting, ...why];
 }
 
-export const uatCheck: PolicyCheck = {
-  name: UAT_CHECK,
-  evaluate: async (pr: PullRequestFacts) => decideUat(pr),
-};
+/** The UAT check for a caller that trusts `trustedBots` to post the sign-off status. */
+export function uatCheckFor(trustedBots: readonly string[]): PolicyCheck {
+  return { name: UAT_CHECK, evaluate: async (pr: PullRequestFacts) => decideUat(pr, trustedBots) };
+}
+
+/** The UAT check trusting only people to post the sign-off status. */
+export const uatCheck: PolicyCheck = uatCheckFor([]);
