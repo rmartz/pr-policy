@@ -135,10 +135,18 @@ describe('selectChecks — sign-off status creators', () => {
     expect(report.findings.map((finding) => finding.check)).not.toContain('title');
   });
 
-  it('holds on the same App status when the caller names no App', async () => {
+  it('ignores the same App status when the caller names no App, and falls back', async () => {
+    // A code change the fallback holds stays held; the status can't open the gate.
     const report = await evaluatePolicy(fromApp('v1 requirement=none'), selectChecks());
     expect(report.outcome).toBe('pending');
-    expect(report.findings[0]?.message).toContain('rmartz-merge-bot[bot]');
+    expect(report.findings.map((finding) => finding.message).join('\n')).toContain(
+      'Ignored the `pr-lifecycle/sign-off` status on this head, because it was posted by `rmartz-merge-bot[bot]`',
+    );
+  });
+
+  it('passes a trivial PR on the fallback despite an untrusted App status', async () => {
+    const trivial = { ...fromApp('v1 requirement=uat waiver=absent'), changedFiles: ['docs/a.md'] };
+    expect((await evaluatePolicy(trivial, selectChecks())).outcome).toBe('success');
   });
 
   it('keeps human sign-off labels on people only, whatever Apps are named', async () => {

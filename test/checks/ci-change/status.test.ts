@@ -85,10 +85,19 @@ describe('decideCiChange — falls back without a usable status', () => {
     expect(result.labelsToAdd).toEqual([CI_APPROVAL_NEEDED_LABEL]);
   });
 
-  it('falls back on a status it cannot trust (the uat check holds on that)', () => {
+  it('ignores a status from an untrusted creator: falls back, labels and all, and says so', () => {
     const forged = lifecycle('v1 requirement=none', {
       creator: { login: 'github-actions[bot]', type: 'Bot', permission: 'none' },
     });
-    expect(decideCiChange(LOOSENING, facts(forged)).findings[0]?.effect).toBe('hold');
+    const result = decideCiChange(LOOSENING, facts(forged));
+    expect(result.findings[0]?.effect).toBe('hold');
+    expect(result.labelsToAdd).toEqual([CI_APPROVAL_NEEDED_LABEL]);
+    expect(result.findings.at(-1)?.message).toContain('Ignored the `pr-lifecycle/sign-off` status');
+  });
+
+  it('falls back on a trusted status it cannot use (the uat check holds on that)', () => {
+    expect(
+      decideCiChange(LOOSENING, facts(lifecycle('v2 requirement=none'))).findings[0]?.effect,
+    ).toBe('hold');
   });
 });

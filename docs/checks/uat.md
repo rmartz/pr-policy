@@ -36,20 +36,24 @@ pr-lifecycle decides which human sign-off each head needs, and posts that as the
 GitHub ties a status to its SHA, so a push can never leave this check reading a
 classification of an older head.
 
-| Status                                                        | `uat` check                                                                  |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `requirement=none`                                            | passes                                                                       |
-| `requirement=ci`                                              | passes; [`ci-change`](ci-change.md) holds for `CI change approved`           |
-| `requirement=uat`                                             | holds until a current `UAT passed`, or `no UAT needed` with `waiver=current` |
-| rejected: unknown format, bad creator, or state not `success` | holds, "Waiting on pr-lifecycle"                                             |
-| absent                                                        | falls back to this check's own classification                                |
+| Status                                                          | `uat` check                                                                      |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `requirement=none`                                              | passes                                                                           |
+| `requirement=ci`                                                | passes; [`ci-change`](ci-change.md) holds for `CI change approved`               |
+| `requirement=uat`                                               | holds until a current `UAT passed`, or `no UAT needed` with `waiver=current`     |
+| ignored: an untrusted creator                                   | falls back to this check's own classification, plus an `info` naming the creator |
+| rejected: trusted, but an unknown format or state not `success` | holds, "Waiting on pr-lifecycle"                                                 |
+| absent                                                          | falls back to this check's own classification                                    |
 
 The status counts only from a person who could merge, or from a GitHub App the
 caller names in `sign-off-status-creators`, such as the App token the fleet's
 pr-lifecycle runs with; never from `github-actions[bot]`. See
-[who may post it](../check-run-contract.md#who-may-post-it). A status from an App
-the caller didn't name holds, and the finding names the App and the input that
-trusts it.
+[who may post it](../check-run-contract.md#who-may-post-it). A status from anyone
+else is ignored: the check classifies the PR itself, exactly as with no status,
+and adds an `info` finding naming the creator and the input that trusts it. An
+ignored status can't open the gate, and a trust list that doesn't match
+pr-lifecycle's identity can't lock the repo, including the PR that fixes the
+list. Why is in [decisions.md](../decisions.md#an-untrusted-status-is-ignored-not-held-on).
 
 Only pr-lifecycle can tell whether a waiver survived a push (a verified clean
 rebase carries it), so under a status a `no UAT needed` counts only with

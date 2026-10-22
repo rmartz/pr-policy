@@ -9,10 +9,12 @@
  * GitHub ties a status to its SHA, so a push can never leave the gate reading a
  * classification of an older head. The gate never reads pr-lifecycle's labels.
  *
- * Everything here fails closed: an unknown version, an unknown key or value, a
- * status that isn't `success`, or a creator who couldn't sign off a PR is
- * `rejected`, and the checks hold. Only a missing status is `absent`, which
- * keeps the checks on their own classification until the repo cuts over.
+ * A status from a creator the gate doesn't trust is `ignored`: the checks
+ * classify the PR themselves, exactly as with no status, so it can't loosen
+ * anything. A trusted creator's status that the gate can't use (an unknown
+ * version, an unknown key or value, a state other than `success`) is
+ * `rejected`, and the checks hold. A missing status is `absent`, which keeps
+ * the checks on their own classification until the repo cuts over.
  */
 import { SIGN_OFF_STATUS_CONTEXT } from './contract.js';
 import type { CommitStatus, PullRequestFacts } from './policy.js';
@@ -35,8 +37,18 @@ export type SignOffClassification =
   | { requirement: 'ci'; loosening: boolean }
   | { requirement: 'uat'; loosening: boolean; waiver: WaiverState };
 
+/**
+ * - `absent`: no status on the head.
+ * - `ignored`: a status from a creator the gate doesn't trust. It is treated as
+ *   no status, so the checks fall back to their own classification
+ *   (rmartz/pr-policy#101); `reason` says who posted it and how to trust them.
+ * - `rejected`: a status from a trusted creator that the gate can't use (a
+ *   state other than `success`, or an unknown format). The checks hold.
+ * - `valid`: a trusted, well-formed status.
+ */
 export type SignOffStatusReading =
   | { kind: 'absent' }
+  | { kind: 'ignored'; reason: string }
   | { kind: 'rejected'; reason: string }
   | { kind: 'valid'; classification: SignOffClassification; postedBy: string };
 
@@ -130,17 +142,17 @@ function untrustedCreator(
   return typeof vetted === 'string' ? vetted : undefined;
 }
 
-/** Why a posted status can't be trusted, or `undefined` when it can. */
-function untrustedReason(status: CommitStatus, trustedBots: readonly string[]): string | undefined {
-  if (status.state !== 'success') return `its state is \`${status.state}\`, not \`success\``;
-  if (status.creator === undefined) return 'GitHub names no account that posted it';
-  return untrustedCreator(status.creator, trustedBots);
-}
-
 /**
  * Read pr-lifecycle's sign-off status on the head, judging its creator and
  * format. The creator must be a `User` who could merge, or a Bot named in
  * `trustedBots` (validated by `parseSignOffStatusCreators`).
+ *
+ * An untrusted creator is `ignored`, not held on. While the checks keep their
+ * own classification, ignoring a status can't loosen anything: the PR is
+ * judged as if pr-lifecycle hadn't posted. Holding instead would lock the repo
+ * whenever pr-lifecycle's identity and the caller's trust list drift apart,
+ * including the PR that fixes the list (rmartz/pr-policy#101). Once
+ * rmartz/pr-policy#85 removes the fallback, this has to hold again.
  */
 export function readSignOffStatus(
   pr: Pick<PullRequestFacts, 'signOffStatus'>,
@@ -148,11 +160,22 @@ export function readSignOffStatus(
 ): SignOffStatusReading {
   const status = pr.signOffStatus;
   if (status === undefined) return { kind: 'absent' };
-  const untrusted = untrustedReason(status, trustedBots);
-  if (untrusted !== undefined) return { kind: 'rejected', reason: untrusted };
+  const untrusted =
+    status.creator === undefined
+      ? 'GitHub names no account that posted it'
+      : untrustedCreator(status.creator, trustedBots);
+  if (untrusted !== undefined) return { kind: 'ignored', reason: untrusted };
+  if (status.state !== 'success') {
+    return { kind: 'rejected', reason: `its state is \`${status.state}\`, not \`success\`` };
+  }
   const parsed = parseSignOffDescription(status.description);
   if (typeof parsed === 'string') return { kind: 'rejected', reason: parsed };
   return { kind: 'valid', classification: parsed, postedBy: status.creator?.login ?? '' };
+}
+
+/** An `info` finding message for a status the gate ignored. */
+export function ignoredStatusMessage(reason: string): string {
+  return `Ignored the \`${SIGN_OFF_STATUS_CONTEXT}\` status on this head, because ${reason}. This check classified the PR itself instead.`;
 }
 
 /** A finding message for a status the gate won't use. */
