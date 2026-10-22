@@ -102,9 +102,9 @@ Format `v1` is a version token followed by `key=value` pairs, in any order:
 | `loosening`   | `yes`, `no` (default)        | Whether the PR loosens CI, so a bundled loosening still needs `CI change approved`.       |
 
 For example `v1 requirement=uat waiver=current` or `v1 requirement=ci
-loosening=yes`. The gate rejects, and holds on, a status in any other form: an
+loosening=yes`. The gate rejects, and holds on, a trusted status in any other form: an
 unknown version, an unknown or repeated key, an unknown value, a state other
-than `success`, or an untrusted creator. So pr-lifecycle bumps the version for
+than `success`. An untrusted creator's status is ignored (below). So pr-lifecycle bumps the version for
 any new key.
 
 ### Who may post it
@@ -112,16 +112,23 @@ any new key.
 - A **`User` with write, maintain, or admin** permission, always.
 - A **GitHub App the caller names** in `sign-off-status-creators` (CLI
   `--sign-off-status-creators`, library `selectChecks({ signOffStatusCreators })`),
-  by its exact, case-sensitive login, such as `rmartz-merge-bot[bot]`. It must be
-  reported as a `Bot`. The default names none.
+  by its exact, case-sensitive login, such as `rmartz-pr-lifecycle[bot]`. It
+  must be reported as a `Bot`. The library and CLI default names none;
+  pr-policy-action's input defaults to `rmartz-pr-lifecycle[bot]`, the fleet's
+  pr-lifecycle App, and an explicit empty value trusts only people.
 - **Never `github-actions[bot]`.** Any workflow in the repo can post as it with
-  its `GITHUB_TOKEN`, so a status from it is rejected, and the option refuses it
-  as an entry.
+  its `GITHUB_TOKEN`, so a status from it is never trusted, and the option
+  refuses it as an entry.
 
-A rejected status's finding names its creator and, for an App the caller didn't
-name, says how to trust it. Moving pr-lifecycle to a different App is a change
-to the caller's input, with no pr-policy release. The option covers only this
-status: the human sign-off labels still need a trusted `User`.
+A status from any other creator is **ignored**, not held on: the checks judge
+the PR as if no status were posted, and an `info` finding names the creator and
+the input that trusts it. So it can't loosen anything, and a mismatch between
+pr-lifecycle's identity and the trust list can't lock the repo
+([why](decisions.md#an-untrusted-status-is-ignored-not-held-on)). A status from
+a trusted creator that the gate can't use (an unknown version or key, a state
+other than `success`) still holds. Moving pr-lifecycle to a different App is a
+change to the caller's input, with no pr-policy release. The option covers only
+this status: the human sign-off labels still need a trusted `User`.
 
 ## `CI approval needed`: the CI merge-gate label
 

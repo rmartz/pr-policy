@@ -15,6 +15,7 @@
 import { LEGACY_UAT_PASSED_LABEL, NO_UAT_NEEDED_LABEL, UAT_PASSED_LABEL } from '../../contract.js';
 import type { CheckResult, Finding, PolicyCheck, PullRequestFacts } from '../../policy.js';
 import {
+  ignoredStatusMessage,
   readSignOffStatus,
   rejectedStatusMessage,
   type SignOffClassification,
@@ -58,8 +59,9 @@ function staleReason(pr: PullRequestFacts, label: string): string | undefined {
 
 /**
  * Decide the gate. pr-lifecycle's sign-off status, when present, says whether
- * this head needs UAT; a status the gate can't trust holds. With no status the
- * check classifies the PR itself, as before the cutover (fallback, removed by
+ * this head needs UAT; a trusted status the gate can't use holds. With no
+ * status, or one from a creator the gate doesn't trust, the check classifies
+ * the PR itself, as before the cutover (fallback, removed by
  * rmartz/pr-policy#85). `trustedBots` are the GitHub Apps the caller trusts to
  * post the status, besides a trusted person.
  */
@@ -68,6 +70,10 @@ export function decideUat(pr: PullRequestFacts, trustedBots: readonly string[] =
   switch (reading.kind) {
     case 'absent':
       return { findings: decideWithoutStatus(pr) };
+    case 'ignored':
+      return {
+        findings: [...decideWithoutStatus(pr), info(ignoredStatusMessage(reading.reason))],
+      };
     case 'rejected':
       return { findings: [hold(rejectedStatusMessage(reading.reason))] };
     case 'valid':

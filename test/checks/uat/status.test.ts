@@ -79,20 +79,53 @@ describe('decideUat — gates on the pr-lifecycle/sign-off status', () => {
   });
 });
 
-describe('decideUat — a status the gate cannot use holds', () => {
+const untrustedApp = (description: string) =>
+  lifecycle(description, {
+    creator: { login: 'rmartz-pr-lifecycle[bot]', type: 'Bot', permission: 'none' },
+  });
+
+describe('decideUat — an untrusted status is ignored, and the fallback applies', () => {
+  it('passes a trivial PR the fallback passes, and names the creator and the fix', () => {
+    const facts = {
+      ...pr(untrustedApp('v1 requirement=uat waiver=absent')),
+      changedFiles: ['docs/a.md'],
+    };
+    const { findings } = decideUat(facts);
+    expect(findings.map((finding) => finding.effect)).toEqual(['info', 'info']);
+    expect(findings[1]?.message).toContain('`rmartz-pr-lifecycle[bot]`');
+    expect(findings[1]?.message).toContain('sign-off-status-creators');
+  });
+
+  it('cannot pass a PR the fallback holds, whatever the status says', () => {
+    // `requirement=none` from an untrusted App must not open the gate.
+    expect(effects(pr(untrustedApp('v1 requirement=none')))).toEqual(['hold', 'info']);
+  });
+
+  it('ignores a forged github-actions[bot] status the same way', () => {
+    const forged = lifecycle('v1 requirement=none', {
+      creator: { login: 'github-actions[bot]', type: 'Bot', permission: 'none' },
+    });
+    expect(effects(pr(forged))).toEqual(['hold', 'info']);
+  });
+
+  it('uses the status once the caller trusts that App', () => {
+    expect(
+      decideUat(pr(untrustedApp('v1 requirement=none')), ['rmartz-pr-lifecycle[bot]']).findings.map(
+        (finding) => finding.effect,
+      ),
+    ).toEqual(['info']);
+  });
+});
+
+describe('decideUat — a trusted status the gate cannot use holds', () => {
   it.each([
-    [
-      'a forged bot status',
-      lifecycle('v1 requirement=none', {
-        creator: { login: 'github-actions[bot]', type: 'Bot', permission: 'none' },
-      }),
-    ],
     ['an unknown format version', lifecycle('v2 requirement=none')],
     ['a malformed description', lifecycle('v1 requirement=none colour=blue')],
+    ['a trusted App with an unknown version', untrustedApp('v2 requirement=none')],
   ])('holds on %s, even where the fallback would pass', (_case, status) => {
     // A trivial PR passes the fallback, so only the rejected status can hold it.
     const facts = { ...pr(status), changedFiles: ['docs/a.md'] };
-    const { findings } = decideUat(facts);
+    const { findings } = decideUat(facts, ['rmartz-pr-lifecycle[bot]']);
     expect(findings.map((finding) => finding.effect)).toEqual(['hold']);
     expect(findings[0]?.message).toContain('Waiting on pr-lifecycle');
   });

@@ -15,7 +15,11 @@
  */
 import { CI_APPROVAL_NEEDED_LABEL, CI_CHANGE_APPROVED_LABEL } from '../../contract.js';
 import type { CheckResult, Finding, PolicyCheck, PullRequestFacts } from '../../policy.js';
-import { readSignOffStatus, type SignOffClassification } from '../../sign-off-status.js';
+import {
+  ignoredStatusMessage,
+  readSignOffStatus,
+  type SignOffClassification,
+} from '../../sign-off-status.js';
 import { signOffState, type SignOffState } from '../../sign-off.js';
 import { classifyWorkflowChanges, type Classification } from './classify.js';
 import type { Indicator } from './indicators.js';
@@ -32,10 +36,11 @@ type CiFacts = Pick<PullRequestFacts, 'labels' | 'signOffs' | 'signOffStatus'>;
  * Decide the findings and label edits for one classified PR. With a valid
  * `pr-lifecycle/sign-off` status, that status says whether a CI sign-off is
  * needed, and this check edits no label: pr-lifecycle writes `CI approval
- * needed` then. Without one, or with one the gate can't trust (the `uat` check
- * holds on that), this check classifies the workflow diff itself, as before
- * the cutover. `trustedBots` are the GitHub Apps the caller trusts to post the
- * status, besides a trusted person.
+ * needed` then. Without one, with one from a creator the gate doesn't trust,
+ * or with a trusted one it can't use (the `uat` check holds on that), this
+ * check classifies the workflow diff itself, as before the cutover.
+ * `trustedBots` are the GitHub Apps the caller trusts to post the status,
+ * besides a trusted person.
  */
 export function decideCiChange(
   classification: Classification,
@@ -46,6 +51,16 @@ export function decideCiChange(
   switch (reading.kind) {
     case 'valid':
       return decideFromStatus(classification, pr, reading.classification);
+    case 'ignored': {
+      // Said here as well as in `uat`, which a caller may skip.
+      const result = decideWithoutStatus(classification, pr);
+      const note: Finding = {
+        check: CI_CHANGE_CHECK,
+        message: ignoredStatusMessage(reading.reason),
+        effect: 'info',
+      };
+      return { ...result, findings: [...result.findings, note] };
+    }
     case 'absent':
     case 'rejected':
       return decideWithoutStatus(classification, pr);

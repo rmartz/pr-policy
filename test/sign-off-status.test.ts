@@ -81,12 +81,27 @@ describe('readSignOffStatus — trust', () => {
       '`triage` permission',
     ],
     ['no traceable creator', { creator: undefined }, 'names no account'],
+  ])('ignores %s, so the checks fall back, and says why', (_case, overrides, reason) => {
+    const reading = readSignOffStatus({ signOffStatus: status('v1 requirement=none', overrides) });
+    expect(reading.kind).toBe('ignored');
+    expect(reading.kind === 'ignored' && reading.reason).toContain(reason);
+  });
+
+  it.each([
     ['a pending status', { state: 'pending' }, 'state is `pending`'],
     ['an error status', { state: 'error' }, 'state is `error`'],
-  ])('rejects %s', (_case, overrides, reason) => {
+  ])('rejects %s from a trusted creator', (_case, overrides, reason) => {
     const reading = readSignOffStatus({ signOffStatus: status('v1 requirement=none', overrides) });
     expect(reading.kind).toBe('rejected');
     expect(reading.kind === 'rejected' && reading.reason).toContain(reason);
+  });
+
+  it('ignores an untrusted creator before looking at its state or format', () => {
+    const forged = status('garbage', {
+      state: 'error',
+      creator: { login: 'github-actions[bot]', type: 'Bot', permission: 'none' },
+    });
+    expect(readSignOffStatus({ signOffStatus: forged }).kind).toBe('ignored');
   });
 
   it('rejects a trusted creator whose format it does not know', () => {
@@ -111,22 +126,22 @@ describe('readSignOffStatus — caller-named GitHub Apps', () => {
     });
   });
 
-  it('holds a status from an App the caller does not name, and says how to trust it', () => {
+  it('ignores a status from an App the caller does not name, and says how to trust it', () => {
     const other: LabelActor = { login: 'some-app[bot]', type: 'Bot', permission: 'none' };
     const reading = readSignOffStatus(
       { signOffStatus: status('v1 requirement=none', { creator: other }) },
       MERGE_BOT,
     );
-    expect(reading.kind).toBe('rejected');
-    const reason = reading.kind === 'rejected' ? reading.reason : '';
+    expect(reading.kind).toBe('ignored');
+    const reason = reading.kind === 'ignored' ? reading.reason : '';
     expect(reason).toContain('`some-app[bot]`');
     expect(reason).toContain('sign-off-status-creators');
   });
 
-  it('holds an App status by default, when the caller names none', () => {
+  it('ignores an App status by default, when the caller names none', () => {
     expect(
       readSignOffStatus({ signOffStatus: status('v1 requirement=none', { creator: APP }) }).kind,
-    ).toBe('rejected');
+    ).toBe('ignored');
   });
 
   it('matches exactly: a differently cased login is not the named App', () => {
@@ -136,7 +151,7 @@ describe('readSignOffStatus — caller-named GitHub Apps', () => {
         { signOffStatus: status('v1 requirement=none', { creator: cased }) },
         MERGE_BOT,
       ).kind,
-    ).toBe('rejected');
+    ).toBe('ignored');
   });
 
   it('only trusts a named login when GitHub reports it as a Bot', () => {
@@ -150,17 +165,17 @@ describe('readSignOffStatus — caller-named GitHub Apps', () => {
         { signOffStatus: status('v1 requirement=none', { creator: impostor }) },
         MERGE_BOT,
       ).kind,
-    ).toBe('rejected');
+    ).toBe('ignored');
   });
 
-  it('still holds a User without write, whatever Apps are named', () => {
+  it('still ignores a User without write, whatever Apps are named', () => {
     const reader: LabelActor = { login: 'fan', type: 'User', permission: 'read' };
     expect(
       readSignOffStatus(
         { signOffStatus: status('v1 requirement=none', { creator: reader }) },
         MERGE_BOT,
       ).kind,
-    ).toBe('rejected');
+    ).toBe('ignored');
   });
 
   it('still needs a valid v1 description from a named App', () => {

@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, why it reads pr-lifecycle's classification from a commit status, why a named GitHub App may post that status but github-actions[bot] never, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why `UAT passed` is bound to the head, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, why it reads pr-lifecycle's classification from a commit status, why a named GitHub App may post that status but github-actions[bot] never, why an untrusted status is ignored rather than held on, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why `UAT passed` is bound to the head, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -257,6 +257,37 @@ its activity from the merge bot's) by changing an input, with no pr-policy
 release, and so a repo can trust both during the switch. It covers only the
 status: a person's sign-off labels still need a person, because an App applying
 `UAT passed` would claim testing nobody did.
+
+The library and CLI name no App by default, so the package stays generic.
+pr-policy-action defaults its input to `rmartz-pr-lifecycle[bot]`, the fleet's
+pr-lifecycle App, so the two sides match with no configuration
+(rmartz/pr-policy#101).
+
+### An untrusted status is ignored, not held on
+
+A `pr-lifecycle/sign-off` status from a creator the caller doesn't trust is
+treated as **no status**: the checks classify the PR themselves and add an
+`info` finding naming the creator and the input that trusts it
+(rmartz/pr-policy#101). Holding on it, as before, failed closed in the wrong
+place:
+
+- pr-lifecycle's identity is set in one workflow and the trust list in another,
+  so they drift: secrets seeded before the pr-policy caller is updated, a repo
+  bootstrapped with one side, a switch to a new App.
+- Once they drift, every PR holds, including the PR that fixes the list, because
+  pr-policy runs from the base branch. Only an admin bypass recovers.
+  rmartz/merge-safety nearly hit this during the fleet rollout.
+
+Ignoring is as safe as holding while the fallback classification exists: an
+ignored status can't loosen anything, because the PR is judged exactly as if
+pr-lifecycle hadn't posted. A forged `requirement=none` therefore can't pass a
+code change. A status from a **trusted** creator that the gate can't use (an
+unknown version or key, a state other than `success`) still holds: that is
+pr-lifecycle and pr-policy disagreeing about the contract, not about trust.
+
+This depends on the fallback. rmartz/pr-policy#85 removes it, after which
+"ignore" would have to become "hold" again, so #85 must not ship until the
+pr-policy-action default is released and pinned fleet-wide.
 
 ### UAT needs a behaviour change
 
