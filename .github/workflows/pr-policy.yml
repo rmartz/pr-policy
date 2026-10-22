@@ -17,12 +17,6 @@ name: pr-policy
 
 on:
   status:
-  # Re-run when the pr-lifecycle caller finishes: it writes the UAT label with
-  # GITHUB_TOKEN, which starts no `labeled` run, so require-uat-label would
-  # otherwise never see it. Like `status`, this runs from the default branch.
-  workflow_run:
-    workflows: [pr-lifecycle]
-    types: [completed]
   pull_request_target:
     # ready_for_review / converted_to_draft re-judge a WIP title on a draft flip.
     types:
@@ -48,10 +42,8 @@ concurrency:
   # context matters: the job `if` only skips the job, the run still enters the
   # group, so an ungrouped status (pr-policy's own, Vercel's, merge-safety's)
   # would cancel an evaluate run that is still posting. Only a newer sign-off
-  # status then supersedes an older one. A workflow_run event has no PR number
-  # either; it groups by its head commit, and comes before the status format,
-  # which would otherwise yield the same non-empty "-" for every such run.
-  group: pr-policy-${{ github.event.pull_request.number || github.event.workflow_run.head_sha || format('{0}-{1}', github.event.sha, github.event.context) }}
+  # status then supersedes an older one.
+  group: pr-policy-${{ github.event.pull_request.number || format('{0}-{1}', github.event.sha, github.event.context) }}
   cancel-in-progress: true
 
 jobs:
@@ -63,14 +55,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      # On a status or workflow_run event `pr` is empty: the Action evaluates
-      # every open PR whose head is the event's commit.
+      # On a status event `pr` is empty: the Action evaluates every open PR
+      # whose head is the event's commit.
       - uses: rmartz/pr-policy-action@0eb43793e1a79b6af2bf2eb6352067f0d03125fd # v1.9.0
         with:
           pr: ${{ github.event.pull_request.number }}
-          # Hold a PR with no UAT label, so every merge has an explicit UAT
-          # determination (pr-lifecycle keeps one on every open PR).
-          require-uat-label: true
           # Retitle a Dependabot linter/formatter bump to ci(...), the type the
           # pr-policy title check requires for it, instead of blocking on a hand edit.
           retitle-dependabot-ci: true
