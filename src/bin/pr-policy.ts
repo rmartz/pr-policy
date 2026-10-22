@@ -28,7 +28,11 @@ const USAGE = `Usage:
 --sign-off-status-creators <login,...>
          GitHub App logins trusted to post the pr-lifecycle/sign-off status,
          e.g. rmartz-merge-bot[bot]. Exact matches only; github-actions[bot]
-         is refused. A person who could merge is always trusted.`;
+         is refused. A person who could merge is always trusted.
+--require-uat-label
+         Hold any PR that carries no UAT label (no UAT needed, UAT pending,
+         UAT ready, UAT passed). Off by default; turn it on once pr-lifecycle,
+         which applies the labels, runs on the default branch.`;
 
 async function readInput(path: string): Promise<string> {
   if (path !== '-') return readFile(path, 'utf8');
@@ -49,6 +53,7 @@ async function main(argv: readonly string[]): Promise<number> {
       json: { type: 'boolean' },
       'skip-uat': { type: 'boolean' },
       'sign-off-status-creators': { type: 'string' },
+      'require-uat-label': { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -63,6 +68,7 @@ async function main(argv: readonly string[]): Promise<number> {
   const checks = selectChecks({
     skipUat: values['skip-uat'],
     signOffStatusCreators: (values['sign-off-status-creators'] ?? '').split(','),
+    requireUatLabel: values['require-uat-label'],
   });
 
   if (values.facts !== undefined) {

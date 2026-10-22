@@ -13,6 +13,7 @@ import {
   CONTAINED_BREAK_LABEL,
   PR_POLICY_CHECK_NAME,
   SIGN_OFF_STATUS_CONTEXT,
+  UAT_LABELS,
   UAT_PASSED_LABEL,
 } from '../src/contract.js';
 
@@ -37,6 +38,17 @@ describe('external contract names', () => {
     expect(UAT_PASSED_LABEL).toBe('UAT passed');
     expect(LEGACY_UAT_PASSED_LABEL).toBe('tested');
     expect(NO_UAT_NEEDED_LABEL).toBe('no UAT needed');
+  });
+
+  it("pins pr-lifecycle's UAT status labels, read for presence", () => {
+    expect(UAT_LABELS).toEqual([
+      'no UAT needed',
+      'UAT pending',
+      'UAT ready',
+      'UAT passed',
+      'tested',
+      'ready for UAT',
+    ]);
   });
 
   it('pins the breaking-waiver label', () => {

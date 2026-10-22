@@ -163,6 +163,14 @@ status. The title and CI-change checks, and the `CI change approved` trust
 check, are unchanged. The setting belongs to the caller, never the PR. See
 [decisions.md](../decisions.md).
 
+## Requiring a UAT label
+
+Separately, a caller can require every PR to carry a UAT label at all, with the
+opt-in [`uat-label`](uat-label.md) check. It checks presence only, from any
+actor, and never relaxes this gate: a PR that needs UAT and carries only
+`UAT pending` or `UAT ready` still holds here. It runs even when `skip-uat` drops
+this check.
+
 ## `UAT passed` is bound to the head
 
 `UAT passed` (and `tested`) says a person tested the code, so it counts only

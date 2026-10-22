@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: The check-run and label contract
-description: The external names pr-policy is bound to — the pr-policy check-run and its mirrored commit status, the pr-lifecycle/sign-off status it reads and its v1 format, the CI gate labels, the UAT sign-off labels, the breaking-waiver label, the blocking labels, and the epic label — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
+description: The external names pr-policy is bound to — the pr-policy check-run and its mirrored commit status, the pr-lifecycle/sign-off status it reads and its v1 format, the CI gate labels, the UAT sign-off labels and the UAT determination labels, the breaking-waiver label, the blocking labels, and the epic label — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
 tags: [pr-policy, contract, labels, check-run, commit-status]
 ---
 
@@ -42,11 +42,12 @@ orphaned pending run sits beside the real verdict. GitHub marks a run that stays
 incomplete for 14 days as `stale`; that still holds the merge, and the next
 event on the PR posts a fresh run.
 
-Findings come from six checks, in this order:
+Findings come from these checks, in this order:
 [`merge-block`](checks/merge-block.md),
 [`base-branch`](checks/base-branch.md), [`title`](checks/title.md),
 [`ci-change`](checks/ci-change.md), [`uat`](checks/uat.md) (unless the
-repo [turns UAT off](checks/uat.md#repos-without-uat)), and
+repo [turns UAT off](checks/uat.md#repos-without-uat)),
+[`uat-label`](checks/uat-label.md) (only when the caller opts in), and
 [`dependabot`](checks/dependabot.md). A PR waiting on
 both a CI sign-off and UAT holds twice, and the title reads "Waiting on 2 human
 sign-offs".
@@ -157,6 +158,15 @@ is a person's statement that they tested the PR's current head, so it (and
 `tested`) counts only when applied after that head was pushed. `tested` is its
 old name, read until the fleet finishes the rename. `no UAT needed` is a waiver
 from the review agent or a person, and isn't bound to a head.
+
+## `UAT pending`, `UAT ready`, and the other UAT labels: the determination
+
+Read-only here. **This package never applies or removes them;** pr-lifecycle
+does. With the opt-in [`uat-label`](checks/uat-label.md) check on, a PR must
+carry at least one of `no UAT needed`, `UAT pending`, `UAT ready`, `UAT passed`,
+or the legacy `tested` / `ready for UAT` (`UAT_LABELS` in `src/contract.ts`).
+Presence counts from any actor, because it never passes a PR on its own: the
+UAT gate above still decides.
 
 ## `contained break`: the dependency-major waiver
 

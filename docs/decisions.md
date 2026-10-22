@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, why it reads pr-lifecycle's classification from a commit status, why a named GitHub App may post that status but github-actions[bot] never, why an untrusted status is ignored rather than held on, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why `UAT passed` is bound to the head, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, why it reads pr-lifecycle's classification from a commit status, why a named GitHub App may post that status but github-actions[bot] never, why an untrusted status is ignored rather than held on, why requiring a UAT label is opt-in and trusts any actor, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why `UAT passed` is bound to the head, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -288,6 +288,26 @@ pr-lifecycle and pr-policy disagreeing about the contract, not about trust.
 This depends on the fallback. rmartz/pr-policy#85 removes it, after which
 "ignore" would have to become "hold" again, so #85 must not ship until the
 pr-policy-action default is released and pinned fleet-wide.
+
+### Every PR can be required to carry a UAT label: opt-in, from any actor
+
+With `requireUatLabel`, the [`uat-label`](checks/uat-label.md) check holds any
+PR that carries no UAT label, so every merged PR has an explicit, auditable UAT
+determination (rmartz/pr-policy#103). Two choices make it safe:
+
+- **Presence trusts any actor.** pr-lifecycle writes these labels as
+  `github-actions[bot]`, so requiring a trusted person would reject all of them.
+  Presence only adds a requirement and never passes a PR: the UAT gate still
+  decides with its own trust rule. So an untrusted label can't loosen anything.
+- **It is opt-in.** On by default, it would hold every PR in a repo whose
+  pr-lifecycle isn't running yet, including the PR that adds pr-lifecycle,
+  because pr-policy runs from the base branch: the same lockout as an untrusted
+  sign-off status. A repo turns it on once its pr-lifecycle caller is on the
+  default branch.
+
+It runs even when the UAT gate is skipped, because pr-lifecycle records
+`no UAT needed` in such a repo, and that is the determination it checks. A
+missing label is a `hold`, not a `block`: it clears once pr-lifecycle runs.
 
 ### UAT needs a behaviour change
 
