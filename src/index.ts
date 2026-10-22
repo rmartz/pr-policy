@@ -39,6 +39,7 @@ export {
 } from './checks/dependabot/index.js';
 export { parseClaims, type Claim } from './checks/dependabot/claims.js';
 export { MERGE_BLOCK_CHECK, decideMergeBlock, mergeBlockCheck } from './checks/merge-block.js';
+export { UAT_LABEL_CHECK, decideUatLabel, uatLabelCheck } from './checks/uat-label.js';
 export { isWorkflowPath } from './checks/ci-change/workflow-paths.js';
 export { TITLE_CHECK, decideTitle, titleCheck } from './checks/title/index.js';
 export {
@@ -65,6 +66,7 @@ export {
   HOTFIX_LABEL,
   PR_POLICY_CHECK_NAME,
   RELEASE_PLEASE_PENDING_LABEL,
+  UAT_LABELS,
 } from './contract.js';
 export { evaluatePolicy, type PolicyEvaluation } from './evaluate.js';
 export { parseFacts } from './facts.js';

@@ -39,6 +39,29 @@ export const LEGACY_UAT_PASSED_LABEL = 'tested';
 export const NO_UAT_NEEDED_LABEL = 'no UAT needed';
 
 /**
+ * pr-lifecycle's UAT status labels, written by pr-lifecycle and read here only
+ * for the opt-in `uat-label` presence check: `UAT pending` while UAT is
+ * waiting, `UAT ready` once the PR is ready to test. `ready for UAT` is the
+ * older name of `UAT ready`.
+ */
+export const UAT_PENDING_LABEL = 'UAT pending';
+export const UAT_READY_LABEL = 'UAT ready';
+export const LEGACY_UAT_READY_LABEL = 'ready for UAT';
+
+/**
+ * Every label that records a UAT determination on a PR, current and legacy
+ * names alike. The `uat-label` check passes when any one is present.
+ */
+export const UAT_LABELS = [
+  NO_UAT_NEEDED_LABEL,
+  UAT_PENDING_LABEL,
+  UAT_READY_LABEL,
+  UAT_PASSED_LABEL,
+  LEGACY_UAT_PASSED_LABEL,
+  LEGACY_UAT_READY_LABEL,
+] as const;
+
+/**
  * A person's judgment that a dependency major bump doesn't reach this package's
  * consumers, such as a wrapper that absorbs its CLI's major. Read and never
  * written. It waives only the title check's dependency-major rule, so the PR can

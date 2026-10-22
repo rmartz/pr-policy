@@ -6,6 +6,7 @@ import { dependabotCheck } from './dependabot/index.js';
 import { mergeBlockCheck } from './merge-block.js';
 import { titleCheck } from './title/index.js';
 import { uatCheck, uatCheckFor } from './uat/index.js';
+import { uatLabelCheck } from './uat-label.js';
 
 /**
  * Every registered policy check, in report order. Each check lives in its own
@@ -36,11 +37,19 @@ export interface PolicyOptions {
    * unaffected: they still need a trusted person.
    */
   signOffStatusCreators?: readonly string[];
+  /**
+   * Hold every PR that carries no UAT label (`uat-label`, rmartz/pr-policy#103).
+   * Off by default: turn it on once the repo's pr-lifecycle caller, which
+   * applies the labels, is on the default branch. It runs even with `skipUat`.
+   */
+  requireUatLabel?: boolean;
 }
 
 /**
  * The checks to run for a repo configured with `options`, in report order.
- * Throws on an invalid `signOffStatusCreators` entry.
+ * The opt-in `uat-label` check is not in `CHECKS`; it runs just before
+ * `dependabot` when `requireUatLabel` is set. Throws on an invalid
+ * `signOffStatusCreators` entry.
  */
 export function selectChecks(options: PolicyOptions = {}): readonly PolicyCheck[] {
   const trustedBots = parseSignOffStatusCreators(options.signOffStatusCreators ?? []);
@@ -52,5 +61,11 @@ export function selectChecks(options: PolicyOptions = {}): readonly PolicyCheck[
           if (check === ciChangeCheck) return ciChangeCheckFor(trustedBots);
           return check;
         });
-  return options.skipUat ? configured.filter((check) => check.name !== uatCheck.name) : configured;
+  const selected = options.skipUat
+    ? configured.filter((check) => check.name !== uatCheck.name)
+    : configured;
+  if (!options.requireUatLabel) return selected;
+  return selected.flatMap((check) =>
+    check === dependabotCheck ? [uatLabelCheck, check] : [check],
+  );
 }
