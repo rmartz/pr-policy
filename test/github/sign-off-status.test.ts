@@ -1,97 +1,84 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Transport } from '../../src/lib/github.js';
+import { github, pages, transports } from './fake-github.js';
 
-// `gh` is a boundary: every call is answered from this table by its exact
-// REST endpoint; an unlisted endpoint fails the way `gh` does (null).
-const responses = new Map<string, string>();
-const calls: string[] = [];
-vi.mock('../../src/lib/github.js', () => ({
-  ghCall: async (primary: Transport) => {
-    const endpoint = primary.argv.find((arg) => arg.startsWith('repos/')) ?? '';
-    calls.push(endpoint);
-    return responses.get(endpoint) ?? null;
-  },
-  addLabels: vi.fn(),
-  removeLabel: vi.fn(),
-}));
-
-const { gatherSignOffStatus } = await import('../../src/github/sign-off-status.js');
-const { openPullRequestsAtHead } = await import('../../src/github/pull-request.js');
-
-const target = { repo: 'o/r' };
-const STATUSES = 'repos/o/r/commits/head1/statuses';
-const line = (context: string, description: string, login: string | null, type = 'User') =>
-  JSON.stringify({ context, state: 'success', description, login, type });
-
-beforeEach(() => {
-  responses.clear();
-  calls.length = 0;
+// GitHub is a boundary: both transports read the same raw API responses.
+vi.mock('../../src/lib/github.js', async () => {
+  const fake = await import('./fake-github.js');
+  return { ghCall: fake.fakeGhCall, ...fake.fakeLabels };
 });
 
-describe('gatherSignOffStatus', () => {
+const { gatherSignOffStatus } = await import('../../src/github/sign-off-status.js');
+
+const STATUSES = 'repos/o/r/commits/head1/statuses';
+const status = (context: string, description: string, login: string | null, type = 'User') => ({
+  context,
+  state: 'success',
+  description,
+  creator: login === null ? null : { login, type },
+});
+
+beforeEach(() => {
+  github.reset();
+});
+
+describe.each(await transports())('gatherSignOffStatus over %s', (_name, makeClient) => {
+  const target = () => ({ repo: 'o/r', client: makeClient() });
+
   it('takes the newest pr-lifecycle/sign-off status and looks up who posted it', async () => {
-    responses.set(
-      STATUSES,
-      [
-        line('pr-policy', 'All PR policy checks pass', 'github-actions[bot]', 'Bot'),
-        line('pr-lifecycle/sign-off', 'v1 requirement=uat waiver=current', 'reed'),
-        line('pr-lifecycle/sign-off', 'v1 requirement=none', 'reed'),
-      ].join('\n'),
-    );
-    responses.set(
-      'repos/o/r/collaborators/reed/permission',
-      JSON.stringify({ role_name: 'admin' }),
-    );
-    expect(await gatherSignOffStatus(target, 'head1')).toEqual({
+    github.responses.set(STATUSES, [
+      status('pr-policy', 'All PR policy checks pass', 'github-actions[bot]', 'Bot'),
+      status('pr-lifecycle/sign-off', 'v1 requirement=uat waiver=current', 'reed'),
+      status('pr-lifecycle/sign-off', 'v1 requirement=none', 'reed'),
+    ]);
+    github.responses.set('repos/o/r/collaborators/reed/permission', { role_name: 'admin' });
+    expect(await gatherSignOffStatus(target(), 'head1')).toEqual({
       state: 'success',
       description: 'v1 requirement=uat waiver=current',
       creator: { login: 'reed', type: 'User', permission: 'admin' },
     });
   });
 
+  it('finds the status on a later page', async () => {
+    github.responses.set(
+      STATUSES,
+      pages(
+        [status('pr-policy', 'pending', 'github-actions[bot]', 'Bot')],
+        [status('pr-lifecycle/sign-off', 'v1 requirement=none', 'app[bot]', 'Bot')],
+      ),
+    );
+    const found = await gatherSignOffStatus(target(), 'head1');
+    expect(found?.description).toBe('v1 requirement=none');
+  });
+
   it('is absent when pr-lifecycle has posted nothing on the head', async () => {
-    responses.set(STATUSES, line('pr-policy', 'pending', 'github-actions[bot]', 'Bot'));
-    expect(await gatherSignOffStatus(target, 'head1')).toBeUndefined();
+    github.responses.set(STATUSES, [status('pr-policy', 'pending', 'github-actions[bot]', 'Bot')]);
+    expect(await gatherSignOffStatus(target(), 'head1')).toBeUndefined();
+  });
+
+  it('records no creator for a status posted by a deleted account', async () => {
+    github.responses.set(STATUSES, [status('pr-lifecycle/sign-off', 'v1 requirement=none', null)]);
+    expect(await gatherSignOffStatus(target(), 'head1')).toEqual({
+      state: 'success',
+      description: 'v1 requirement=none',
+    });
   });
 
   it('skips the permission lookup for a bot creator', async () => {
-    responses.set(
-      STATUSES,
-      line('pr-lifecycle/sign-off', 'v1 requirement=none', 'github-actions[bot]', 'Bot'),
-    );
-    const status = await gatherSignOffStatus(target, 'head1');
-    expect(status?.creator).toEqual({
+    github.responses.set(STATUSES, [
+      status('pr-lifecycle/sign-off', 'v1 requirement=none', 'github-actions[bot]', 'Bot'),
+    ]);
+    const found = await gatherSignOffStatus(target(), 'head1');
+    expect(found?.creator).toEqual({
       login: 'github-actions[bot]',
       type: 'Bot',
       permission: 'none',
     });
-    expect(calls).toEqual([STATUSES]);
+    expect(github.reads).toEqual([STATUSES]);
   });
 
   it('throws when the statuses cannot be read, rather than falling back', async () => {
-    await expect(gatherSignOffStatus(target, 'head1')).rejects.toThrow(
+    await expect(gatherSignOffStatus(target(), 'head1')).rejects.toThrow(
       `could not read ${STATUSES}`,
-    );
-  });
-});
-
-describe('openPullRequestsAtHead', () => {
-  const PULLS = 'repos/o/r/commits/head1/pulls';
-
-  it('returns only open PRs whose head is still that SHA', async () => {
-    responses.set(
-      PULLS,
-      [
-        JSON.stringify({ number: 7, head: 'head1' }),
-        JSON.stringify({ number: 8, head: 'head2' }), // moved on since
-      ].join('\n'),
-    );
-    expect(await openPullRequestsAtHead(target, 'head1')).toEqual([7]);
-  });
-
-  it('throws when the lookup fails', async () => {
-    await expect(openPullRequestsAtHead(target, 'head1')).rejects.toThrow(
-      `could not read ${PULLS}`,
     );
   });
 });

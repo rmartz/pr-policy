@@ -1,7 +1,7 @@
 ---
 type: Design
 title: How pr-policy reaches consuming repos
-description: The npm package this repo publishes, the rmartz/pr-policy-action composite Action that consumers pin and Dependabot bumps, and how this repo gates itself through that same Action.
+description: The npm package this repo publishes, the rmartz/pr-policy-action composite Action that consumers pin and Dependabot bumps, how this repo gates itself through that same Action, and how a hosted caller runs the library with a token instead of gh.
 tags: [pr-policy, distribution, github-actions]
 ---
 
@@ -36,3 +36,33 @@ This repo gates its own PRs through the same released Action
 required check on its ruleset. It is judged by the **released** policy, never by
 the code under review, so a change to a check takes effect here only after it
 ships through the Action like it does everywhere else.
+
+## Hosted callers: the library with a token
+
+A caller with no `gh` binary, such as the gate App's webhook server in
+[`rmartz/pr-lifecycle-app`](https://github.com/rmartz/pr-lifecycle-app), runs
+the library directly. Every GitHub call in `src/github/` goes through one
+`GitHubClient` ([`src/github/client.ts`](../src/github/client.ts)), with two
+implementations:
+
+| Client              | Used by                | Reaches GitHub through                                                     |
+| ------------------- | ---------------------- | -------------------------------------------------------------------------- |
+| `createGhClient`    | the CLI and the Action | the vendored `gh` transport, with its retry and GraphQL fallback (default) |
+| `createFetchClient` | hosted callers         | `fetch` with a bearer token, following `Link` pagination, with no retry    |
+
+The I/O functions (`gatherFacts`, `openPullRequestsAtHead`, `applyLabelEdits`,
+`postVerdict`) take a target whose optional `client` selects the transport.
+Without one they use `gh` in the target's `cwd`, so the CLI is unchanged:
+
+```ts
+const client = createFetchClient({ token: installationToken });
+const target = { repo: 'owner/name', pr: 42, client };
+const { facts, headSha } = await gatherFacts(target);
+const evaluation = await evaluatePolicy(facts, selectChecks({ skipUat: false }));
+await applyLabelEdits(target, evaluation);
+await postVerdict(target, headSha, evaluation);
+```
+
+Both clients fail the same way. A read returns `null`, and a read the facts
+depend on throws rather than reading as "absent". The tests run every gatherer
+over both clients against the same raw API responses.

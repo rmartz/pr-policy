@@ -17,8 +17,8 @@
  */
 import { PR_POLICY_CHECK_NAME } from '../contract.js';
 import type { PolicyEvaluation } from '../evaluate.js';
-import { ghCall } from '../lib/github.js';
 import type { PullRequestTarget } from './pull-request.js';
+import { clientOf } from './client.js';
 
 interface CheckRunShape {
   id: number;
@@ -39,21 +39,11 @@ export function checkRunBody(evaluation: PolicyEvaluation, now: Date): Record<st
 
 /** The latest `pr-policy` run on this head that is still open, if any. */
 async function openRun(target: PullRequestTarget, headSha: string): Promise<number | null> {
-  const out = await ghCall(
-    {
-      argv: [
-        'gh',
-        'api',
-        `repos/${target.repo}/commits/${headSha}/check-runs?check_name=${PR_POLICY_CHECK_NAME}&filter=latest`,
-        '--jq',
-        '.check_runs',
-      ],
-    },
-    null,
-    { cwd: target.cwd },
+  const out = await clientOf(target).getJson(
+    `repos/${target.repo}/commits/${headSha}/check-runs?check_name=${PR_POLICY_CHECK_NAME}&filter=latest`,
   );
   if (out === null) throw new Error(`could not list ${PR_POLICY_CHECK_NAME} check-runs`);
-  const runs = JSON.parse(out) as CheckRunShape[];
+  const runs = (out as { check_runs: CheckRunShape[] }).check_runs;
   return runs.find((run) => run.status !== 'completed')?.id ?? null;
 }
 
@@ -65,13 +55,15 @@ export async function postCheckRun(
 ): Promise<void> {
   const body = checkRunBody(evaluation, new Date());
   const existing = await openRun(target, headSha);
-  const argv =
+  const client = clientOf(target);
+  const out =
     existing === null
-      ? ['gh', 'api', '-X', 'POST', `repos/${target.repo}/check-runs`, '--input', '-']
-      : ['gh', 'api', '-X', 'PATCH', `repos/${target.repo}/check-runs/${existing}`, '--input', '-'];
-  const payload =
-    existing === null ? { name: PR_POLICY_CHECK_NAME, head_sha: headSha, ...body } : body;
-  const out = await ghCall({ argv, stdin: JSON.stringify(payload) }, null, { cwd: target.cwd });
+      ? await client.send('POST', `repos/${target.repo}/check-runs`, {
+          name: PR_POLICY_CHECK_NAME,
+          head_sha: headSha,
+          ...body,
+        })
+      : await client.send('PATCH', `repos/${target.repo}/check-runs/${existing}`, body);
   if (out === null) throw new Error(`could not post the ${PR_POLICY_CHECK_NAME} check-run`);
 }
 
@@ -105,13 +97,10 @@ async function postCommitStatus(
     GITHUB_SERVER_URL && GITHUB_REPOSITORY && GITHUB_RUN_ID
       ? `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}`
       : undefined;
-  const out = await ghCall(
-    {
-      argv: ['gh', 'api', '-X', 'POST', `repos/${target.repo}/statuses/${headSha}`, '--input', '-'],
-      stdin: JSON.stringify(statusBody(evaluation, runUrl)),
-    },
-    null,
-    { cwd: target.cwd },
+  const out = await clientOf(target).send(
+    'POST',
+    `repos/${target.repo}/statuses/${headSha}`,
+    statusBody(evaluation, runUrl),
   );
   if (out === null) {
     console.warn(

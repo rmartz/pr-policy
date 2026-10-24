@@ -1,64 +1,72 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Transport } from '../../src/lib/github.js';
+import { github, transports } from './fake-github.js';
 
-// `gh` is a boundary: every call is answered from this table by its exact
-// REST endpoint; an unlisted endpoint fails the way `gh` does (null).
-const responses = new Map<string, string>();
-vi.mock('../../src/lib/github.js', () => ({
-  ghCall: async (primary: Transport) => {
-    const endpoint = primary.argv.find((arg) => arg.startsWith('repos/')) ?? '';
-    return responses.get(endpoint) ?? null;
-  },
-}));
+// GitHub is a boundary: both transports read the same raw API responses.
+vi.mock('../../src/lib/github.js', async () => {
+  const fake = await import('./fake-github.js');
+  return { ghCall: fake.fakeGhCall, ...fake.fakeLabels };
+});
 
 const { gatherHeadPushedAt } = await import('../../src/github/head-push.js');
 
-const target = { repo: 'o/r', pr: 7 };
 const EVENTS = 'repos/o/r/issues/7/events';
 const SUITES = 'repos/o/r/commits/head1/check-suites';
+const forcePush = (at: string) => ({ event: 'head_ref_force_pushed', created_at: at });
+const suites = (...at: string[]) => ({ check_suites: at.map((created_at) => ({ created_at })) });
 
 beforeEach(() => {
-  responses.clear();
+  github.reset();
 });
 
-describe('gatherHeadPushedAt', () => {
+describe.each(await transports())('gatherHeadPushedAt over %s', (_name, makeClient) => {
+  const target = () => ({ repo: 'o/r', pr: 7, client: makeClient() });
+
   it('reads the head commit’s earliest check suite as its push time', async () => {
-    responses.set(EVENTS, '');
-    responses.set(SUITES, ['2026-10-01T12:05:00Z', '2026-10-01T12:00:00Z'].join('\n'));
-    expect(await gatherHeadPushedAt(target, 'head1')).toBe('2026-10-01T12:00:00.000Z');
+    github.responses.set(EVENTS, []);
+    github.responses.set(SUITES, suites('2026-10-01T12:05:00Z', '2026-10-01T12:00:00Z'));
+    expect(await gatherHeadPushedAt(target(), 'head1')).toBe('2026-10-01T12:00:00.000Z');
   });
 
   it('takes a force push later than the earliest suite, as when a head is pushed back', async () => {
-    responses.set(EVENTS, ['2026-10-01T13:00:00Z', '2026-10-01T14:00:00Z'].join('\n'));
-    responses.set(SUITES, '2026-10-01T12:00:00Z');
-    expect(await gatherHeadPushedAt(target, 'head1')).toBe('2026-10-01T14:00:00.000Z');
+    github.responses.set(EVENTS, [
+      forcePush('2026-10-01T13:00:00Z'),
+      forcePush('2026-10-01T14:00:00Z'),
+    ]);
+    github.responses.set(SUITES, suites('2026-10-01T12:00:00Z'));
+    expect(await gatherHeadPushedAt(target(), 'head1')).toBe('2026-10-01T14:00:00.000Z');
+  });
+
+  it('ignores events other than a force push', async () => {
+    github.responses.set(EVENTS, [{ event: 'labeled', created_at: '2026-10-01T15:00:00Z' }]);
+    github.responses.set(SUITES, suites('2026-10-01T12:00:00Z'));
+    expect(await gatherHeadPushedAt(target(), 'head1')).toBe('2026-10-01T12:00:00.000Z');
   });
 
   it('keeps the suite time when every force push came before it', async () => {
-    responses.set(EVENTS, '2026-10-01T11:00:00Z');
-    responses.set(SUITES, '2026-10-01T12:00:00Z');
-    expect(await gatherHeadPushedAt(target, 'head1')).toBe('2026-10-01T12:00:00.000Z');
+    github.responses.set(EVENTS, [forcePush('2026-10-01T11:00:00Z')]);
+    github.responses.set(SUITES, suites('2026-10-01T12:00:00Z'));
+    expect(await gatherHeadPushedAt(target(), 'head1')).toBe('2026-10-01T12:00:00.000Z');
   });
 
   it('falls back to the force push when the head has no check suite', async () => {
-    responses.set(EVENTS, '2026-10-01T11:00:00Z');
-    responses.set(SUITES, '');
-    expect(await gatherHeadPushedAt(target, 'head1')).toBe('2026-10-01T11:00:00.000Z');
+    github.responses.set(EVENTS, [forcePush('2026-10-01T11:00:00Z')]);
+    github.responses.set(SUITES, suites());
+    expect(await gatherHeadPushedAt(target(), 'head1')).toBe('2026-10-01T11:00:00.000Z');
   });
 
   it('is unknown when GitHub records neither', async () => {
-    responses.set(EVENTS, '');
-    responses.set(SUITES, '');
-    expect(await gatherHeadPushedAt(target, 'head1')).toBeUndefined();
+    github.responses.set(EVENTS, []);
+    github.responses.set(SUITES, suites());
+    expect(await gatherHeadPushedAt(target(), 'head1')).toBeUndefined();
   });
 
   it('throws when the check suites cannot be read, rather than guessing', async () => {
-    responses.set(EVENTS, '');
-    await expect(gatherHeadPushedAt(target, 'head1')).rejects.toThrow(`could not read ${SUITES}`);
+    github.responses.set(EVENTS, []);
+    await expect(gatherHeadPushedAt(target(), 'head1')).rejects.toThrow(`could not read ${SUITES}`);
   });
 
   it('throws when the PR events cannot be read', async () => {
-    responses.set(SUITES, '2026-10-01T12:00:00Z');
-    await expect(gatherHeadPushedAt(target, 'head1')).rejects.toThrow(`could not read ${EVENTS}`);
+    github.responses.set(SUITES, suites('2026-10-01T12:00:00Z'));
+    await expect(gatherHeadPushedAt(target(), 'head1')).rejects.toThrow(`could not read ${EVENTS}`);
   });
 });

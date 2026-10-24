@@ -83,6 +83,13 @@ do, so the only runtime dependency is the YAML parser. Shell out only through
 them. When you touch either file, check upstream for transport or rate-limit
 fixes and port them across.
 
+Code in `src/github/` reaches GitHub only through a `GitHubClient`
+(`src/github/client.ts`), never by calling `ghCall` directly. The `gh` client is
+the default, and the fetch client serves hosted callers with no `gh`. A new
+call must work over both, so test it over both clients with the shared fake API
+in `test/github/fake-github.ts`. See
+[docs/distribution.md](docs/distribution.md#hosted-callers-the-library-with-a-token).
+
 ## Repository conformance
 
 This repo follows the fleet's shared repository checklist.

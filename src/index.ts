@@ -72,6 +72,13 @@ export { evaluatePolicy, type PolicyEvaluation } from './evaluate.js';
 export { parseFacts } from './facts.js';
 export { checkRunBody, postCheckRun, postVerdict, statusBody } from './github/check-run.js';
 export {
+  clientOf,
+  createGhClient,
+  type ClientTarget,
+  type GitHubClient,
+} from './github/client.js';
+export { createFetchClient, type FetchClientOptions } from './github/fetch-client.js';
+export {
   applyLabelEdits,
   gatherFacts,
   openPullRequestsAtHead,

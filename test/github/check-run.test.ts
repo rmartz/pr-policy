@@ -1,17 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PolicyEvaluation } from '../../src/evaluate.js';
-import type { Transport } from '../../src/lib/github.js';
+import { github, transports } from './fake-github.js';
 
-const calls: Transport[] = [];
-let openRuns = '[]';
-let failStatus = false;
-vi.mock('../../src/lib/github.js', () => ({
-  ghCall: async (primary: Transport) => {
-    calls.push(primary);
-    if (failStatus && primary.argv.some((a) => a.includes('/statuses/'))) return null;
-    return primary.argv.includes('--jq') ? openRuns : '{}';
-  },
-}));
+// GitHub is a boundary: both transports read and write the same fake API.
+vi.mock('../../src/lib/github.js', async () => {
+  const fake = await import('./fake-github.js');
+  return { ghCall: fake.fakeGhCall, ...fake.fakeLabels };
+});
 
 const { checkRunBody, postCheckRun, postVerdict, statusBody } =
   await import('../../src/github/check-run.js');
@@ -20,8 +15,12 @@ function evaluation(outcome: PolicyEvaluation['outcome']): PolicyEvaluation {
   return { outcome, title: 't', summary: 's', findings: [], labelsToAdd: [], labelsToRemove: [] };
 }
 
-const target = { repo: 'o/r', pr: 7 };
+const RUNS = 'repos/o/r/commits/sha1/check-runs?check_name=pr-policy&filter=latest';
 const now = new Date('2026-09-23T00:00:00Z');
+
+beforeEach(() => {
+  github.reset();
+});
 
 describe('checkRunBody', () => {
   it('posts pending as in_progress with no conclusion', () => {
@@ -39,22 +38,41 @@ describe('checkRunBody', () => {
   });
 });
 
-describe('postCheckRun', () => {
+describe.each(await transports())('postCheckRun over %s', (_name, makeClient) => {
+  const target = () => ({ repo: 'o/r', pr: 7, client: makeClient() });
+
   it('creates a new run when none is open on the head', async () => {
-    calls.length = 0;
-    openRuns = '[{"id":1,"status":"completed"}]';
-    await postCheckRun(target, 'sha1', evaluation('success'));
-    const write = calls.at(-1);
-    expect(write?.argv).toContain('POST');
-    expect(JSON.parse(write?.stdin ?? '{}')).toMatchObject({ name: 'pr-policy', head_sha: 'sha1' });
+    github.responses.set(RUNS, { check_runs: [{ id: 1, status: 'completed' }] });
+    await postCheckRun(target(), 'sha1', evaluation('success'));
+    expect(github.writes).toMatchObject([
+      {
+        method: 'POST',
+        path: 'repos/o/r/check-runs',
+        body: { name: 'pr-policy', head_sha: 'sha1' },
+      },
+    ]);
   });
 
   it('updates the open pending run instead of leaving it orphaned', async () => {
-    calls.length = 0;
-    openRuns = '[{"id":42,"status":"in_progress"}]';
-    await postCheckRun(target, 'sha1', evaluation('success'));
-    const write = calls.at(-1);
-    expect(write?.argv).toEqual(expect.arrayContaining(['PATCH', 'repos/o/r/check-runs/42']));
+    github.responses.set(RUNS, { check_runs: [{ id: 42, status: 'in_progress' }] });
+    await postCheckRun(target(), 'sha1', evaluation('success'));
+    expect(github.writes.map(({ method, path }) => [method, path])).toEqual([
+      ['PATCH', 'repos/o/r/check-runs/42'],
+    ]);
+  });
+
+  it('throws when the open runs cannot be listed', async () => {
+    await expect(postCheckRun(target(), 'sha1', evaluation('success'))).rejects.toThrow(
+      'could not list pr-policy check-runs',
+    );
+  });
+
+  it('throws when the run cannot be posted', async () => {
+    github.responses.set(RUNS, { check_runs: [] });
+    github.failingWrites.add('repos/o/r/check-runs');
+    await expect(postCheckRun(target(), 'sha1', evaluation('success'))).rejects.toThrow(
+      'could not post the pr-policy check-run',
+    );
   });
 });
 
@@ -85,30 +103,25 @@ describe('statusBody', () => {
   });
 });
 
-describe('postVerdict', () => {
-  const statuses = () => calls.filter((c) => c.argv.some((a) => a.includes('/statuses/')));
+describe.each(await transports())('postVerdict over %s', (_name, makeClient) => {
+  const target = () => ({ repo: 'o/r', pr: 7, client: makeClient() });
+  const statuses = () => github.writes.filter((write) => write.path.includes('/statuses/'));
 
   it('posts the check-run and mirrors the verdict to the pr-policy commit status', async () => {
-    calls.length = 0;
-    openRuns = '[]';
-    await postVerdict(target, 'sha1', evaluation('pending'));
-    expect(calls.some((c) => c.argv.includes('repos/o/r/check-runs'))).toBe(true);
-    expect(statuses()).toHaveLength(1);
-    expect(statuses()[0]?.argv).toContain('repos/o/r/statuses/sha1');
-    expect(JSON.parse(statuses()[0]?.stdin ?? '{}')).toMatchObject({
-      state: 'pending',
-      context: 'pr-policy',
-    });
+    github.responses.set(RUNS, { check_runs: [] });
+    await postVerdict(target(), 'sha1', evaluation('pending'));
+    expect(github.writes.some((write) => write.path === 'repos/o/r/check-runs')).toBe(true);
+    expect(statuses()).toMatchObject([
+      { path: 'repos/o/r/statuses/sha1', body: { state: 'pending', context: 'pr-policy' } },
+    ]);
   });
 
   it('only warns when the status cannot be set (no statuses: write)', async () => {
-    calls.length = 0;
-    openRuns = '[]';
-    failStatus = true;
+    github.responses.set(RUNS, { check_runs: [] });
+    github.failingWrites.add('repos/o/r/statuses/sha1');
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    await expect(postVerdict(target, 'sha1', evaluation('success'))).resolves.toBeUndefined();
+    await expect(postVerdict(target(), 'sha1', evaluation('success'))).resolves.toBeUndefined();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('statuses: write'));
-    failStatus = false;
     warn.mockRestore();
   });
 });
