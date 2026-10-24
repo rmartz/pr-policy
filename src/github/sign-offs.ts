@@ -6,10 +6,10 @@
  * judgment itself is pure, in src/sign-off.ts.
  */
 import { SIGN_OFF_LABELS } from '../contract.js';
-import { ghCall } from '../lib/github.js';
 import type { RepoPermission, SignOff } from '../policy.js';
 import { isRepoPermission } from '../sign-off.js';
 import type { PullRequestTarget } from './pull-request.js';
+import { clientOf } from './client.js';
 
 interface LabelEvent {
   label: string;
@@ -18,28 +18,27 @@ interface LabelEvent {
   at: string;
 }
 
+/** The fields of an issue event this reads; `actor` is `null` for a deleted user. */
+interface IssueEvent {
+  event: string;
+  label?: { name: string };
+  actor: { login: string; type: string } | null;
+  created_at: string;
+}
+
 async function listLabelEvents(target: PullRequestTarget): Promise<LabelEvent[]> {
-  const out = await ghCall(
-    {
-      argv: [
-        'gh',
-        'api',
-        '--paginate',
-        `repos/${target.repo}/issues/${target.pr}/events`,
-        '--jq',
-        '.[] | select(.event == "labeled") | {label: .label.name, login: .actor.login, type: .actor.type, at: .created_at}',
-      ],
-    },
-    null,
-    { cwd: target.cwd },
-  );
+  const out = await clientOf(target).list(`repos/${target.repo}/issues/${target.pr}/events`);
   // Throw rather than return no events: that would hold the gate with a
   // misleading "nobody applied it" reason instead of surfacing the failure.
   if (out === null) throw new Error(`could not list label events of ${target.repo}#${target.pr}`);
-  return out
-    .split('\n')
-    .filter((line) => line.trim() !== '')
-    .map((line) => JSON.parse(line) as LabelEvent);
+  return (out as IssueEvent[])
+    .filter((event) => event.event === 'labeled')
+    .map((event) => ({
+      label: event.label?.name ?? '',
+      login: event.actor?.login ?? null,
+      type: event.actor?.type ?? null,
+      at: event.created_at,
+    }));
 }
 
 /**
@@ -48,24 +47,14 @@ async function listLabelEvents(target: PullRequestTarget): Promise<LabelEvent[]>
  * lookup, is `none`: an unknown actor never passes a gate.
  */
 export async function lookupPermission(
-  target: Pick<PullRequestTarget, 'repo' | 'cwd'>,
+  target: Pick<PullRequestTarget, 'repo' | 'cwd' | 'client'>,
   login: string,
 ): Promise<RepoPermission> {
-  const out = await ghCall(
-    {
-      argv: [
-        'gh',
-        'api',
-        `repos/${target.repo}/collaborators/${encodeURIComponent(login)}/permission`,
-        '--jq',
-        '{permission, role_name}',
-      ],
-    },
-    null,
-    { cwd: target.cwd },
+  const out = await clientOf(target).getJson(
+    `repos/${target.repo}/collaborators/${encodeURIComponent(login)}/permission`,
   );
   if (out === null) return 'none';
-  const { permission, role_name: roleName } = JSON.parse(out) as {
+  const { permission, role_name: roleName } = out as {
     permission?: string;
     role_name?: string;
   };

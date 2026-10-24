@@ -70,7 +70,22 @@ export {
 } from './contract.js';
 export { evaluatePolicy, type PolicyEvaluation } from './evaluate.js';
 export { parseFacts } from './facts.js';
-export { checkRunBody, postCheckRun, postVerdict, statusBody } from './github/check-run.js';
+export {
+  checkRunBody,
+  postCheckRun,
+  postVerdict,
+  statusBody,
+  type VerdictOptions,
+} from './github/check-run.js';
+export {
+  checkStatuses,
+  postCheckStatuses,
+  type CheckStatus,
+  type CheckStatusOptions,
+} from './github/check-statuses.js';
+export { ciRetitle } from './checks/title/ci-retitle.js';
+export { clientOf, createGhClient, type ClientTarget, type GitHubClient } from './github/client.js';
+export { createFetchClient, type FetchClientOptions } from './github/fetch-client.js';
 export {
   applyLabelEdits,
   gatherFacts,

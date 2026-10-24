@@ -3,18 +3,18 @@
  * SHA, and who posted it. The trust and format judgment is pure, in
  * src/sign-off-status.ts.
  */
-import { ghCall } from '../lib/github.js';
 import type { CommitStatus } from '../policy.js';
 import { SIGN_OFF_STATUS_CONTEXT } from '../sign-off-status.js';
 import type { PullRequestTarget } from './pull-request.js';
+import { clientOf } from './client.js';
 import { lookupPermission } from './sign-offs.js';
 
-interface StatusLine {
+/** The fields of a commit status this reads; `creator` is `null` for a deleted user. */
+interface StatusShape {
   context: string;
   state: string;
   description: string | null;
-  login: string | null;
-  type: string | null;
+  creator: { login: string; type: string } | null;
 }
 
 /**
@@ -24,36 +24,21 @@ interface StatusLine {
  * back to its own classification.
  */
 export async function gatherSignOffStatus(
-  target: Pick<PullRequestTarget, 'repo' | 'cwd'>,
+  target: Pick<PullRequestTarget, 'repo' | 'cwd' | 'client'>,
   sha: string,
 ): Promise<CommitStatus | undefined> {
   const endpoint = `repos/${target.repo}/commits/${sha}/statuses`;
-  const out = await ghCall(
-    {
-      argv: [
-        'gh',
-        'api',
-        '--paginate',
-        endpoint,
-        '--jq',
-        '.[] | {context, state, description, login: .creator.login, type: .creator.type}',
-      ],
-    },
-    null,
-    { cwd: target.cwd },
-  );
+  const out = await clientOf(target).list(endpoint);
   if (out === null) throw new Error(`could not read ${endpoint}`);
-  const latest = out
-    .split('\n')
-    .filter((line) => line.trim() !== '')
-    .map((line) => JSON.parse(line) as StatusLine)
-    .find((status) => status.context === SIGN_OFF_STATUS_CONTEXT);
+  const latest = (out as StatusShape[]).find(
+    (status) => status.context === SIGN_OFF_STATUS_CONTEXT,
+  );
   if (latest === undefined) return undefined;
 
   const status: CommitStatus = { state: latest.state, description: latest.description ?? '' };
-  if (latest.login === null) return status;
-  const type = latest.type ?? 'unknown actor';
+  if (latest.creator === null) return status;
+  const { login, type } = latest.creator;
   // Only a person can classify for the gate, so a bot skips the permission lookup.
-  const permission = type === 'User' ? await lookupPermission(target, latest.login) : 'none';
-  return { ...status, creator: { login: latest.login, type, permission } };
+  const permission = type === 'User' ? await lookupPermission(target, login) : 'none';
+  return { ...status, creator: { login, type, permission } };
 }

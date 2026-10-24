@@ -11,16 +11,14 @@
  * push, except a check suite created late, which only makes a sign-off look
  * staler. The `uat` check reads it to bind `UAT passed` to the head.
  */
-import { ghCall } from '../lib/github.js';
 import type { PullRequestTarget } from './pull-request.js';
+import { clientOf } from './client.js';
 
-async function lines(target: PullRequestTarget, endpoint: string, jq: string): Promise<string[]> {
-  const out = await ghCall({ argv: ['gh', 'api', '--paginate', endpoint, '--jq', jq] }, null, {
-    cwd: target.cwd,
-  });
+async function list(target: PullRequestTarget, endpoint: string, key?: string): Promise<unknown[]> {
+  const out = await clientOf(target).list(endpoint, key);
   // Throw rather than read no times: an empty list would hide the failure.
   if (out === null) throw new Error(`could not read ${endpoint}`);
-  return out.split('\n').filter((line) => line.trim() !== '');
+  return out;
 }
 
 /** Epoch milliseconds of each parseable ISO 8601 timestamp. */
@@ -36,20 +34,19 @@ export async function gatherHeadPushedAt(
   target: PullRequestTarget,
   headSha: string,
 ): Promise<string | undefined> {
+  const events = (await list(target, `repos/${target.repo}/issues/${target.pr}/events`)) as {
+    event: string;
+    created_at: string;
+  }[];
   const forcePushes = times(
-    await lines(
-      target,
-      `repos/${target.repo}/issues/${target.pr}/events`,
-      '.[] | select(.event == "head_ref_force_pushed") | .created_at',
-    ),
+    events.filter((event) => event.event === 'head_ref_force_pushed').map((e) => e.created_at),
   );
-  const suites = times(
-    await lines(
-      target,
-      `repos/${target.repo}/commits/${headSha}/check-suites`,
-      '.check_suites[].created_at',
-    ),
-  );
+  const checkSuites = (await list(
+    target,
+    `repos/${target.repo}/commits/${headSha}/check-suites`,
+    'check_suites',
+  )) as { created_at: string }[];
+  const suites = times(checkSuites.map((suite) => suite.created_at));
   const candidates = [...forcePushes];
   if (suites.length > 0) candidates.push(Math.min(...suites));
   if (candidates.length === 0) return undefined;

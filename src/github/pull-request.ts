@@ -1,22 +1,23 @@
 /**
  * The GitHub side of an evaluation: gather a PR's facts and apply the label
  * edits checks planned (the check-run itself is posted by ./check-run.ts).
- * Everything goes through the vendored `gh` transport in src/lib/.
+ * Everything goes through the target's `GitHubClient` (./client.ts): the
+ * vendored `gh` transport by default, or a token-backed fetch client.
  */
 import { isWorkflowPath } from '../checks/ci-change/workflow-paths.js';
 import { HEAD_BOUND_SIGN_OFFS } from '../checks/uat/index.js';
 import { isManifestPath } from '../checks/title/sensitive-bump.js';
 import type { PolicyEvaluation } from '../evaluate.js';
-import { addLabels, ghCall, removeLabel } from '../lib/github.js';
+import type { ClientTarget } from './client.js';
+import { clientOf } from './client.js';
 import type { FileChange, OpenPullRequest, PullRequestBase, PullRequestFacts } from '../policy.js';
 import { gatherHeadPushedAt } from './head-push.js';
 import { gatherSignOffStatus } from './sign-off-status.js';
 import { gatherSignOffs } from './sign-offs.js';
 
-export interface PullRequestTarget {
+export interface PullRequestTarget extends ClientTarget {
   repo: string;
   pr: number;
-  cwd?: string;
 }
 
 interface PrApiShape {
@@ -32,14 +33,14 @@ interface PrApiShape {
 interface ChangedFile {
   filename: string;
   status: string;
-  /** `null` in the `--jq` output when the file was not renamed. */
+  /** Absent (or `null`) when the file was not renamed. */
   previous_filename?: string | null;
 }
 
-async function ghJson<T>(target: PullRequestTarget, argv: string[]): Promise<T> {
-  const out = await ghCall({ argv }, null, { cwd: target.cwd });
-  if (out === null) throw new Error(`gh call failed: ${argv.join(' ')}`);
-  return JSON.parse(out) as T;
+async function getJson<T>(target: PullRequestTarget, path: string): Promise<T> {
+  const out = await clientOf(target).getJson(path);
+  if (out === null) throw new Error(`GitHub call failed: GET ${path}`);
+  return out as T;
 }
 
 /**
@@ -48,43 +49,17 @@ async function ghJson<T>(target: PullRequestTarget, argv: string[]): Promise<T> 
  * modified workflow look newly added, and a new workflow is never a loosening.
  */
 async function blob(target: PullRequestTarget, path: string, ref: string): Promise<string> {
-  const out = await ghCall(
-    {
-      argv: [
-        'gh',
-        'api',
-        '-H',
-        'Accept: application/vnd.github.raw',
-        `repos/${target.repo}/contents/${path}?ref=${encodeURIComponent(ref)}`,
-      ],
-    },
-    null,
-    { cwd: target.cwd },
+  const out = await clientOf(target).getRaw(
+    `repos/${target.repo}/contents/${path}?ref=${encodeURIComponent(ref)}`,
   );
   if (out === null) throw new Error(`could not read ${path} at ${ref}`);
   return out;
 }
 
 async function listFiles(target: PullRequestTarget): Promise<ChangedFile[]> {
-  const out = await ghCall(
-    {
-      argv: [
-        'gh',
-        'api',
-        '--paginate',
-        `repos/${target.repo}/pulls/${target.pr}/files`,
-        '--jq',
-        '.[] | {filename, status, previous_filename}',
-      ],
-    },
-    null,
-    { cwd: target.cwd },
-  );
+  const out = await clientOf(target).list(`repos/${target.repo}/pulls/${target.pr}/files`);
   if (out === null) throw new Error(`could not list files of ${target.repo}#${target.pr}`);
-  return out
-    .split('\n')
-    .filter((line) => line.trim() !== '')
-    .map((line) => JSON.parse(line) as ChangedFile);
+  return out as ChangedFile[];
 }
 
 /**
@@ -99,25 +74,16 @@ async function gatherBase(target: PullRequestTarget, view: PrApiShape): Promise<
   if (branch === defaultBranch) return { branch, defaultBranch, headOf: [] };
   // A base branch always lives in the base repo, so its owner qualifies the head.
   const head = encodeURIComponent(`${target.repo.split('/')[0] ?? ''}:${branch}`);
-  const out = await ghCall(
-    {
-      argv: [
-        'gh',
-        'api',
-        '--paginate',
-        `repos/${target.repo}/pulls?state=open&head=${head}&per_page=100`,
-        '--jq',
-        '.[] | {number, labels: [.labels[].name]}',
-      ],
-    },
-    null,
-    { cwd: target.cwd },
+  const out = await clientOf(target).list(
+    `repos/${target.repo}/pulls?state=open&head=${head}&per_page=100`,
   );
   if (out === null) throw new Error(`could not list the open PRs heading ${branch}`);
-  const headOf = out
-    .split('\n')
-    .filter((line) => line.trim() !== '')
-    .map((line) => JSON.parse(line) as OpenPullRequest);
+  const headOf = (out as { number: number; labels: { name: string }[] }[]).map(
+    (pull): OpenPullRequest => ({
+      number: pull.number,
+      labels: pull.labels.map((label) => label.name),
+    }),
+  );
   return { branch, defaultBranch, headOf };
 }
 
@@ -127,13 +93,10 @@ async function gatherBase(target: PullRequestTarget, view: PrApiShape): Promise<
  * base after this PR branched is not attributed to it.
  */
 export async function gatherFacts(
-  target: PullRequestTarget,
+  pullRequest: PullRequestTarget,
 ): Promise<{ facts: PullRequestFacts; headSha: string }> {
-  const view = await ghJson<PrApiShape>(target, [
-    'gh',
-    'api',
-    `repos/${target.repo}/pulls/${target.pr}`,
-  ]);
+  const target = { ...pullRequest, client: clientOf(pullRequest) };
+  const view = await getJson<PrApiShape>(target, `repos/${target.repo}/pulls/${target.pr}`);
   const headSha = view.head.sha;
   const files = await listFiles(target);
   const touches = (predicate: (path: string) => boolean) =>
@@ -144,11 +107,10 @@ export async function gatherFacts(
   let workflowChanges: FileChange[] = [];
   let manifestChanges: FileChange[] = [];
   if (workflowFiles.length > 0 || manifestFiles.length > 0) {
-    const comparison = await ghJson<{ merge_base_commit: { sha: string } }>(target, [
-      'gh',
-      'api',
+    const comparison = await getJson<{ merge_base_commit: { sha: string } }>(
+      target,
       `repos/${target.repo}/compare/${view.base.ref}...${headSha}`,
-    ]);
+    );
     const mergeBase = comparison.merge_base_commit.sha;
     const read = async (file: ChangedFile): Promise<FileChange> => ({
       path: file.filename,
@@ -197,30 +159,14 @@ export async function gatherFacts(
  * its own status. A failed lookup throws.
  */
 export async function openPullRequestsAtHead(
-  target: { repo: string; cwd?: string },
+  target: ClientTarget & { repo: string },
   sha: string,
 ): Promise<number[]> {
   const endpoint = `repos/${target.repo}/commits/${sha}/pulls`;
-  const out = await ghCall(
-    {
-      argv: [
-        'gh',
-        'api',
-        '--paginate',
-        endpoint,
-        '--jq',
-        '.[] | select(.state == "open") | {number, head: .head.sha}',
-      ],
-    },
-    null,
-    { cwd: target.cwd },
-  );
+  const out = await clientOf(target).list(endpoint);
   if (out === null) throw new Error(`could not read ${endpoint}`);
-  return out
-    .split('\n')
-    .filter((line) => line.trim() !== '')
-    .map((line) => JSON.parse(line) as { number: number; head: string })
-    .filter((pull) => pull.head === sha)
+  return (out as { number: number; state: string; head: { sha: string } }[])
+    .filter((pull) => pull.state === 'open' && pull.head.sha === sha)
     .map((pull) => pull.number);
 }
 
@@ -229,10 +175,11 @@ export async function applyLabelEdits(
   target: PullRequestTarget,
   evaluation: PolicyEvaluation,
 ): Promise<void> {
+  const client = clientOf(target);
   if (evaluation.labelsToAdd.length > 0) {
-    await addLabels(target.repo, target.pr, evaluation.labelsToAdd, { cwd: target.cwd });
+    await client.addLabels(target.repo, target.pr, evaluation.labelsToAdd);
   }
   for (const label of evaluation.labelsToRemove) {
-    await removeLabel(target.repo, target.pr, label, { cwd: target.cwd });
+    await client.removeLabel(target.repo, target.pr, label);
   }
 }

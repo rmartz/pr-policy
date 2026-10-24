@@ -17,12 +17,22 @@
  */
 import { PR_POLICY_CHECK_NAME } from '../contract.js';
 import type { PolicyEvaluation } from '../evaluate.js';
-import { ghCall } from '../lib/github.js';
 import type { PullRequestTarget } from './pull-request.js';
+import { clientOf } from './client.js';
 
 interface CheckRunShape {
   id: number;
   status: string;
+}
+
+/**
+ * Where to post the verdict. `name` is the check-run name and status context,
+ * `pr-policy` unless a caller shadows under a distinct one (`pr-policy (app)`)
+ * while another poster still owns the real name. Two creators posting one
+ * context would overwrite each other.
+ */
+export interface VerdictOptions {
+  name?: string;
 }
 
 /** The request body for this evaluation's check-run state. */
@@ -37,23 +47,17 @@ export function checkRunBody(evaluation: PolicyEvaluation, now: Date): Record<st
   };
 }
 
-/** The latest `pr-policy` run on this head that is still open, if any. */
-async function openRun(target: PullRequestTarget, headSha: string): Promise<number | null> {
-  const out = await ghCall(
-    {
-      argv: [
-        'gh',
-        'api',
-        `repos/${target.repo}/commits/${headSha}/check-runs?check_name=${PR_POLICY_CHECK_NAME}&filter=latest`,
-        '--jq',
-        '.check_runs',
-      ],
-    },
-    null,
-    { cwd: target.cwd },
+/** The latest run named `name` on this head that is still open, if any. */
+async function openRun(
+  target: PullRequestTarget,
+  headSha: string,
+  name: string,
+): Promise<number | null> {
+  const out = await clientOf(target).getJson(
+    `repos/${target.repo}/commits/${headSha}/check-runs?check_name=${encodeURIComponent(name)}&filter=latest`,
   );
-  if (out === null) throw new Error(`could not list ${PR_POLICY_CHECK_NAME} check-runs`);
-  const runs = JSON.parse(out) as CheckRunShape[];
+  if (out === null) throw new Error(`could not list ${name} check-runs`);
+  const runs = (out as { check_runs: CheckRunShape[] }).check_runs;
   return runs.find((run) => run.status !== 'completed')?.id ?? null;
 }
 
@@ -62,17 +66,21 @@ export async function postCheckRun(
   target: PullRequestTarget,
   headSha: string,
   evaluation: PolicyEvaluation,
+  options: VerdictOptions = {},
 ): Promise<void> {
+  const name = options.name ?? PR_POLICY_CHECK_NAME;
   const body = checkRunBody(evaluation, new Date());
-  const existing = await openRun(target, headSha);
-  const argv =
+  const existing = await openRun(target, headSha, name);
+  const client = clientOf(target);
+  const out =
     existing === null
-      ? ['gh', 'api', '-X', 'POST', `repos/${target.repo}/check-runs`, '--input', '-']
-      : ['gh', 'api', '-X', 'PATCH', `repos/${target.repo}/check-runs/${existing}`, '--input', '-'];
-  const payload =
-    existing === null ? { name: PR_POLICY_CHECK_NAME, head_sha: headSha, ...body } : body;
-  const out = await ghCall({ argv, stdin: JSON.stringify(payload) }, null, { cwd: target.cwd });
-  if (out === null) throw new Error(`could not post the ${PR_POLICY_CHECK_NAME} check-run`);
+      ? await client.send('POST', `repos/${target.repo}/check-runs`, {
+          name,
+          head_sha: headSha,
+          ...body,
+        })
+      : await client.send('PATCH', `repos/${target.repo}/check-runs/${existing}`, body);
+  if (out === null) throw new Error(`could not post the ${name} check-run`);
 }
 
 /** GitHub rejects a commit-status description longer than this. */
@@ -82,10 +90,11 @@ const STATUS_DESCRIPTION_MAX = 140;
 export function statusBody(
   evaluation: PolicyEvaluation,
   runUrl: string | undefined,
+  name: string = PR_POLICY_CHECK_NAME,
 ): Record<string, unknown> {
   return {
     state: evaluation.outcome,
-    context: PR_POLICY_CHECK_NAME,
+    context: name,
     description: evaluation.title.slice(0, STATUS_DESCRIPTION_MAX),
     ...(runUrl ? { target_url: runUrl } : {}),
   };
@@ -99,23 +108,21 @@ async function postCommitStatus(
   target: PullRequestTarget,
   headSha: string,
   evaluation: PolicyEvaluation,
+  name: string,
 ): Promise<void> {
   const { GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID } = process.env;
   const runUrl =
     GITHUB_SERVER_URL && GITHUB_REPOSITORY && GITHUB_RUN_ID
       ? `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}`
       : undefined;
-  const out = await ghCall(
-    {
-      argv: ['gh', 'api', '-X', 'POST', `repos/${target.repo}/statuses/${headSha}`, '--input', '-'],
-      stdin: JSON.stringify(statusBody(evaluation, runUrl)),
-    },
-    null,
-    { cwd: target.cwd },
+  const out = await clientOf(target).send(
+    'POST',
+    `repos/${target.repo}/statuses/${headSha}`,
+    statusBody(evaluation, runUrl, name),
   );
   if (out === null) {
     console.warn(
-      `::warning::could not set the ${PR_POLICY_CHECK_NAME} commit status on ${headSha} ` +
+      `::warning::could not set the ${name} commit status on ${headSha} ` +
         '— does the caller workflow grant `statuses: write`? (rmartz/pr-policy#24)',
     );
   }
@@ -126,7 +133,9 @@ export async function postVerdict(
   target: PullRequestTarget,
   headSha: string,
   evaluation: PolicyEvaluation,
+  options: VerdictOptions = {},
 ): Promise<void> {
-  await postCheckRun(target, headSha, evaluation);
-  await postCommitStatus(target, headSha, evaluation);
+  const name = options.name ?? PR_POLICY_CHECK_NAME;
+  await postCheckRun(target, headSha, evaluation, { name });
+  await postCommitStatus(target, headSha, evaluation, name);
 }
