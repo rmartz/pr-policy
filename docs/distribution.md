@@ -66,3 +66,18 @@ await postVerdict(target, headSha, evaluation);
 Both clients fail the same way. A read returns `null`, and a read the facts
 depend on throws rather than reading as "absent". The tests run every gatherer
 over both clients against the same raw API responses.
+
+A wrapper does a little more than `pr-policy evaluate`, and the library exports
+those pieces too, so the Action and a hosted App behave the same:
+
+- **Per-check statuses.** `checkStatuses(checks, evaluation.findings)` gives one
+  informational `pr-policy / <check>` status per check that ran, and
+  `postCheckStatuses` posts them. The `pr-policy` verdict status stays the gate.
+- **The Dependabot `ci` retitle.** `ciRetitle(facts)` returns the `ci` title a
+  Dependabot linter or formatter bump needs, or `undefined`. The library never
+  renames a PR, so applying it (opt-in) is the wrapper's job.
+- **A shadow name.** `postVerdict(target, sha, evaluation, { name })` posts the
+  check-run and status under another name, such as `pr-policy (app)`, while a
+  second poster is compared against the one that still owns `pr-policy`. Two
+  creators posting one context would overwrite each other. The contract name
+  is unchanged: a caller switches to `pr-policy` at cutover.

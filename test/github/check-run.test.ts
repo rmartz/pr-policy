@@ -61,6 +61,15 @@ describe.each(await transports())('postCheckRun over %s', (_name, makeClient) =>
     ]);
   });
 
+  it('creates and looks up a run under a shadow name instead of pr-policy', async () => {
+    github.responses.set(
+      'repos/o/r/commits/sha1/check-runs?check_name=pr-policy%20(app)&filter=latest',
+      { check_runs: [] },
+    );
+    await postCheckRun(target(), 'sha1', evaluation('success'), { name: 'pr-policy (app)' });
+    expect(github.writes).toMatchObject([{ body: { name: 'pr-policy (app)' } }]);
+  });
+
   it('throws when the open runs cannot be listed', async () => {
     await expect(postCheckRun(target(), 'sha1', evaluation('success'))).rejects.toThrow(
       'could not list pr-policy check-runs',
@@ -96,6 +105,12 @@ describe('statusBody', () => {
     expect(statusBody(long, undefined).description).toHaveLength(140);
   });
 
+  it('names the status context after a shadow name', () => {
+    expect(statusBody(evaluation('success'), undefined, 'pr-policy (app)')).toMatchObject({
+      context: 'pr-policy (app)',
+    });
+  });
+
   it('links the Actions run when one is given', () => {
     expect(statusBody(evaluation('success'), 'https://run')).toMatchObject({
       target_url: 'https://run',
@@ -114,6 +129,15 @@ describe.each(await transports())('postVerdict over %s', (_name, makeClient) => 
     expect(statuses()).toMatchObject([
       { path: 'repos/o/r/statuses/sha1', body: { state: 'pending', context: 'pr-policy' } },
     ]);
+  });
+
+  it('posts the status under the same shadow name as the run', async () => {
+    github.responses.set(
+      'repos/o/r/commits/sha1/check-runs?check_name=pr-policy%20(app)&filter=latest',
+      { check_runs: [] },
+    );
+    await postVerdict(target(), 'sha1', evaluation('failure'), { name: 'pr-policy (app)' });
+    expect(statuses()).toMatchObject([{ body: { context: 'pr-policy (app)' } }]);
   });
 
   it('only warns when the status cannot be set (no statuses: write)', async () => {
