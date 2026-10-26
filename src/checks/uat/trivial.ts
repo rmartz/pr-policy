@@ -1,5 +1,8 @@
 /**
- * Which PRs can't need UAT, judged from their changed paths alone. These rules
+ * Which PRs can't need UAT, judged from their changed paths alone. UAT is only
+ * for the product's user-facing functional behavior, so every path that isn't
+ * the product is exempt: docs, tests, CI, the repo's tooling, dependency pins,
+ * and repo metadata. These rules
  * only ever **exempt**: a PR is trivial when every path it touches falls in an
  * exempt category, and a single path outside them leaves the gate holding. They
  * never add a requirement; the review agent's judgment, expressed through the
@@ -10,12 +13,20 @@
 import type { PullRequestFacts } from '../../policy.js';
 import { pathKind, type PathKind } from '../path-kinds.js';
 
-export const TRIVIAL_CATEGORIES = ['docs', 'tests', 'ci', 'dependencies', 'metadata'] as const;
+export const TRIVIAL_CATEGORIES = [
+  'docs',
+  'tests',
+  'ci',
+  'tooling',
+  'dependencies',
+  'metadata',
+] as const;
 export type TrivialCategory = (typeof TRIVIAL_CATEGORIES)[number];
 
 /**
- * The UAT category of a path kind. Tooling config can change what a check lets
- * through, so it stays with the review's judgment.
+ * The UAT category of a path kind. Tooling config and the repo's own scripts
+ * are tooling, not the product. Whether one weakens a check is a CI-governance
+ * question for the review and the CI sign-off, never UAT.
  */
 function categoryOf(kind: PathKind | undefined): TrivialCategory | undefined {
   switch (kind) {
@@ -24,12 +35,13 @@ function categoryOf(kind: PathKind | undefined): TrivialCategory | undefined {
     case 'ci':
     case 'metadata':
       return kind;
+    case 'tooling-config':
+    case 'repo-script':
+      return 'tooling';
     case 'lockfile':
     case 'tooling-manifest':
     case 'runtime-manifest':
       return 'dependencies';
-    case 'tooling-config':
-    case 'repo-script':
     case undefined:
       return undefined;
   }
