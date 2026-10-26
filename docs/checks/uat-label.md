@@ -36,10 +36,11 @@ writes these labels with `GITHUB_TOKEN`, as `github-actions[bot]`, and that has
 to count.
 
 That's safe because presence never passes a PR on its own. It only **adds** a
-requirement. The [UAT gate](uat.md) still decides whether a PR that needs UAT has
-a trusted, current `UAT passed`, or a `no UAT needed` waiver it accepts. A PR
-carrying only `UAT pending` or `UAT ready` passes this check and still waits on
-the UAT gate, and a bot's `UAT passed` satisfies presence but not the gate.
+requirement. The [UAT gate](uat.md) still decides whether a PR that needs UAT is
+signed off: from a `v2` status's reported sign-off, or else a trusted, current
+`UAT passed` or a `no UAT needed` waiver it accepts. A PR carrying only `UAT
+pending` or `UAT ready` passes this check and still waits on the UAT gate, and a
+bot's `UAT passed` satisfies presence but never opens the gate by itself.
 
 ## Off by default
 

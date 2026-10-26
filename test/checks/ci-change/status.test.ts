@@ -97,7 +97,7 @@ describe('decideCiChange — falls back without a usable status', () => {
 
   it('falls back on a trusted status it cannot use (the uat check holds on that)', () => {
     expect(
-      decideCiChange(LOOSENING, facts(lifecycle('v2 requirement=none'))).findings[0]?.effect,
+      decideCiChange(LOOSENING, facts(lifecycle('v9 requirement=none'))).findings[0]?.effect,
     ).toBe('hold');
   });
 });

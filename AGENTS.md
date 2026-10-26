@@ -58,7 +58,10 @@ Invariants that hold whatever a future change looks like:
   content, and who applied each sign-off label on it. If a rule needs review
   history, it belongs to the lifecycle reconciler.
 - **A sign-off counts only from someone who could merge.** Read every human
-  sign-off label through `signOffState` (`src/sign-off.ts`).
+  sign-off label through `signOffState` (`src/sign-off.ts`). The one exception
+  is UAT under a `v2` status: the `uat` check reads no label and trusts the
+  sign-off the trusted status creator reports
+  ([why](docs/decisions.md#a-v2-status-alone-decides-the-uat-sign-off)).
 
 ## Adding a CI-change indicator
 

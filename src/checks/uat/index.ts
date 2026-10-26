@@ -3,9 +3,11 @@
  * head needs UAT comes from pr-lifecycle's `pr-lifecycle/sign-off` status
  * (src/sign-off-status.ts); until a repo's pr-lifecycle posts one, the check
  * classifies the PR itself (every path in an exempt category, or a `refactor`
- * title). A head that needs UAT passes when a trusted person applied `UAT
- * passed` (or its old name, `tested`) after the head was pushed, or `no UAT
- * needed` that pr-lifecycle reports as current. A missing label is a hold, never
+ * title). Under a `v2` status, a head that needs UAT passes on the sign-off
+ * pr-lifecycle reports, without reading the labels. Under a `v1` status or none,
+ * it passes when a trusted person applied `UAT passed` (or its old name,
+ * `tested`) after the head was pushed, or `no UAT needed` that pr-lifecycle
+ * reports as current. A missing sign-off is a hold, never
  * "not required", so a PR approved and armed for auto-merge at any point still
  * waits here.
  *
@@ -19,6 +21,7 @@ import {
   readSignOffStatus,
   rejectedStatusMessage,
   type SignOffClassification,
+  type UatSignOffOutcome,
 } from '../../sign-off-status.js';
 import { signOffState } from '../../sign-off.js';
 import { parseTitle } from '../title/conventional.js';
@@ -88,6 +91,7 @@ function decideFromStatus(pr: PullRequestFacts, status: SignOffClassification): 
     case 'ci':
       return [info('No UAT needed: this head needs a CI sign-off instead (`ci-change`).')];
     case 'uat': {
+      if ('signoff' in status) return fromReportedSignOff(status.signoff);
       // Only pr-lifecycle can tell whether a waiver survived a push (a verified
       // clean rebase carries it), so `no UAT needed` counts only when it says so.
       const waiver =
@@ -102,6 +106,25 @@ function decideFromStatus(pr: PullRequestFacts, status: SignOffClassification): 
       return signOffFindings(pr, waiver);
     }
   }
+}
+
+/**
+ * A `v2` status reports the UAT sign-off pr-lifecycle resolved, and the gate
+ * trusts it alone (rmartz/pr-policy#109). pr-lifecycle already judged who
+ * applied each label, which head it covers, and the review agent's verdicts,
+ * which have no label for this check to read. So the UAT labels aren't read
+ * here at all: a bot-applied `no UAT needed` is no reason to hold.
+ */
+function fromReportedSignOff(signoff: UatSignOffOutcome): Finding[] {
+  const reported = `pr-lifecycle reports the UAT sign-off as \`${signoff}\` for this head`;
+  if (signoff === 'absent') {
+    return [
+      hold(
+        `Waiting for UAT: ${reported}. A person applies \`${UAT_PASSED_LABEL}\` after testing, or the review agent or a person waives it with \`${NO_UAT_NEEDED_LABEL}\`.`,
+      ),
+    ];
+  }
+  return [{ ...info(`UAT signed off: ${reported}.`), headline: true }];
 }
 
 /** The pre-cutover classification: trivial paths and `refactor` exempt; else a sign-off. */

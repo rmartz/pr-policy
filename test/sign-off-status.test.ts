@@ -39,7 +39,7 @@ describe('parseSignOffDescription — the v1 format', () => {
   });
 
   it.each([
-    ['an unknown version', 'v2 requirement=none', 'format version `v2`'],
+    ['an unknown version', 'v9 requirement=none', 'format version `v9`'],
     ['no version', 'requirement=none', 'format version `requirement=none`'],
     ['an empty description', '', 'format version ``'],
     ['an unknown key', 'v1 requirement=none colour=blue', '`colour` is not a known key'],
@@ -51,6 +51,46 @@ describe('parseSignOffDescription — the v1 format', () => {
     ['a waiver off uat', 'v1 requirement=none waiver=current', 'only meaningful with'],
     ['uat with no waiver', 'v1 requirement=uat', 'needs `waiver='],
     ['an unknown waiver', 'v1 requirement=uat waiver=fresh', 'needs `waiver='],
+    ['v2 `signoff` in v1', 'v1 requirement=uat signoff=passed', '`signoff` is not a known key'],
+  ])('rejects %s', (_case, description, reason) => {
+    expect(parseSignOffDescription(description)).toEqual(expect.stringContaining(reason));
+  });
+});
+
+describe('parseSignOffDescription — the v2 format', () => {
+  it.each([
+    ['v2 requirement=none', { requirement: 'none', loosening: false }],
+    ['v2 requirement=ci loosening=yes', { requirement: 'ci', loosening: true }],
+    [
+      'v2 requirement=uat signoff=waived',
+      { requirement: 'uat', loosening: false, signoff: 'waived' },
+    ],
+    [
+      'v2 requirement=uat signoff=passed loosening=yes',
+      { requirement: 'uat', loosening: true, signoff: 'passed' },
+    ],
+    [
+      'v2 signoff=absent requirement=uat',
+      { requirement: 'uat', loosening: false, signoff: 'absent' },
+    ],
+  ])('parses %j', (description, expected) => {
+    expect(parseSignOffDescription(description)).toEqual(expected);
+  });
+
+  it.each([
+    ['`signoff` off uat', 'v2 requirement=none signoff=passed', 'only meaningful with'],
+    ['`signoff` with a ci requirement', 'v2 requirement=ci signoff=waived', 'only meaningful with'],
+    ['uat with no signoff', 'v2 requirement=uat', 'needs `signoff='],
+    ['an unknown signoff', 'v2 requirement=uat signoff=current', 'needs `signoff='],
+    ['v1 `waiver` in v2', 'v2 requirement=uat waiver=current', '`waiver` is not a known key'],
+    [
+      'both sign-off keys',
+      'v2 requirement=uat signoff=passed waiver=current',
+      '`waiver` is not a known key',
+    ],
+    ['a repeated signoff', 'v2 requirement=uat signoff=passed signoff=waived', 'appears twice'],
+    ['an unknown key', 'v2 requirement=none colour=blue', '`colour` is not a known key'],
+    ['a bad loosening', 'v2 requirement=ci loosening=true', '`loosening` must be'],
   ])('rejects %s', (_case, description, reason) => {
     expect(parseSignOffDescription(description)).toEqual(expect.stringContaining(reason));
   });
@@ -178,9 +218,9 @@ describe('readSignOffStatus — caller-named GitHub Apps', () => {
     ).toBe('ignored');
   });
 
-  it('still needs a valid v1 description from a named App', () => {
+  it('still needs a valid description from a named App', () => {
     const reading = readSignOffStatus(
-      { signOffStatus: status('v2 requirement=none', { creator: APP }) },
+      { signOffStatus: status('v9 requirement=none', { creator: APP }) },
       MERGE_BOT,
     );
     expect(reading.kind).toBe('rejected');

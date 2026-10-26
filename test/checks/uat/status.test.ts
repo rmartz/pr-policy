@@ -119,9 +119,9 @@ describe('decideUat — an untrusted status is ignored, and the fallback applies
 
 describe('decideUat — a trusted status the gate cannot use holds', () => {
   it.each([
-    ['an unknown format version', lifecycle('v2 requirement=none')],
+    ['an unknown format version', lifecycle('v9 requirement=none')],
     ['a malformed description', lifecycle('v1 requirement=none colour=blue')],
-    ['a trusted App with an unknown version', untrustedApp('v2 requirement=none')],
+    ['a trusted App with an unknown version', untrustedApp('v9 requirement=none')],
   ])('holds on %s, even where the fallback would pass', (_case, status) => {
     // A trivial PR passes the fallback, so only the rejected status can hold it.
     const facts = { ...pr(status), changedFiles: ['docs/a.md'] };

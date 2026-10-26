@@ -2,7 +2,7 @@
  * pr-lifecycle's sign-off status: the one signal pr-lifecycle sends this gate.
  * pr-lifecycle classifies each head and posts a `pr-lifecycle/sign-off` commit
  * status on it whose description says which human sign-off the head needs, for
- * example `v1 requirement=uat waiver=current`. The format is pr-lifecycle's
+ * example `v2 requirement=uat signoff=passed`. The format is pr-lifecycle's
  * contract (its docs/sign-off-status.md, rmartz/pr-lifecycle#119); the two
  * must stay compatible.
  *
@@ -23,19 +23,31 @@ import { vet } from './sign-off.js';
 export { SIGN_OFF_STATUS_CONTEXT };
 
 /** The description format versions this gate understands. */
-export const SIGN_OFF_STATUS_VERSIONS = ['v1'] as const;
+export const SIGN_OFF_STATUS_VERSIONS = ['v1', 'v2'] as const;
 
 export const SIGN_OFF_REQUIREMENTS = ['none', 'ci', 'uat'] as const;
 export type SignOffRequirement = (typeof SIGN_OFF_REQUIREMENTS)[number];
 
+/** `v1`'s `waiver`: whether a `no UAT needed` label counts for this head. */
 export const WAIVER_STATES = ['current', 'stale', 'absent'] as const;
 export type WaiverState = (typeof WAIVER_STATES)[number];
 
-/** A parsed, valid sign-off status. */
+/**
+ * `v2`'s `signoff`: the UAT sign-off pr-lifecycle resolved for this head, from
+ * people's labels and the review agent's verdict records (rmartz/pr-policy#109).
+ */
+export const UAT_SIGN_OFF_OUTCOMES = ['waived', 'passed', 'absent'] as const;
+export type UatSignOffOutcome = (typeof UAT_SIGN_OFF_OUTCOMES)[number];
+
+/**
+ * A parsed, valid sign-off status. A `uat` head carries `waiver` from a `v1`
+ * status, or `signoff` from a `v2` one.
+ */
 export type SignOffClassification =
   | { requirement: 'none'; loosening: boolean }
   | { requirement: 'ci'; loosening: boolean }
-  | { requirement: 'uat'; loosening: boolean; waiver: WaiverState };
+  | { requirement: 'uat'; loosening: boolean; waiver: WaiverState }
+  | { requirement: 'uat'; loosening: boolean; signoff: UatSignOffOutcome };
 
 /**
  * - `absent`: no status on the head.
@@ -52,7 +64,8 @@ export type SignOffStatusReading =
   | { kind: 'rejected'; reason: string }
   | { kind: 'valid'; classification: SignOffClassification; postedBy: string };
 
-const KNOWN_KEYS = new Set(['requirement', 'waiver', 'loosening']);
+/** The key that carries the UAT sign-off in each version: it differs, so each rejects the other's. */
+const UAT_KEY = { v1: 'waiver', v2: 'signoff' } as const;
 
 const member = <T extends string>(values: readonly T[], value: string | undefined): T | undefined =>
   values.find((candidate) => candidate === value);
@@ -63,15 +76,18 @@ const member = <T extends string>(values: readonly T[], value: string | undefine
  * pr-lifecycle bumps the version for any new key.
  */
 export function parseSignOffDescription(description: string): SignOffClassification | string {
-  const [version, ...pairs] = description.trim().split(/\s+/);
-  if (member(SIGN_OFF_STATUS_VERSIONS, version) === undefined) {
-    return `its format version \`${version ?? ''}\` is not one this pr-policy understands (${SIGN_OFF_STATUS_VERSIONS.join(', ')})`;
+  const [versionText, ...pairs] = description.trim().split(/\s+/);
+  const version = member(SIGN_OFF_STATUS_VERSIONS, versionText);
+  if (version === undefined) {
+    return `its format version \`${versionText ?? ''}\` is not one this pr-policy understands (${SIGN_OFF_STATUS_VERSIONS.join(', ')})`;
   }
+  const uatKey = UAT_KEY[version];
+  const knownKeys = new Set(['requirement', 'loosening', uatKey]);
   const fields = new Map<string, string>();
   for (const pair of pairs) {
     const [key = '', value, ...rest] = pair.split('=');
     if (value === undefined || rest.length > 0) return `\`${pair}\` is not a \`key=value\` pair`;
-    if (!KNOWN_KEYS.has(key)) return `\`${key}\` is not a known key`;
+    if (!knownKeys.has(key)) return `\`${key}\` is not a known key in \`${version}\``;
     if (fields.has(key)) return `\`${key}\` appears twice`;
     fields.set(key, value);
   }
@@ -83,8 +99,15 @@ export function parseSignOffDescription(description: string): SignOffClassificat
   const loosening = looseningText === 'yes';
 
   if (requirement !== 'uat') {
-    if (fields.has('waiver')) return '`waiver` is only meaningful with `requirement=uat`';
+    if (fields.has(uatKey)) return `\`${uatKey}\` is only meaningful with \`requirement=uat\``;
     return { requirement, loosening };
+  }
+  if (version === 'v2') {
+    const signoff = member(UAT_SIGN_OFF_OUTCOMES, fields.get('signoff'));
+    if (signoff === undefined) {
+      return '`requirement=uat` needs `signoff=waived`, `passed`, or `absent`';
+    }
+    return { requirement, loosening, signoff };
   }
   const waiver = member(WAIVER_STATES, fields.get('waiver'));
   if (waiver === undefined) return '`requirement=uat` needs `waiver=current`, `stale`, or `absent`';

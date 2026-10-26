@@ -7,10 +7,12 @@ export {
   SIGN_OFF_REQUIREMENTS,
   SIGN_OFF_STATUS_CONTEXT,
   SIGN_OFF_STATUS_VERSIONS,
+  UAT_SIGN_OFF_OUTCOMES,
   WAIVER_STATES,
   type SignOffClassification,
   type SignOffRequirement,
   type SignOffStatusReading,
+  type UatSignOffOutcome,
   type WaiverState,
 } from './sign-off-status.js';
 export { CI_CHANGE_CHECK, ciChangeCheck, decideCiChange } from './checks/ci-change/index.js';

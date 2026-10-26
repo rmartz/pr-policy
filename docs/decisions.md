@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, why it reads pr-lifecycle's classification from a commit status, why a named GitHub App may post that status but github-actions[bot] never, why an untrusted status is ignored rather than held on, why requiring a UAT label is opt-in and trusts any actor, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why `UAT passed` is bound to the head, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, why it reads pr-lifecycle's classification from a commit status, why a named GitHub App may post that status but github-actions[bot] never, why an untrusted status is ignored rather than held on, why requiring a UAT label is opt-in and trusts any actor, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why `UAT passed` is bound to the head, why a v2 status alone decides the UAT sign-off, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -228,8 +228,9 @@ A commit status is tied to its SHA by GitHub, so a push can never leave the gate
 reading an old classification, with no timestamp to get right. The gate still
 checks who posted it ([below](#a-named-github-app-may-post-the-status-github-actionsbot-never)),
 and an unknown format version holds. pr-lifecycle judges whether a `no UAT
-needed` waiver is current (`waiver=`), because only it can verify a clean
-rebase.
+needed` waiver is current (`v1`'s `waiver=`), because only it can verify a clean
+rebase, and under `v2` it reports the whole UAT sign-off
+([below](#a-v2-status-alone-decides-the-uat-sign-off)).
 
 The gate keeps what blocks a merge directly: the title rules (whose
 type-versus-paths rules are what make a title type trustworthy to classify on),
@@ -449,6 +450,37 @@ label on the PR now, so the rule stays inside "content, not history". See
 [checks/uat.md](checks/uat.md#uat-passed-is-bound-to-the-head).
 
 `no UAT needed` isn't bound: pr-lifecycle keeps a stale waiver off an armed PR.
+
+This binding now applies under a `v1` status or none. A `v2` status
+[decides the UAT sign-off alone](#a-v2-status-alone-decides-the-uat-sign-off).
+
+### A `v2` status alone decides the UAT sign-off
+
+pr-lifecycle resolves the UAT sign-off from more than labels
+(rmartz/pr-lifecycle#141): people's labels, the review agent's `uat` verdict
+records, and a `UAT passed` carried over a verified clean update or kept by a
+review's `uat: unchanged` attestation. Re-judging only the labels here couldn't
+follow that. It would hold every PR the agent waived, because the only `no UAT
+needed` on it is the one pr-lifecycle writes as a `Bot`, and every pass it
+carried over. So a `v2` status reports the outcome as `signoff=waived`,
+`passed`, or `absent`, and the `uat` check trusts it alone, reading no UAT label
+(rmartz/pr-policy#109).
+
+This is safe because the trust boundary moves to the status creator, whose rule
+is unchanged: a `User` who could merge, or an App named in
+`sign-off-status-creators`, never `github-actions[bot]`. pr-lifecycle already
+checks author trust, head binding and carry-over for both labels and verdict
+records, and the App it posts as already arms and merges PRs, so trusting its
+report grants it nothing new. The window that made pr-policy bind `UAT passed`
+itself doesn't reopen: a status is tied to its SHA, so a new head carries no
+`v2` status until pr-lifecycle posts one, and until then the check falls back
+to the labels with their binding.
+
+The CI sign-off is unchanged. `CI change approved` is the human act the CI gate
+exists to require, so it is still read through `signOffState` under any status.
+`v1` is still accepted, exactly as before, so the release is a minor and the
+fleet can bump pr-policy-action before pr-lifecycle posts `v2`. Dropping `v1` is
+a later breaking change.
 
 ## Open
 
