@@ -1,7 +1,7 @@
 ---
 type: Library
 title: UAT sign-off
-description: The uat check — a hard merge gate that holds every PR until pr-lifecycle's sign-off status (or, before a repo cuts over, the check's own classification) says the head needs no UAT, or it carries a trusted no UAT needed the status reports current, or a UAT passed applied after the current head was pushed — how it reads and rejects the status and which creators it trusts, the per-repo cutover and the status re-run trigger, the trivial-PR rules and their fleet replay, the label actor check, the head binding and the push time it reads, turning the gate off for a repo without UAT, and what it deliberately leaves to other parties.
+description: The uat check — a hard merge gate that holds every PR until pr-lifecycle's sign-off status (or, before a repo cuts over, the check's own classification) says the head needs no UAT, or a v2 status reports the UAT sign-off waived or passed, or, under v1 or no status, it carries a trusted no UAT needed the status reports current, or a UAT passed applied after the current head was pushed — how it reads and rejects the status and which creators it trusts, the per-repo cutover and the status re-run trigger, the trivial-PR rules and their fleet replay, the label actor check, the head binding and the push time it reads, turning the gate off for a repo without UAT, and what it deliberately leaves to other parties.
 resource: src/checks/uat/index.ts
 tags: [pr-policy, uat, sign-off, merge-gate]
 ---
@@ -17,13 +17,17 @@ true.
    or `ci`, which a CI sign-off covers instead). Until a repo's pr-lifecycle
    posts that status, the check decides this itself: every path is in an exempt
    category (below), or the title is a [`refactor`](#refactors).
-2. **`no UAT needed` is on the PR,** applied by the review agent or a person.
-   Under a status, it counts only when the status reports `waiver=current`.
-3. **`UAT passed` is on the PR,** applied by a person **after the current head
-   was pushed** (see [below](#uat-passed-is-bound-to-the-head)). Its old name,
-   `tested`, counts too while the fleet rename is in progress.
+2. **A `v2` status reports the UAT sign-off as `waived` or `passed`.** The check
+   [trusts it alone](#under-a-v2-status) and reads no UAT label.
+3. **Under a `v1` status or none, `no UAT needed` is on the PR,** applied by the
+   review agent or a person. Under a `v1` status, it counts only when the status
+   reports `waiver=current`.
+4. **Under a `v1` status or none, `UAT passed` is on the PR,** applied by a
+   person **after the current head was pushed** (see
+   [below](#uat-passed-is-bound-to-the-head)). Its old name, `tested`, counts too
+   while the fleet rename is in progress.
 
-A missing label is a `hold`, never "not required". That's what makes the gate
+A missing sign-off is a `hold`, never "not required". That's what makes the gate
 race-free: pr-lifecycle can approve a PR and arm auto-merge at any point, and
 the merge still waits here. The check never applies or removes a UAT label, and
 never reads pr-lifecycle's own labels.
@@ -40,7 +44,9 @@ classification of an older head.
 | --------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | `requirement=none`                                              | passes                                                                           |
 | `requirement=ci`                                                | passes; [`ci-change`](ci-change.md) holds for `CI change approved`               |
-| `requirement=uat`                                               | holds until a current `UAT passed`, or `no UAT needed` with `waiver=current`     |
+| `v2 requirement=uat signoff=waived` or `signoff=passed`         | passes, naming the reported outcome; no label is read                            |
+| `v2 requirement=uat signoff=absent`                             | holds, naming the reported outcome; no label is read                             |
+| `v1 requirement=uat`                                            | holds until a current `UAT passed`, or `no UAT needed` with `waiver=current`     |
 | ignored: an untrusted creator                                   | falls back to this check's own classification, plus an `info` naming the creator |
 | rejected: trusted, but an unknown format or state not `success` | holds, "Waiting on pr-lifecycle"                                                 |
 | absent                                                          | falls back to this check's own classification                                    |
@@ -55,8 +61,30 @@ ignored status can't open the gate, and a trust list that doesn't match
 pr-lifecycle's identity can't lock the repo, including the PR that fixes the
 list. Why is in [decisions.md](../decisions.md#an-untrusted-status-is-ignored-not-held-on).
 
+### Under a `v2` status
+
+pr-lifecycle resolves the UAT sign-off from people's `no UAT needed` and `UAT
+passed` labels, the review agent's `uat` verdict records (which have no label
+behind them), and a `UAT passed` carried over a verified clean update or kept by
+a review's `uat: unchanged` attestation. A `v2` status reports the outcome as
+`signoff=waived`, `passed`, or `absent`, and the check **trusts it alone**: it
+passes on `waived` or `passed`, holds on `absent`, and names the outcome, for
+example "pr-lifecycle reports the UAT sign-off as `waived` for this head".
+
+It neither reads nor judges the UAT labels. There is no actor check on them and
+no [head binding](#uat-passed-is-bound-to-the-head), so a `no UAT needed` that
+pr-lifecycle wrote as a `Bot` causes no hold, and a trusted `UAT passed` can't
+override `absent`. The trust boundary is the status creator. Why is in
+[decisions.md](../decisions.md#a-v2-status-alone-decides-the-uat-sign-off).
+
+So applying `UAT passed` no longer passes the gate on its own `labeled` run. It
+passes once pr-lifecycle posts the updated status on the same head, which the
+[`status` trigger](#re-running-when-the-status-arrives) re-runs on.
+
+### Under a `v1` status
+
 Only pr-lifecycle can tell whether a waiver survived a push (a verified clean
-rebase carries it), so under a status a `no UAT needed` counts only with
+rebase carries it), so under a `v1` status a `no UAT needed` counts only with
 `waiver=current`. A `stale` or `absent` waiver holds even when a trusted person
 applied the label. `UAT passed` keeps its own [head binding](#uat-passed-is-bound-to-the-head).
 
@@ -138,6 +166,9 @@ title may exempt here is in [decisions.md](../decisions.md#uat-is-only-for-the-p
 
 ## Who can sign off
 
+This section and the head binding below apply under a `v1` status or none. A
+`v2` status [replaces both](#under-a-v2-status).
+
 A label records nobody, so the check reads the PR's `labeled` events. A sign-off
 counts only if the **latest** `labeled` event for it names a `User` with
 **write, maintain, or admin** permission on the repo. That rejects GitHub Apps,
@@ -182,8 +213,10 @@ this check.
 
 ## `UAT passed` is bound to the head
 
-`UAT passed` (and `tested`) says a person tested the code, so it counts only
-when it was applied **after the current head was pushed**. Any new head needs a
+Under a `v1` status or none, `UAT passed` (and `tested`) says a person tested
+the code, so it counts only when it was applied **after the current head was
+pushed**. Under a `v2` status, carrying a pass over a clean update is
+pr-lifecycle's call, and this binding doesn't apply. Any new head needs a
 person to look again, including a verified clean rebase. Why is in
 [decisions.md](../decisions.md#uat-passed-doesnt-survive-a-new-head).
 

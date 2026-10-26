@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: The check-run and label contract
-description: The external names pr-policy is bound to — the pr-policy check-run and its mirrored commit status, the pr-lifecycle/sign-off status it reads and its v1 format, the CI gate labels, the UAT sign-off labels and the UAT determination labels, the breaking-waiver label, the blocking labels, and the epic label — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
+description: The external names pr-policy is bound to — the pr-policy check-run and its mirrored commit status, the pr-lifecycle/sign-off status it reads and its v1 and v2 formats, the CI gate labels, the UAT sign-off labels and the UAT determination labels, the breaking-waiver label, the blocking labels, and the epic label — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
 tags: [pr-policy, contract, labels, check-run, commit-status]
 ---
 
@@ -94,19 +94,32 @@ head needs, and the [`uat`](checks/uat.md#pr-lifecycles-sign-off-status) and
 description format belong to pr-lifecycle (its `docs/sign-off-status.md`,
 rmartz/pr-lifecycle#119), so both repos must change them together.
 
-Format `v1` is a version token followed by `key=value` pairs, in any order:
+The description is a version token followed by `key=value` pairs, in any order.
+The gate accepts formats `v1` and `v2`. They differ only in the key that carries
+the UAT sign-off, and each rejects the other's:
 
-| Key           | Values                       | Meaning                                                                                   |
-| ------------- | ---------------------------- | ----------------------------------------------------------------------------------------- |
-| `requirement` | `none`, `ci`, `uat`          | The one sign-off the head needs. Required.                                                |
-| `waiver`      | `current`, `stale`, `absent` | Whether a trusted `no UAT needed` counts for this head. Required with `uat`, else absent. |
-| `loosening`   | `yes`, `no` (default)        | Whether the PR loosens CI, so a bundled loosening still needs `CI change approved`.       |
+| Key           | Versions | Values                       | Meaning                                                                                   |
+| ------------- | -------- | ---------------------------- | ----------------------------------------------------------------------------------------- |
+| `requirement` | both     | `none`, `ci`, `uat`          | The one sign-off the head needs. Required.                                                |
+| `signoff`     | `v2`     | `waived`, `passed`, `absent` | The UAT sign-off pr-lifecycle resolved for this head. Required with `uat`, else absent.   |
+| `waiver`      | `v1`     | `current`, `stale`, `absent` | Whether a trusted `no UAT needed` counts for this head. Required with `uat`, else absent. |
+| `loosening`   | both     | `yes`, `no` (default)        | Whether the PR loosens CI, so a bundled loosening still needs `CI change approved`.       |
 
-For example `v1 requirement=uat waiver=current` or `v1 requirement=ci
-loosening=yes`. The gate rejects, and holds on, a trusted status in any other form: an
-unknown version, an unknown or repeated key, an unknown value, a state other
-than `success`. An untrusted creator's status is ignored (below). So pr-lifecycle bumps the version for
-any new key.
+For example `v2 requirement=uat signoff=passed`, `v1 requirement=uat
+waiver=current`, or `v2 requirement=ci loosening=yes`. The gate rejects, and
+holds on, a trusted status in any other form: an unknown version, an unknown or
+repeated key, an unknown value, a sign-off key with a requirement other than
+`uat`, a `uat` requirement without one, a state other than `success`. An
+untrusted creator's status is ignored (below). So pr-lifecycle bumps the version
+for any new key.
+
+`signoff` reports pr-lifecycle's resolved outcome, from people's labels and the
+review agent's verdict records: `waived` (a `no UAT needed`, or a `uat:
+not-needed` verdict, counts for this head), `passed` (a `UAT passed` counts for
+this head, carried over a clean update, or kept by a `uat: unchanged`
+attestation), or `absent`. The [`uat`](checks/uat.md#under-a-v2-status) check
+trusts it alone. How the sign-off was satisfied stays in pr-lifecycle. `v1` is
+accepted until the fleet posts only `v2`, then dropped in a breaking release.
 
 ### Who may post it
 
