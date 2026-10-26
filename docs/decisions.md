@@ -180,7 +180,9 @@ vertical layout touches only source and changes nothing; a one-line config edit
 can change everything. A static rule would either block honest chores or pass
 dishonest ones, so the review judges it. The consequence is that a `chore`
 title can't exempt a PR from UAT: pr-lifecycle#115 judges it by the trivial-path
-rules, like `feat` or `fix`, and leaves the rest to the review.
+rules, like `feat` or `fix`, and leaves the rest to the review. Those rules
+exempt every non-product path, CI and tooling included, so a `chore` that only
+touches the repo's tooling needs no UAT.
 
 ### An own-CI change is never forced to `ci`
 
@@ -309,11 +311,25 @@ It runs even when the UAT gate is skipped, because pr-lifecycle records
 `no UAT needed` in such a repo, and that is the determination it checks. A
 missing label is a `hold`, not a `block`: it clears once pr-lifecycle runs.
 
-### UAT needs a behaviour change
+### UAT is only for the product's user-facing behaviour
 
-UAT tests behaviour, so a PR that can't change behaviour has nothing to test. Two
-kinds of PR are exempt on that ground:
+UAT is exclusively for the repository's **product's user-facing functional
+behaviour**: what the product's users can observe it do. Nothing else needs it,
+so a PR that can't change that has nothing to test. Tooling is never
+user-facing. **CI is the clearest example:** a workflow, a composite action, a
+repo script under `scripts/`, or lint, formatter, test-runner, or repo-hygiene
+config changes how the repo is built and checked, not what its users see.
+Whether such a change weakens a check is a CI-governance question. The review
+and the [CI sign-off](checks/ci-change.md) answer it, never UAT. "It can change
+what a check lets through" is therefore no reason to hold a PR for UAT.
 
+Don't hold CI scripts or lint config for UAT because they "can change what a
+check lets through": that conflates CI governance with user acceptance.
+
+The exemptions on that ground:
+
+- **Docs, CI, tooling, dependency pins, and repo metadata,** by path (the
+  [trivial-PR rules](checks/uat.md#trivial-prs)).
 - **Test-only changes,** including Storybook stories. A test locks in behaviour
   without changing it, and a story never ships in the app.
 - **Refactors,** judged by the `refactor` title type rather than by paths. The

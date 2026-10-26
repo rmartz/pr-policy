@@ -49,8 +49,8 @@ const ROOT_METADATA =
 
 /**
  * Linter, formatter, test-runner, and repo-tooling config, by file name at any
- * depth. None of it ships, but it can change what a check lets through, so the
- * UAT gate doesn't exempt it; `ci` may change it. Build and app config
+ * depth. None of it ships and none of it is user-facing, so the UAT gate
+ * exempts it and `ci` may change it. Build and app config
  * (`tsconfig.json`, `next.config.*`, bundler config) is deliberately absent: it
  * changes what ships.
  */
@@ -193,8 +193,8 @@ export function pathKind(path: string, context: PathContext): PathKind | undefin
   if (parts[0] === '.github' || parts[0] === '.vscode') return 'metadata';
   if (parts.length === 1 && ROOT_METADATA.test(name)) return 'metadata';
   if (TOOLING_CONFIG.test(name)) return 'tooling-config';
-  // The repo's own tooling scripts (audits, CI checks, release helpers). One can
-  // still feed a build, so the UAT gate doesn't exempt it; `ci` may change it.
+  // The repo's own tooling scripts (audits, CI checks, release helpers). Tooling,
+  // not product, so the UAT gate exempts it and `ci` may change it.
   if (parts[0] === 'scripts' && parts.length > 1) return 'repo-script';
   return undefined;
 }

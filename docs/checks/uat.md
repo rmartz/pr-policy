@@ -81,6 +81,14 @@ guide.
 
 ## Trivial PRs
 
+**UAT is exclusively for the product's user-facing functional behaviour**:
+what the repository's product does for its users. Every path that isn't the
+product is exempt. Tooling is never user-facing, and CI is the clearest
+example: a workflow, a repo script, or lint config changes how the repo is
+built and checked, not what its users see. Whether it weakens a check is the
+[CI sign-off](ci-change.md)'s question, never UAT's. See
+[decisions.md](../decisions.md#uat-is-only-for-the-products-user-facing-behaviour).
+
 A PR is trivial when **every** changed path (including the old path of a
 rename) falls in one of these categories. One path outside them and the gate
 holds. The rules **only ever exempt**; they never add a requirement. Deciding a
@@ -91,6 +99,7 @@ PR _does_ need UAT is the review agent's judgment, expressed through the labels.
 | **docs**         | `*.md` anywhere, and anything under `docs/`. Not `*.mdx`, which renders as UI.                                                                                                                                                                                                                                                                                                                                                                             |
 | **tests**        | Anything under a `test`, `tests`, `__tests__`, `__snapshots__`, `__mocks__`, or `e2e` directory; `*.test.*` / `*.spec.*` JS and TS files; Storybook stories (`*.stories.*` JS and TS files, and `*.stories.mdx`); `test_*.py`, `*_test.py`, `conftest.py`; `*_test.go`. A test-only change has nothing to user-test, and a story never ships in the app. The title check's `test` and `refactor` rules share this definition (`src/checks/test-paths.ts`). |
 | **ci**           | `.github/workflows/**` and `.github/actions/**`, except a [shipped reusable workflow](title.md#shipped-reusable-workflows-are-product-code) (`workflow_call`-only), which is the product consumers call.                                                                                                                                                                                                                                                   |
+| **tooling**      | Linter, formatter, test-runner, and repo-tooling config by file name at any depth (`eslint.config.*`, `.prettierrc*`, `vitest.config.*`, `.repo-hygiene.yml`, `.pre-commit-config.yaml`, `.releaserc*`, …), and the repo's own scripts under a top-level `scripts/` (audits, CI checks, release helpers). Build, app, and deploy config (`tsconfig.json`, `next.config.*`, `vercel.json`) is product, not tooling.                                         |
 | **dependencies** | Lockfiles (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`, `poetry.lock`, `uv.lock`, …), `requirements*.txt`, and a `package.json` whose change touches **only** the dependency blocks and `packageManager`. A change to `scripts`, `exports`, or `pnpm.overrides` doesn't qualify.                                                                                                                                                                    |
 | **metadata**     | The rest of `.github/**` (Dependabot config, `CODEOWNERS`, templates), `.vscode/**`, and root-level `LICENSE`, `CODEOWNERS`, `.gitignore`, `.gitattributes`, `.editorconfig`.                                                                                                                                                                                                                                                                              |
 
@@ -112,9 +121,9 @@ storybook-ci, and compared with the UAT label `/review` gave each one:
 - They disagreed with review once by path, and the structural rule resolves it.
   hidden-role-game#827 was a `pnpm.overrides` pin that fixed a production outage
   and was UAT-tested. It fails the dependency-only rule, so the gate holds.
-- The 97 not exempted mostly change CI scripts (`scripts/*.mjs`), lint config
-  (`eslint.config.js`), or `.repo-hygiene.yml`. Those can change what ships, or
-  what a check lets through, so they stay with the review's judgment.
+- Most of the 97 not exempted then changed CI scripts (`scripts/*.mjs`), lint
+  config (`eslint.config.js`), or `.repo-hygiene.yml`. None of those is
+  user-facing, so the **tooling** category now exempts them too.
 
 There is no per-repo override yet. Add one only if a repo's replay shows rules
 that don't fit it.

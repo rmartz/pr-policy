@@ -116,6 +116,8 @@ touches source without changing behaviour, and a one-line config edit can change
 it. The review owns that judgement. Because nothing here checks it, a `chore`
 title is not a UAT exemption: pr-lifecycle judges a `chore` PR by the
 trivial-path rules, like `feat` or `fix`, and otherwise leaves it to the review.
+Those rules exempt every path that isn't the product's user-facing behaviour,
+CI and tooling included, so a `chore` that only touches tooling needs no UAT.
 
 ### `ci` changes only CI and tooling
 
@@ -144,8 +146,8 @@ Two kinds of change stay blocked, because each can change what ships:
 A `scripts/` file can also feed a build (`vercel-ignore-build.mjs` decides
 whether a deploy happens), but in the fleet replay every `ci` PR that changed
 one was repo tooling, so `ci` may change it and the review judges the rest. A
-`scripts/` directory nested in a package is not covered. The UAT gate still
-doesn't exempt `scripts/`.
+`scripts/` directory nested in a package is not covered. The UAT gate exempts
+a top-level `scripts/` too: it is tooling, and tooling is never user-facing.
 
 The `ci(deps):` retitle that the [sensitive-tool rule](#the-rules) asks for
 always passes. A bump of `eslint`, `prettier`, `black`, `ruff`, or `pylint`

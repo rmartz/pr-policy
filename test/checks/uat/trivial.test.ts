@@ -35,10 +35,23 @@ describe('trivialCategories — exempt categories', () => {
       ],
     ],
     ['ci', ['.github/workflows/ci.yml', '.github/actions/setup/action.yml']],
+    [
+      'tooling',
+      ['scripts/dependabot-audit.mjs', 'eslint.config.js', '.repo-hygiene.yml', 'vitest.config.ts'],
+    ],
     ['dependencies', ['pnpm-lock.yaml', 'requirements-dev.txt', 'poetry.lock']],
     ['metadata', ['.github/dependabot.yml', '.github/CODEOWNERS', 'LICENSE', '.gitignore']],
   ])('exempts a %s-only PR', (category, files) => {
     expect(trivialCategories(pr(files))).toEqual([category]);
+  });
+
+  it('exempts a chore PR mixing CI, tooling, metadata, and tests', () => {
+    const files = [
+      '.github/dependabot.yml',
+      'scripts/dependabot-audit.mjs',
+      'src/scripts/dependabot-audit.spec.ts',
+    ];
+    expect(trivialCategories(pr(files))).toEqual(['tests', 'tooling', 'metadata']);
   });
 
   it('exempts a PR that touches nothing', () => {
@@ -51,7 +64,7 @@ describe('trivialCategories — anything else holds', () => {
     ['source code', ['docs/a.md', 'src/a.ts']],
     ['an MDX page, which renders as UI', ['src/stories/Intro.mdx']],
     ['a root config file', ['next.config.ts']],
-    ['a script', ['scripts/build.mjs']],
+    ['a scripts/ directory nested in a package', ['packages/app/scripts/build.mjs']],
     ['a story alongside the component it covers', ['src/Button.stories.tsx', 'src/Button.tsx']],
   ])('does not exempt %s', (_what, files) => {
     expect(trivialCategories(pr(files))).toBeUndefined();
