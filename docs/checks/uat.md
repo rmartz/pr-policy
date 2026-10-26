@@ -134,7 +134,7 @@ A PR whose title parses as `refactor` (any scope) passes too, whatever code it
 changes. A refactor changes no behaviour, so there is nothing to user-test. The
 [title check](title.md) already blocks a `refactor` that touches a test file,
 and a behaviour change mislabeled `refactor` would also lose its release. Why a
-title may exempt here is in [decisions.md](../decisions.md#uat-needs-a-behaviour-change).
+title may exempt here is in [decisions.md](../decisions.md#uat-is-only-for-the-products-user-facing-behaviour).
 
 ## Who can sign off
 

@@ -45,7 +45,7 @@ describe('trivialCategories — exempt categories', () => {
     expect(trivialCategories(pr(files))).toEqual([category]);
   });
 
-  it('exempts a chore PR mixing CI, tooling, metadata, and tests', () => {
+  it('exempts a chore PR mixing tooling, metadata, and tests', () => {
     const files = [
       '.github/dependabot.yml',
       'scripts/dependabot-audit.mjs',
