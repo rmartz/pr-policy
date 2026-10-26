@@ -340,9 +340,10 @@ The exemptions on that ground:
 
 ### A repo without UAT turns the gate off in its caller
 
-Some repos have nothing to user-test (this one ships a library and an Action),
-so every non-trivial PR would wait on a `no UAT needed` label that says nothing.
-Such a repo runs the suite with `skipUat` (`--skip-uat`), set in its caller
+Some repos choose not to run UAT, this one included. That's a decision, not a
+claim that there is nothing to test: the library and Action this repo ships are
+user-facing to their consumers. Without the switch, every non-trivial PR in such
+a repo would wait on a `no UAT needed` label that says nothing. Such a repo runs the suite with `skipUat` (`--skip-uat`), set in its caller
 workflow. The option lives with the caller, not in a file in the repo: a
 `pull_request_target` caller runs from the base branch, so a PR can't switch off
 a gate it would otherwise wait on. Options default to the strictest policy, and

@@ -165,7 +165,7 @@ the PR straight away. See the Action's consumer guide in
 
 ## Repos without UAT
 
-A repo with nothing to user-test can drop the gate. Pass `--skip-uat` to the
+A repo can choose to drop the gate. Pass `--skip-uat` to the
 CLI, or `selectChecks({ skipUat: true })` to `evaluatePolicy` in the library.
 The `uat` check then doesn't run: it adds no findings and gets no per-check
 status. The title and CI-change checks, and the `CI change approved` trust

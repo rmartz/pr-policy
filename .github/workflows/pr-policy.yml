@@ -66,5 +66,5 @@ jobs:
           # Retitle a Dependabot linter/formatter bump to ci(...), the type the
           # pr-policy title check requires for it, instead of blocking on a hand edit.
           retitle-dependabot-ci: true
-          # This repo ships only a library; there is nothing to user-test.
+          # UAT is off for this repo by choice; the library it ships is still user-facing.
           skip-uat: true
