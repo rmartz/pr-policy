@@ -17,7 +17,8 @@ name: Release
 # filename — so there is no NPM_TOKEN secret. Renaming this file breaks publishing
 # until the trusted publisher on npmjs is updated to match. Provenance attestations
 # are generated automatically. OIDC publishing needs npm >= 11.5.1: the shared
-# workflow runs on Node 24 (npm 11) and, because this workflow grants
+# workflow is passed node-version 26.x (npm 11; its default is 24.x), the same
+# major as package.json's engines floor and @types/node, and, because this workflow grants
 # `id-token: write`, fails before tagging if npm is older.
 #
 # There is deliberately NO @semantic-release/git plugin: package.json is never bumped
@@ -47,6 +48,7 @@ jobs:
   release:
     uses: rmartz/semantic-release-ci/.github/workflows/semantic-release.yml@7ef55f7edb704ee85fc82bf6a23d317b80d42cc8 # v2.1.0
     with:
+      node-version: 26.x
       # Build dist/ before `npm publish` packs it; the shared workflow
       # installs this repo's dependencies (pnpm, frozen lockfile) first.
       build-command: pnpm run build
