@@ -1,9 +1,15 @@
 /**
  * The `run:` command of a step kept on both sides: whether it now swallows
- * failures (a loosening), was made strictly stricter, or changed some other
- * way (`check-changed`, which holds). The vocabulary lives in stricter.ts.
+ * failures (a loosening), was made strictly stricter or had a check appended
+ * with `&&` (strengthening), or changed some other way (`check-changed`, which
+ * holds). The vocabulary lives in stricter.ts.
  */
-import { ambiguousIndicator, looseningIndicator, type Indicator } from './indicators.js';
+import {
+  ambiguousIndicator,
+  looseningIndicator,
+  strengtheningIndicator,
+  type Indicator,
+} from './indicators.js';
 import {
   directionOf,
   isStrictSwitch,
@@ -16,28 +22,52 @@ import {
 } from './stricter.js';
 import { deepEqual, type Node } from './structure.js';
 
-/** Shell idioms that make a failing command succeed. */
-const SWALLOWS_FAILURE = [
-  /\|\|\s*(true|:)(?=\s|;|\)|$)/gm,
-  /\|\|\s*\(?\s*(exit\s+0|echo)\b/gm,
-  /(^|;|&&)\s*exit\s+0\b/gm,
-  /\bset\s+\+e\b/gm,
-];
+/**
+ * Shell forms that can make a failing command succeed: any `||` (its right side
+ * runs, and decides the status, when the left side fails), `exit 0`, and
+ * `set +e`. A newly added one is a loosening wherever it guards.
+ */
+const SWALLOWS_FAILURE = [/\|\|/g, /(^|;|&&)\s*exit\s+0\b/gm, /\bset\s+\+e\b/gm];
 
 function swallowCount(command: string): number {
   return SWALLOWS_FAILURE.reduce((total, idiom) => total + (command.match(idiom)?.length ?? 0), 0);
 }
 
-/** Shell words, with `--flag=value` split into `--flag` and `value`. */
+/**
+ * Shell words, with `--flag=value` split into `--flag` and `value`. A line break
+ * is a word of its own (`\n`), so joining two lines is an edit, not a no-op.
+ */
 function words(command: string): string[] {
-  return command
+  const lines = command
     .trim()
-    .split(/\s+/)
-    .filter((word) => word.length > 0)
-    .flatMap((word) => {
-      const flag = /^(-{1,2}[A-Za-z][\w-]*)=(.*)$/.exec(word);
-      return flag ? [flag[1] ?? word, flag[2] ?? ''] : [word];
-    });
+    .split('\n')
+    .map((line) =>
+      line
+        .trim()
+        .split(/\s+/)
+        .filter((word) => word.length > 0)
+        .flatMap((word) => {
+          const flag = /^(-{1,2}[A-Za-z][\w-]*)=(.*)$/.exec(word);
+          return flag ? [flag[1] ?? word, flag[2] ?? ''] : [word];
+        }),
+    )
+    .filter((line) => line.length > 0);
+  return lines.flatMap((line, index) => (index === 0 ? line : ['\n', ...line]));
+}
+
+/**
+ * The command appended to `base` with `&&`, when `head` is exactly that: the
+ * whole base, then `&& <one simple command>`. No newline, `;`, `|`, `&`,
+ * grouping, or substitution may follow, since any of them can decide the step's
+ * status instead of the base (under `bash -e` a failure inside an `&&` list
+ * doesn't stop the script).
+ */
+function appendedCheck(base: string, head: string): string | undefined {
+  const prefix = base.trimEnd();
+  const whole = head.trimEnd();
+  if (!whole.startsWith(prefix)) return undefined;
+  const tail = /^[ \t]*&&[ \t]*([^;&|\n(){}`$<>]+)$/.exec(whole.slice(prefix.length));
+  return tail?.[1]?.trim() || undefined;
 }
 
 /**
@@ -73,8 +103,8 @@ function removedFlag(base: readonly string[], at: number): [number, Verdict] | u
  * Judge an edited command. It is strictly stricter only when the head is the
  * base with known bounds tightened or strict switches inserted, word for word
  * otherwise. A known bound loosened or removed, or a strict switch removed, is
- * a loosening. Any other edit, even an appended command, holds: a workflow diff
- * can't tell `pnpm test && pnpm lint` from a replaced check by intent.
+ * a loosening. Any other edit holds (a pure `&&` append is judged before this,
+ * by {@link appendedCheck}).
  */
 function judgeRun(base: string, head: string): Verdict[] {
   const before = words(base);
@@ -113,15 +143,6 @@ function judgeRun(base: string, head: string): Verdict[] {
       i += removed[0];
       continue;
     }
-    // The whole base command, then `&&` and more: the base still runs and still
-    // fails the step, so the appended command only adds a check. A swallowed
-    // failure was ruled out before the walk.
-    if (from === undefined && to === '&&') {
-      return [
-        ...verdicts,
-        stricter('check-appended', `\`${after.slice(j + 1).join(' ')}\` appended with \`&&\`.`),
-      ];
-    }
     // A loosening already seen still holds as one, even on a shipped workflow.
     return [
       ...verdicts.filter((verdict) => 'looser' in verdict),
@@ -146,8 +167,14 @@ export function runIndicators(file: string, location: string, base: Node, head: 
         'failure-ignored',
         file,
         at,
-        'The command now swallows a failure (`|| true`, `|| :`, `|| echo`, `exit 0`, or `set +e`).',
+        'The command can now succeed when a check in it fails (a new `||`, `exit 0`, or `set +e`).',
       ),
+    ];
+  }
+  const appended = appendedCheck(base, head);
+  if (appended !== undefined) {
+    return [
+      strengtheningIndicator('check-appended', file, at, `\`${appended}\` appended with \`&&\`.`),
     ];
   }
   return judgeRun(base, head).map((verdict) => toIndicator(verdict, file, at));

@@ -111,17 +111,45 @@ describe('stricter commands', () => {
     });
   });
 
-  it('holds any other append: a new line, `;`, `||`, or a swallowed failure after &&', () => {
-    expect(judge(BASE_WORKFLOW, testRuns('pnpm test; pnpm lint')).holds).toEqual(['check-changed']);
-    expect(judge(BASE_WORKFLOW, testRuns('pnpm test || pnpm retry')).holds).toEqual([
-      'check-changed',
-    ]);
-    expect(judge(BASE_WORKFLOW, testRuns('pnpm test && pnpm lint || true')).holds).toEqual([
-      'failure-ignored',
-    ]);
-    expect(judge(BASE_WORKFLOW, testRuns('pnpm test && exit 0')).holds).toEqual([
-      'failure-ignored',
-    ]);
+  it('holds any append that can decide the status instead of the base command', () => {
+    for (const command of [
+      'pnpm test; pnpm lint',
+      'pnpm test && pnpm lint; echo ok',
+      'pnpm test && pnpm lint;echo ok',
+      'pnpm test && pnpm lint &',
+      'pnpm test && { pnpm lint; }',
+    ]) {
+      expect(judge(BASE_WORKFLOW, testRuns(command)).holds).toEqual(['check-changed']);
+    }
+  });
+
+  it('holds an append followed by another line', () => {
+    const head = edited(
+      '        run: pnpm test',
+      '        run: |\n          pnpm test && pnpm lint\n          echo done',
+    );
+    expect(judge(BASE_WORKFLOW, head).holds).toEqual(['check-changed']);
+  });
+
+  it('holds two lines joined into one, which changes what runs', () => {
+    const lines = edited(
+      '        run: pnpm test',
+      '        run: |\n          pnpm vitest run\n          echo done',
+    );
+    const joined = testRuns('pnpm vitest run echo done');
+    expect(judge(lines, joined).holds).toEqual(['check-changed']);
+  });
+
+  it('reads any new || as a swallowed failure, wherever it lands', () => {
+    for (const command of [
+      'pnpm test || pnpm retry',
+      'pnpm test || /bin/true',
+      'pnpm test && pnpm lint || pnpm other',
+      'pnpm test && pnpm lint || true',
+      'pnpm test && exit 0',
+    ]) {
+      expect(judge(BASE_WORKFLOW, testRuns(command)).holds).toEqual(['failure-ignored']);
+    }
   });
 
   it('reads a newly swallowed failure as a loosening', () => {

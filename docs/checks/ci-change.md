@@ -72,7 +72,7 @@ evidence only and never holds.
 | `trigger-narrowed`        | An `on:` event disappeared; an inclusive filter lost entries or appeared where there was none; an `*-ignore` filter gained entries. |
 | `matrix-reduced`          | A matrix dimension disappeared or lost values, or `exclude` gained a combination.                                                   |
 | `needs-reduced`           | A job stopped waiting on a dependency.                                                                                              |
-| `failure-ignored`         | A kept step's `run:` gained a failure-swallowing idiom: `\|\| true`, `\|\| :`, `\|\| echo`, `\|\| exit 0`, `; exit 0`, or `set +e`. |
+| `failure-ignored`         | A kept step's `run:` gained an `\|\|` (whatever follows it), an `exit 0`, or a `set +e`: each can make a failing check succeed.     |
 | `threshold-loosened`      | A [known bound](#strictly-stricter-edits) moved the loose way, went negative, or was removed.                                       |
 | `strict-disabled`         | A known strict switch was turned off or removed.                                                                                    |
 | `timeout-raised`          | `timeout-minutes` was raised, or removed (GitHub's 360-minute default then applies).                                                |
@@ -111,7 +111,7 @@ proves nothing.
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
 | `threshold-tightened` | A known bound that already had a value moved the strict way, to a non-negative number.                    |
 | `strict-enabled`      | A known strict switch turned on: a `with:` input set to `true`, or a bare flag added to a `run:` command. |
-| `check-appended`      | A kept command is the base word for word, then `&&` and another command, with no swallowed failure.       |
+| `check-appended`      | A kept command is exactly the base, then `&&` and one simple command, with nothing after it.              |
 | `timeout-reduced`     | `timeout-minutes` was lowered, or first set at or under GitHub's 360-minute default.                      |
 
 A bound **added** where there was none holds as `check-changed`: the value in
@@ -136,12 +136,16 @@ removed is `threshold-loosened`, and a strict switch turned off or removed is
 `strict-disabled`. Both are loosening indicators, so they hold even on a
 [shipped workflow](#shipped-reusable-workflows).
 
-A `run:` command passes only when the head is the base word for word, except
-for known bounds tightened and strict switches inserted, or when the whole base
-command is followed by `&&` and another command (`check-appended`): the base
-still runs and still fails the step. A newly swallowed failure is
-`failure-ignored`, a loosening. Any other edit is `check-changed`, including an
-append after `;`, `||`, or a new line, which may not fail the step.
+A `run:` command passes only when the head is the base word for word (a line
+break counts as a word), except for known bounds tightened and strict switches
+inserted, or when the head is exactly the base followed by `&&` and one simple
+command (`check-appended`): the base still runs and still fails the step.
+Nothing may follow that command: a new line, `;`, `|`, `&`, grouping, or
+substitution after it could decide the step's status instead, because under
+`bash -e` a failure inside an `&&` list doesn't stop the script. A newly added
+`||`, `exit 0`, or `set +e` is `failure-ignored`, a loosening. Any other edit is
+`check-changed`. A swallow merely moved onto another command, with none added,
+is `check-changed` too, so it passes on a shipped workflow.
 
 A `with:` input passes when it is a known bound tightened, a strict switch
 turned on, or an unknown input newly added (like any field an existing step
@@ -162,7 +166,9 @@ or whose base can't be parsed, is read as CI. Only its
 sign-off unless the change was expressly requested, and then the session that
 was asked applies `CI change approved` itself, quoting the request. Its other
 edits, ambiguous or stricter, are listed as "Shipped reusable workflow, not CI"
-notes and never hold.
+notes and never hold. Deleting a shipped workflow still holds
+(`workflow-removed`): it takes a product away from its callers, and it is the
+plainest loosening there is.
 
 That leaves a known gap: a loosening whose direction the classifier can't read,
 such as an `if:` rewritten to match less or a command replaced outright, passes
@@ -198,9 +204,11 @@ and finally the step's own serialized content. Steps sharing a key (two
 an old one is an addition; only the leftovers are paired in order. Every base
 step is paired and judged, not only the first of its key.
 
-A step whose `id:` or `name:` is _edited_ therefore reads as a removal plus an
-addition, and is reported as `step-removed`. A step known only by its `run:`
-command is the exception: a vanished one is paired with an appeared one that
+A step whose `id:` or `name:` alone is _edited_ (the rest identical) is paired
+as renamed, so it isn't `step-removed`; on CI the backstop still reports the
+edit, and on a shipped workflow it passes. Any other change together with a new
+`id:` or `name:` reads as a removal plus an addition. A step known only by its
+`run:` command is paired differently: a vanished one is paired with an appeared one that
 starts with the same executable and subcommand (`pnpm lint`; `pnpm run lint`
 reads the same) and their commands are compared,
 so tightening a bound on an unnamed step isn't read as removing it. Replacing

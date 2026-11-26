@@ -78,8 +78,8 @@ The [`ci-change` check](checks/ci-change.md) follows two policies:
 
 ### CI sign-off only for a loosened or changed check
 
-The fleet's CI sign-off rule asks for `CI change approved` only when a change loosens CI or changes what an existing
-check enforces. A new check, or an existing one made strictly stricter, is a
+The fleet's CI sign-off rule asks for `CI change approved` only when a change
+loosens CI or changes what an existing check enforces. A new check, or an existing one made strictly stricter, is a
 strengthening and needs none, even in a PR that also changes product code. So
 the [`ci-change` check](checks/ci-change.md) holds on a loosening or ambiguous
 indicator and passes a strengthening, whatever else the PR touches.
@@ -101,13 +101,14 @@ what a workflow diff can show:
   bound tightened proves one loosened or removed (`threshold-loosened`), a
   strict switch turned off (`strict-disabled`), and a timeout raised
   (`timeout-raised`). These are loosening indicators, not ambiguous ones.
-- **A swallowed failure is a loosening.** A command that gains `|| true`,
-  `|| :`, `|| exit 0`, or `set +e` is `failure-ignored`, so it holds even on a
-  shipped workflow.
-- **A pure append adds a check.** A command that is the base word for word,
-  then `&&` and another command, still runs the base and still fails the step,
-  so it passes as `check-appended`. An append after `;`, `||`, or a new line
-  may not fail the step, and holds.
+- **A swallowed failure is a loosening.** A command that gains an `||`, an
+  `exit 0`, or a `set +e` can now succeed when a check in it fails, so it is
+  `failure-ignored` and holds even on a shipped workflow. Any `||` counts, not
+  only `|| true`: `|| /bin/true` swallows just as well.
+- **A pure append adds a check.** A command that is exactly the base, then
+  `&&` and one simple command, still runs the base and still fails the step,
+  so it passes as `check-appended`. Anything after that command (a new line,
+  `;`, `&`, grouping) may decide the status instead, and holds.
 - **Anything else holds.** A rewritten command, a swapped action, or a changed
   or removed input may tighten or loosen, and a diff can't say which. A false
   hold costs one label; a false pass skips the sign-off.

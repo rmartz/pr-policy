@@ -71,7 +71,7 @@ Invariants that hold whatever a future change looks like:
    and a step), `run-rules.ts` (a step's `run:`), or `stricter.ts` (`with:`
    inputs, `timeout-minutes`, and the stricter vocabulary).
 3. Add an `it` for it in `test/checks/ci-change/`, mutating the shared fixture,
-   plus the tightening counterpart that must _not_ fire it.
+   plus the counterpart edit (the opposite direction) that must _not_ fire it.
 4. Add its row to [docs/checks/ci-change.md](docs/checks/ci-change.md). A new
    vocabulary entry goes in its "Strictly stricter edits" section.
 

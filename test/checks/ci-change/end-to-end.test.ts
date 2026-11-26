@@ -145,6 +145,24 @@ describe('ci-change end to end', () => {
     expect(await run([edit])).toMatchObject({ held: false, labelled: false });
   });
 
+  it('passes a step renamed on a shipped reusable workflow, but holds the same rename on CI', async () => {
+    expect(await run([shipped('name: Gate', 'name: Check the gate')])).toMatchObject({
+      held: false,
+      labelled: false,
+    });
+    const renamed = await run([ci(edited('      - name: Test\n', '      - name: Unit tests\n'))]);
+    expect(renamed).toMatchObject({ held: true });
+    expect(renamed.messages.join('\n')).not.toContain('step-removed');
+  });
+
+  it('holds the deletion of a shipped reusable workflow', async () => {
+    const outcome = await run([
+      { path: SHIPPED_PATH, baseText: SHIPPED_WORKFLOW, headText: undefined },
+    ]);
+    expect(outcome).toMatchObject({ held: true, labelled: true });
+    expect(outcome.messages.join('\n')).toContain('workflow-removed');
+  });
+
   it('reads a workflow whose base is not shipped as CI', async () => {
     const outcome = await run([
       {

@@ -65,9 +65,18 @@ const isRunKey = (key: string) => key.startsWith('run:');
 /** The executable and subcommand of a command-keyed step (`pnpm lint`). */
 const leadingWords = (key: string) => commandIdentity(key.slice('run:'.length));
 
+/** A step without the labels that name it, to recognise a rename. */
+function unnamed(step: Node): Node {
+  const fields = asRecord(step);
+  if (!fields) return step;
+  const { id: _id, name: _name, ...rest } = fields;
+  return rest;
+}
+
 /**
  * Pair every base step with the head step it became, or report it removed.
  *
+ * A step whose `id:` or `name:` alone changed is paired as renamed, not removed.
  * Steps sharing a key (two `actions/cache` steps) are paired by content first,
  * so a new same-keyed step inserted before an old one is an addition, and only
  * the leftovers are paired in order. A step known only by its command has its
@@ -107,6 +116,14 @@ export function pairSteps(
   }
 
   const removed = unpaired.filter(({ key, step }) => {
+    // Renamed in place: the same step with only its `id:` or `name:` changed.
+    const renamed = appeared.findIndex((candidate) =>
+      deepEqual(normalizeUses(unnamed(step)), normalizeUses(unnamed(candidate.step))),
+    );
+    if (renamed !== -1) {
+      pairs.push({ key, step, counterpart: appeared.splice(renamed, 1)[0]?.step });
+      return false;
+    }
     if (!isRunKey(key)) return true;
     const at = appeared.findIndex(
       (candidate) => isRunKey(candidate.key) && leadingWords(candidate.key) === leadingWords(key),
