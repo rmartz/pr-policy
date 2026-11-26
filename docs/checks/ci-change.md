@@ -72,6 +72,7 @@ evidence only and never holds.
 | `trigger-narrowed`        | An `on:` event disappeared; an inclusive filter lost entries or appeared where there was none; an `*-ignore` filter gained entries. |
 | `matrix-reduced`          | A matrix dimension disappeared or lost values, or `exclude` gained a combination.                                                   |
 | `needs-reduced`           | A job stopped waiting on a dependency.                                                                                              |
+| `failure-ignored`         | A kept step's `run:` gained a failure-swallowing idiom: `\|\| true`, `\|\| :`, `\|\| exit 0`, or `set +e`.                          |
 
 `continue-on-error` counts as enabled for **any** value that is not absent and
 not literal `false` — including a `${{ }}` expression, whose value is unknowable
@@ -105,13 +106,18 @@ proves nothing.
 
 | Indicator             | Fires when                                                                                                |
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
-| `threshold-tightened` | A known bound moved the strict way, or was added where there was none.                                    |
+| `threshold-tightened` | A known bound that already had a value moved the strict way, to a non-negative number.                    |
 | `strict-enabled`      | A known strict switch turned on: a `with:` input set to `true`, or a bare flag added to a `run:` command. |
 | `timeout-reduced`     | `timeout-minutes` was lowered, or first set at or under GitHub's 360-minute default.                      |
 
-The known bounds, matched on the whole name or its trailing words (so
-`--cov-fail-under` matches `fail-under`, and `maxWarnings` reads as
-`max-warnings`), never on a negated `no-` name:
+A bound **added** where there was none holds as `check-changed`: the value in
+force before (the tool's default, a config file, the action's input default)
+is unknown, so `flake8 --max-line-length 500` may raise it. A negative bound is
+never tightened (`--max-warnings -1` means no limit to eslint). Bounds match on
+the whole name or its trailing words (so `--cov-fail-under` matches
+`fail-under`, and `maxWarnings` reads as `max-warnings`), never on a negated
+`no-` name. Strict switches match by exact name only, so `--non-strict` and
+`disable-strict` don't count:
 
 - **Lower is stricter:** `max-warnings`, `max-lines`, `max-lines-per-function`,
   `max-line-length`, `max-len`, `max-complexity`, `max-statements`,
@@ -122,11 +128,12 @@ The known bounds, matched on the whole name or its trailing words (so
   `fail-on-warnings`.
 
 A `run:` command passes only when the head is the base word for word, except
-for known bounds tightened and known flags inserted. Any other edit is
-`check-changed`, including an appended command: the diff can't tell
-`pnpm test && pnpm lint` from `pnpm test || true` by intent. A `with:` input
-passes only when every changed input is a known bound tightened or a strict
-switch turned on; a removed or unknown input is `check-changed`.
+for known bounds tightened and strict switches inserted. A newly swallowed
+failure is `failure-ignored`, a loosening. Any other edit is `check-changed`,
+including an appended command: the diff can't tell `pnpm test && pnpm lint`
+from a replaced check by intent. A `with:` input passes only when every changed
+input is a known bound tightened or a strict switch turned on; a removed, added
+or unknown input is `check-changed`.
 
 Thresholds that live outside `.github/workflows/**`, such as a
 `.repo-hygiene.yml` file cap or an eslint config, are outside this check's
@@ -141,6 +148,12 @@ sign-off unless the change was expressly requested, and then the session that
 was asked applies `CI change approved` itself, quoting the request. Its other
 edits, ambiguous or stricter, are listed as "Shipped reusable workflow, not CI"
 notes and never hold.
+
+That leaves a known gap: a loosening the classifier can only see as ambiguous,
+such as an `if:` rewritten to match less, passes on a shipped workflow. Holding
+every ambiguous edit there would gate every product change to it, which is the
+case this rule exists to stop. A CI workflow converted to `workflow_call` only
+still holds, because losing its other triggers is `trigger-narrowed`.
 
 ## Tightening and maintenance
 
@@ -157,7 +170,9 @@ These produce no holding indicator, and so no label:
 Steps are paired across revisions by a stable key, not by index: an insertion
 near the top of a job would otherwise report every step after it as removed. The
 key is the first of `id:`, `name:`, `uses:` (with its `@ref` stripped), `run:`,
-and finally the step's own serialized content.
+and finally the step's own serialized content. A key repeated within a job
+(two `actions/cache` steps) gets its occurrence number, so every step is
+paired and judged.
 
 A step whose `id:` or `name:` is _edited_ therefore reads as a removal plus an
 addition, and is reported as `step-removed`. A step known only by its `run:`

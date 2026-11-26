@@ -7,9 +7,10 @@
  * enforces, and holds: a false hold costs one label, a false pass skips the
  * sign-off (docs/decisions.md).
  *
- * Three fields of an existing job or step are judged here, and only here: a
- * step's `run:` command, a step's or reusable-workflow job's `with:` inputs,
- * and `timeout-minutes`. The containment backstop ignores them for that reason.
+ * Three fields of an existing job or step are judged by named rules, and only
+ * there: a step's `run:` command (run-rules.ts), a step's or reusable-workflow
+ * job's `with:` inputs, and `timeout-minutes` (here). The containment backstop
+ * ignores them for that reason (see {@link withoutJudgedFields}).
  */
 import {
   ambiguousIndicator,
@@ -39,7 +40,7 @@ const HIGHER_IS_STRICTER = [
   'coverage-threshold',
 ] as const;
 
-/** Switches that only ever make a tool reject more when turned on. */
+/** Switches that only ever make a tool reject more when turned on. Matched by exact name. */
 const STRICT_SWITCHES = ['strict', 'fail-on-error', 'fail-on-warning', 'fail-on-warnings'] as const;
 
 /** GitHub's default job timeout, used when a job gains its first `timeout-minutes`. */
@@ -57,28 +58,35 @@ function normalizeName(name: string): string {
 }
 
 /**
- * A vocabulary entry matches the whole name or its last dash-separated words
- * (`cov-fail-under`). A negated name (`no-strict`) never matches.
+ * A bound matches by its whole name or its last dash-separated words
+ * (`cov-fail-under`). A negated name (`no-max-warnings`) never matches. Only a
+ * bound that already had a value can be tightened, so a suffix match can at
+ * worst pass a lowered value of a flag named like a bound.
  */
-function matches(name: string, vocabulary: readonly string[]): boolean {
+function matchesBound(name: string, vocabulary: readonly string[]): boolean {
   if (name.startsWith('no-') || name.includes('-no-')) return false;
   return vocabulary.some((entry) => name === entry || name.endsWith(`-${entry}`));
 }
 
-function directionOf(rawName: string): Direction | undefined {
+export function directionOf(rawName: string): Direction | undefined {
   const name = normalizeName(rawName);
-  if (matches(name, LOWER_IS_STRICTER)) return 'lower';
-  if (matches(name, HIGHER_IS_STRICTER)) return 'higher';
+  if (matchesBound(name, LOWER_IS_STRICTER)) return 'lower';
+  if (matchesBound(name, HIGHER_IS_STRICTER)) return 'higher';
   return undefined;
 }
 
-function isStrictSwitch(rawName: string): boolean {
-  return matches(normalizeName(rawName), STRICT_SWITCHES);
+/** Exact names only: `non-strict` or `disable-strict` must not read as `strict`. */
+export function isStrictSwitch(rawName: string): boolean {
+  return (STRICT_SWITCHES as readonly string[]).includes(normalizeName(rawName));
 }
 
+/**
+ * A non-negative number. A negative bound is never read as tightened: to
+ * eslint, `--max-warnings -1` means no limit at all.
+ */
 function asNumber(value: Node): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value !== 'string' || !/^-?\d+(\.\d+)?%?$/.test(value)) return undefined;
+  if (typeof value === 'number') return Number.isFinite(value) && value >= 0 ? value : undefined;
+  if (typeof value !== 'string' || !/^\d+(\.\d+)?%?$/.test(value)) return undefined;
   return Number.parseFloat(value);
 }
 
@@ -91,26 +99,25 @@ function isStricterValue(direction: Direction, before: number, after: number): b
 }
 
 /** One judged edit: a strictly stricter one, or a change that holds. */
-type Verdict = { stricter: StrengtheningIndicator; detail: string } | { changed: string };
+export type Verdict = { stricter: StrengtheningIndicator; detail: string } | { changed: string };
 
-function stricter(kind: StrengtheningIndicator, detail: string): Verdict {
+export function stricter(kind: StrengtheningIndicator, detail: string): Verdict {
   return { stricter: kind, detail };
 }
 
-function toIndicator(verdict: Verdict, file: string, location: string): Indicator {
+export function toIndicator(verdict: Verdict, file: string, location: string): Indicator {
   return 'changed' in verdict
     ? ambiguousIndicator('check-changed', file, location, verdict.changed)
     : strengtheningIndicator(verdict.stricter, file, location, verdict.detail);
 }
 
-/** Judge one input or flag that appeared, with no value before. */
+/**
+ * Judge one input that appeared, with no value before. A new bound holds: the
+ * value already in force (a tool default, a config file, the action's input
+ * default) is unknown, so a new one may raise it. Only a strict switch can
+ * safely appear, because turning it on can't relax anything.
+ */
 function judgeAdded(name: string, value: Node): Verdict | undefined {
-  if (directionOf(name) !== undefined && asNumber(value) !== undefined) {
-    return stricter(
-      'threshold-tightened',
-      `\`${name}\` set to ${String(value)} where it had no bound.`,
-    );
-  }
   if (isStrictSwitch(name) && isTrue(value)) {
     return stricter('strict-enabled', `\`${name}\` turned on.`);
   }
@@ -118,7 +125,7 @@ function judgeAdded(name: string, value: Node): Verdict | undefined {
 }
 
 /** Judge one input or flag whose value changed. */
-function judgeChanged(name: string, before: Node, after: Node): Verdict | undefined {
+export function judgeChanged(name: string, before: Node, after: Node): Verdict | undefined {
   const direction = directionOf(name);
   const from = asNumber(before);
   const to = asNumber(after);
@@ -167,85 +174,6 @@ export function inputIndicators(
   return found;
 }
 
-/** Shell words, with `--flag=value` split into `--flag` and `value`. */
-function words(command: string): string[] {
-  return command
-    .trim()
-    .split(/\s+/)
-    .filter((word) => word.length > 0)
-    .flatMap((word) => {
-      const flag = /^(-{1,2}[A-Za-z][\w-]*)=(.*)$/.exec(word);
-      return flag ? [flag[1] ?? word, flag[2] ?? ''] : [word];
-    });
-}
-
-/** How many words an inserted stricter flag takes at `at`, with its verdict, or `undefined`. */
-function insertedFlag(head: readonly string[], at: number): [number, Verdict] | undefined {
-  const flag = head[at];
-  if (flag === undefined || !flag.startsWith('-')) return undefined;
-  const value = head[at + 1];
-  if (directionOf(flag) !== undefined && value !== undefined) {
-    const verdict = judgeAdded(flag, value);
-    if (verdict) return [2, verdict];
-  }
-  if (isStrictSwitch(flag) && (value === undefined || value.startsWith('-'))) {
-    return [1, stricter('strict-enabled', `\`${flag}\` added.`)];
-  }
-  return undefined;
-}
-
-/**
- * Judge an edited `run:` command. It is strictly stricter only when the head is
- * the base with known bounds tightened or known stricter flags inserted, word for
- * word otherwise. Any other edit, even an appended command, holds: a workflow
- * diff can't tell `pnpm test` from `pnpm test || true` by intent.
- */
-function judgeRun(base: string, head: string): Verdict[] {
-  const before = words(base);
-  const after = words(head);
-  const verdicts: Verdict[] = [];
-  let i = 0;
-  let j = 0;
-  while (i < before.length || j < after.length) {
-    const [from, to] = [before[i], after[j]];
-    if (from !== undefined && from === to) {
-      i += 1;
-      j += 1;
-      continue;
-    }
-    const flag = i > 0 && before[i - 1] === after[j - 1] ? before[i - 1] : undefined;
-    if (flag !== undefined && from !== undefined && to !== undefined) {
-      const verdict = directionOf(flag) !== undefined ? judgeChanged(flag, from, to) : undefined;
-      if (verdict) {
-        verdicts.push(verdict);
-        i += 1;
-        j += 1;
-        continue;
-      }
-    }
-    const inserted = insertedFlag(after, j);
-    if (inserted) {
-      verdicts.push(inserted[1]);
-      j += inserted[0];
-      continue;
-    }
-    return [{ changed: "The command changed in a way that isn't known to be stricter." }];
-  }
-  return verdicts;
-}
-
-/** The judged edit to a `run:` command of an existing step. */
-export function runIndicators(file: string, location: string, base: Node, head: Node): Indicator[] {
-  if (deepEqual(base, head)) return [];
-  const at = `${location}.run`;
-  if (typeof base !== 'string' || typeof head !== 'string') {
-    return [
-      ambiguousIndicator('check-changed', file, at, 'The `run:` command was added or removed.'),
-    ];
-  }
-  return judgeRun(base, head).map((verdict) => toIndicator(verdict, file, at));
-}
-
 /**
  * The judged edit to `timeout-minutes`. A lower limit, or a first limit at or
  * under GitHub's default, can only fail more runs. Anything else (a raise, a
@@ -262,7 +190,8 @@ export function timeoutIndicators(
   const from = base === undefined ? DEFAULT_TIMEOUT_MINUTES : asNumber(base);
   const to = asNumber(head);
   const describe = (value: Node) => JSON.stringify(value) ?? 'unset';
-  if (from !== undefined && to !== undefined && to <= from) {
+  if (from !== undefined && to !== undefined && to === from) return [];
+  if (from !== undefined && to !== undefined && to < from) {
     return [
       strengtheningIndicator(
         'timeout-reduced',

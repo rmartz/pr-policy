@@ -93,6 +93,26 @@ describe('ci-change end to end', () => {
     expect(outcome.messages.join('\n')).toContain('step-removed');
   });
 
+  it('holds a shipped reusable workflow whose command now swallows a failure', async () => {
+    const outcome = await run([shipped('run: ./gate.sh', 'run: ./gate.sh || true')]);
+    expect(outcome).toMatchObject({ held: true, labelled: true });
+    expect(outcome.messages.join('\n')).toContain('failure-ignored');
+  });
+
+  it('holds a CI workflow converted to workflow_call only', async () => {
+    const converted: FileChange = {
+      path: WORKFLOW_PATH,
+      baseText: BASE_WORKFLOW,
+      headText: BASE_WORKFLOW.replace(
+        /^on:\n(?: {2}.*\n| {4}.*\n)+/m,
+        'on: workflow_call\n',
+      ).replace('run: pnpm test', 'run: pnpm test:unit'),
+    };
+    const outcome = await run([converted]);
+    expect(outcome).toMatchObject({ held: true, labelled: true });
+    expect(outcome.messages.join('\n')).toContain('trigger-narrowed');
+  });
+
   it('passes a shipped reusable workflow edit that does not loosen it', async () => {
     const edit = shipped(
       "if: github.event.action != 'closed'",

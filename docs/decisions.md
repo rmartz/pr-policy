@@ -94,7 +94,11 @@ what a workflow diff can show:
   a raised `fail-under`, `strict` turned on, a lowered `timeout-minutes`. The
   list is explicit because names lie: `--min-severity` raised reports fewer
   issues, and `--max-depth` lowered scans less. A bound outside the list holds,
-  whichever way it moved.
+  whichever way it moved. So does a known bound added where there was none:
+  the value in force before (a tool default or config file) is unknown.
+- **A swallowed failure is a loosening.** A command that gains `|| true`,
+  `|| :`, `|| exit 0`, or `set +e` is `failure-ignored`, so it holds even on a
+  shipped workflow.
 - **Anything else holds.** A rewritten command, an appended command, a swapped
   action, or a new unknown input may tighten or loosen, and a diff can't say
   which. A false hold costs one label; a false pass skips the sign-off.
@@ -109,9 +113,11 @@ the input would mean reading and comparing each tool's config format.
 
 A shipped reusable workflow (`workflow_call` only) is product code, so only its
 loosening holds: loosening it still needs the sign-off unless the change was
-expressly requested. An expressly requested CI change needs nothing from
-pr-policy: the session that was asked applies `CI change approved`, quoting the
-request.
+expressly requested. Its ambiguous edits don't hold, which accepts a gap: a
+loosening seen only as ambiguous, like an `if:` rewritten to match less, passes
+there. Holding them would gate every product edit to the workflow. An expressly
+requested CI change needs nothing from pr-policy: the session that was asked
+applies `CI change approved`, quoting the request.
 
 ### Waiting on a sign-off is pending, not red
 
@@ -204,7 +210,8 @@ workflow change to `ci` would suppress its release, and requiring
 `breaking change` would cut a spurious major. So:
 
 - A `workflow_call`-only workflow is shipped product code, and the title check
-  ignores it. The `ci-change` check holds only on its loosening. The trigger alone decides this. See
+  ignores it. The `ci-change` check holds only on its loosening. The trigger
+  alone decides this. See
   [checks/title.md](checks/title.md).
 - The coordinator's sibling-rebase signal is path-based, so the `ci` type
   doesn't need to carry it. An own-CI change on a non-release type gets an

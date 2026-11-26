@@ -195,8 +195,10 @@ A workflow whose **only** trigger is `workflow_call` is a shipped reusable
 workflow. In an action or reusable-workflow repo it is the product consumers
 call, so it takes a release type and the title check says nothing about it. It
 is judged on its head content, or its base content for a deletion. Loosening one
-still needs `CI approval needed`, because the [ci-change](ci-change.md) check is
-unaffected.
+still needs `CI approval needed`: the
+[ci-change](ci-change.md#shipped-reusable-workflows) check holds on a shipped
+workflow's loosening only. Both checks share the detector in
+`src/checks/ci-change/shipped-workflow.ts`.
 
 Only the trigger is read. A `workflow_call`-only file that the repo also calls by
 local path (`uses: ./.github/workflows/<file>`) would be misread as shipped. A fleet

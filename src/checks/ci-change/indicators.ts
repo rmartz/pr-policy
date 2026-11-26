@@ -20,6 +20,7 @@ export const LOOSENING_INDICATORS = [
   'trigger-narrowed',
   'matrix-reduced',
   'needs-reduced',
+  'failure-ignored',
 ] as const;
 
 /** Changes to what an existing check enforces that can't be shown to be strictly stricter. */

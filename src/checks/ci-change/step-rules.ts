@@ -3,7 +3,8 @@
  */
 import { looseningIndicator, type Indicator } from './indicators.js';
 import { guardIndicators } from './common-rules.js';
-import { inputIndicators, runIndicators } from './stricter.js';
+import { runIndicators } from './run-rules.js';
+import { inputIndicators } from './stricter.js';
 import { asArray, asRecord, stripActionRef, type Node } from './structure.js';
 
 /** The `steps:` sequence of a job, or `[]` when the job declares none. */
@@ -34,11 +35,14 @@ export function stepKey(step: Node): string {
 
 function byKey(steps: readonly Node[]): Map<string, Node> {
   const index = new Map<string, Node>();
+  const seen = new Map<string, number>();
   for (const step of steps) {
     const key = stepKey(step);
-    // First occurrence wins: a duplicated key is pathological, and pairing the
-    // first of each side keeps the comparison deterministic.
-    if (!index.has(key)) index.set(key, step);
+    // A repeated key (two `actions/cache` steps) gets its occurrence number, so
+    // every step is paired and judged, not only the first of each key.
+    const count = (seen.get(key) ?? 0) + 1;
+    seen.set(key, count);
+    index.set(count === 1 ? key : `${key}#${count}`, step);
   }
   return index;
 }

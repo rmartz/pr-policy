@@ -38,11 +38,25 @@ describe('stricter commands', () => {
     expect(judge(base, head).stricter).toEqual(['threshold-tightened', 'threshold-tightened']);
   });
 
-  it('passes a first bound or --strict added to an existing command', () => {
-    expect(strengtheningFor(testRuns('pnpm test --max-warnings 0'))).toEqual([
-      'threshold-tightened',
-    ]);
+  it('passes --strict added to an existing command', () => {
     expect(strengtheningFor(testRuns('pnpm test --strict'))).toEqual(['strict-enabled']);
+  });
+
+  it('holds a first bound added, since the value in force before is unknown', () => {
+    // flake8's default, or a setup.cfg, may be stricter than the new flag.
+    expect(judge(BASE_WORKFLOW, testRuns('pnpm test --max-warnings 0')).holds).toEqual([
+      'check-changed',
+    ]);
+    const base = testRuns('pnpm eslint . --max-warnings 0');
+    const duplicated = testRuns('pnpm eslint . --max-warnings 0 --max-warnings 999');
+    expect(judge(base, duplicated).holds).toEqual(['check-changed']);
+  });
+
+  it('holds a bound made negative, which some tools read as no limit', () => {
+    const base = testRuns('pnpm eslint . --max-warnings 0');
+    expect(judge(base, testRuns('pnpm eslint . --max-warnings -1')).holds).toEqual([
+      'check-changed',
+    ]);
   });
 
   it('holds a raised bound', () => {
@@ -64,19 +78,36 @@ describe('stricter commands', () => {
   });
 
   it('holds a negated or valued strict flag', () => {
-    expect(judge(BASE_WORKFLOW, testRuns('pnpm test --no-strict')).holds).toEqual([
-      'check-changed',
-    ]);
+    for (const flag of ['--no-strict', '--non-strict', '--disable-strict']) {
+      expect(judge(BASE_WORKFLOW, testRuns(`pnpm test ${flag}`)).holds).toEqual(['check-changed']);
+    }
     expect(judge(BASE_WORKFLOW, testRuns('pnpm test --strict false')).holds).toEqual([
       'check-changed',
     ]);
   });
 
-  it('holds an appended command or a swallowed failure, which a diff cannot tell apart', () => {
+  it('holds an appended command, which a diff cannot tell from a replaced check', () => {
     expect(judge(BASE_WORKFLOW, testRuns('pnpm test && pnpm lint')).holds).toEqual([
       'check-changed',
     ]);
-    expect(judge(BASE_WORKFLOW, testRuns('pnpm test || true')).holds).toEqual(['check-changed']);
+  });
+
+  it('reads a newly swallowed failure as a loosening', () => {
+    for (const command of ['pnpm test || true', '"pnpm test || :"', 'set +e; pnpm test']) {
+      expect(judge(BASE_WORKFLOW, testRuns(command)).holds).toEqual(['failure-ignored']);
+    }
+    const base = testRuns('pnpm test || true');
+    expect(judge(base, testRuns('pnpm test --strict || true')).holds).toEqual([]);
+  });
+
+  it('judges every step that shares a key, not only the first', () => {
+    const twice = (second: string) =>
+      edited(
+        '      - name: Test\n        run: pnpm test\n',
+        `      - name: Test\n        run: pnpm test\n      - name: Test\n        run: ${second}\n`,
+      );
+    expect(judge(twice('pnpm e2e'), twice('pnpm e2e --quiet')).holds).toEqual(['check-changed']);
+    expect(judge(twice('pnpm e2e'), twice('pnpm e2e || true')).holds).toEqual(['failure-ignored']);
   });
 
   it('holds a stricter bound bundled with any other edit to the same command', () => {
@@ -112,10 +143,18 @@ describe('stricter inputs', () => {
     });
   });
 
-  it('passes a newly added known bound or strict switch', () => {
+  it('passes a newly added strict switch, but holds a new bound or a negated switch', () => {
     const base = testWith('config: ci.yml');
-    const head = testWith('config: ci.yml', 'max-warnings: 0', 'fail_on_error: true');
-    expect(judge(base, head).stricter).toEqual(['threshold-tightened', 'strict-enabled']);
+    expect(judge(base, testWith('config: ci.yml', 'fail_on_error: true')).stricter).toEqual([
+      'strict-enabled',
+    ]);
+    // The action's own default for `max-lines` may be lower than 2000.
+    expect(judge(base, testWith('config: ci.yml', 'max-lines: 2000')).holds).toEqual([
+      'check-changed',
+    ]);
+    expect(judge(base, testWith('config: ci.yml', 'disable-strict: true')).holds).toEqual([
+      'check-changed',
+    ]);
   });
 
   it('holds a raised cap, strict turned off, a removed input, and an unknown new input', () => {
@@ -159,5 +198,10 @@ describe('stricter timeouts', () => {
       );
     expect(strengtheningFor(deploy(30))).toEqual(['timeout-reduced']);
     expect(judge(BASE_WORKFLOW, deploy(400)).holds).toEqual(['timeout-changed']);
+    expect(judge(BASE_WORKFLOW, deploy(360))).toEqual({
+      verdict: 'tightening',
+      holds: [],
+      stricter: [],
+    });
   });
 });
