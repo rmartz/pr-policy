@@ -44,7 +44,8 @@ built and checked, not what its users see. Whether it weakens a check is the
 A PR is trivial when **every** changed path (including the old path of a
 rename) falls in one of these categories. One path outside them and the gate
 holds. The rules **only ever exempt**; they never add a requirement. Deciding a
-PR _does_ need UAT is the review agent's judgment, expressed through the labels.
+PR _does_ need UAT is the judgment of the session driving the PR, expressed
+through the labels.
 
 | Category         | Paths                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -96,9 +97,11 @@ an npm bump changes only `package.json` dependency blocks and the lockfile
 (**dependencies**), and a GitHub Actions bump changes only workflow pins
 (**ci**). `test/evaluate.test.ts` pins both through the whole suite.
 
-The one gap is an Actions bump to a
+The gaps: an Actions bump to a
 [shipped reusable workflow](title.md#shipped-reusable-workflows-are-product-code),
-which is product and holds. None of the repos that keep UAT on ships one.
+which is product, holds; so does a bump in an ecosystem with no exempt path
+kind, such as `pyproject.toml`, `go.mod`, `Gemfile`, or a `Dockerfile`. None of
+the repos that keep UAT on uses either: they are npm and GitHub Actions only.
 
 ## Who can sign off
 
@@ -179,6 +182,6 @@ turns the change into one a person must test. Why is in
 
 `tested` was the old name of `UAT passed`, read while pr-lifecycle renamed it
 across the fleet. With pr-lifecycle retired nothing writes it, and the session
-that drives each PR applies `UAT passed` directly, so this major release drops
-it. An open PR that carries only `tested` holds until `UAT passed` is applied,
+that drives each PR applies `UAT passed` directly, so the same major release
+dropped it. An open PR that carries only `tested` holds until `UAT passed` is applied,
 which a head-bound sign-off needs after any push anyway.

@@ -111,7 +111,7 @@ waiver is a label, `contained break`, trusted through `signOffState`, because it
 is the same kind of judgment as a UAT waiver. The alternatives were weaker:
 
 - Honoring a human's _removal_ of `breaking change` would read the label's
-  history, which belongs to the lifecycle reconciler, not a content check.
+  history, which a content check doesn't read.
 - A per-repo list of exempt dependencies bakes in "this wrapper never exposes
   its CLI's majors", which is false the first time the CLI's break leaks through
   an input. A per-PR judgment is right each time.
@@ -186,7 +186,7 @@ a judgment the session driving the PR makes and expresses through the labels.
 
 ### pr-policy classifies on its own
 
-Until this major release, pr-lifecycle decided which sign-off each head needed
+Until pr-policy v3 dropped it, pr-lifecycle decided which sign-off each head needed
 and posted it as a `pr-lifecycle/sign-off` commit status, which the `uat` and
 `ci-change` checks trusted over their own classification (rmartz/pr-policy#89,
 rmartz/pr-policy#109). The fleet retired pr-lifecycle: each PR is now driven by the agent

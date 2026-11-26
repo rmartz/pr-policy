@@ -129,12 +129,12 @@ describe('parseFacts', () => {
     ],
     [
       'a sign-off with an unknown permission',
-      '{"title":"t","labels":[],"changedFiles":[],"signOffs":[{"label":"tested","appliedBy":{"login":"a","type":"User","permission":"owner"}}]}',
+      '{"title":"t","labels":[],"changedFiles":[],"signOffs":[{"label":"UAT passed","appliedBy":{"login":"a","type":"User","permission":"owner"}}]}',
       'facts.signOffs[0].appliedBy.permission',
     ],
     [
       'a non-string sign-off time',
-      '{"title":"t","labels":[],"changedFiles":[],"signOffs":[{"label":"tested","appliedAt":1}]}',
+      '{"title":"t","labels":[],"changedFiles":[],"signOffs":[{"label":"UAT passed","appliedAt":1}]}',
       'facts.signOffs[0].appliedAt must be a string',
     ],
     [

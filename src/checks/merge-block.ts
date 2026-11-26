@@ -1,8 +1,8 @@
 /**
  * Check 4: blocking labels. While a PR carries `do not merge`, `dnm`, or
  * `blocked`, this check holds `pr-policy` pending, so the label stops every
- * merge path: a person pressing merge or native auto-merge. Removing the label
- * clears it.
+ * merge path: a person pressing merge, native auto-merge, or bot-automerge.
+ * Removing the label clears it.
  *
  * It holds rather than blocks: the label records a person's decision, and only a
  * person removing it can clear the gate. Read-only: it never applies or removes
