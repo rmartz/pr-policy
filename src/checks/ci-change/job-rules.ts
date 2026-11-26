@@ -6,6 +6,7 @@
 import { ambiguousIndicator, looseningIndicator, type Indicator } from './indicators.js';
 import { guardIndicators } from './common-rules.js';
 import { stepIndicators } from './step-rules.js';
+import { inputIndicators } from './stricter.js';
 import {
   asArray,
   asNameList,
@@ -150,6 +151,8 @@ export function jobIndicators(file: string, base: Node, head: Node): Indicator[]
       ...needsIndicators(file, jobId, job, counterpart),
       ...matrixIndicators(file, jobId, job, counterpart),
       ...stepIndicators(file, jobId, job, counterpart),
+      // A job that calls a reusable workflow passes it inputs, as a step passes an action.
+      ...inputIndicators(file, `jobs.${jobId}`, asRecord(job)?.with, asRecord(counterpart)?.with),
     );
   }
 

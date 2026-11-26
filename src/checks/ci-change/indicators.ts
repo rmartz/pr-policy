@@ -2,11 +2,12 @@
  * The indicator vocabulary — the classifier's whole output surface.
  *
  * Each indicator names one recognised change to a workflow document and the
- * class it falls in. The two classes are asymmetric on purpose: `loosening` is a
- * change the CI directive requires a human to sign off, and `ambiguous` is a
- * change the directive says to *treat as* a loosening because it cannot be shown
- * to be benign. Both produce the same verdict; they are kept apart so the
- * check-run output can tell a reader which it saw.
+ * class it falls in. `loosening` is a change the CI directive requires a human
+ * to sign off. `ambiguous` changes what an existing check enforces in a way that
+ * can't be shown to be strictly stricter, so it needs the same sign-off. Both
+ * hold; they are kept apart so the check-run output can tell a reader which it
+ * saw. `strengthening` is a recognised strictly-stricter edit to an existing
+ * check: evidence only, it never holds.
  */
 
 /** Changes that reduce CI coverage outright (review.md Step 5, "loosening indicators"). */
@@ -19,24 +20,43 @@ export const LOOSENING_INDICATORS = [
   'trigger-narrowed',
   'matrix-reduced',
   'needs-reduced',
+  'failure-ignored',
+  'threshold-loosened',
+  'strict-disabled',
+  'timeout-raised',
 ] as const;
 
-/** Changes the directive says to treat as loosening because they are not clearly tightening. */
+/** Changes to what an existing check enforces that can't be shown to be strictly stricter. */
 export const AMBIGUOUS_INDICATORS = [
   'runs-on-changed',
   'permissions-changed',
   'env-changed',
   'timeout-changed',
+  'check-changed',
   'unparseable',
   'unclassified-change',
 ] as const;
 
+/** Recognised strictly-stricter edits to an existing check. They never hold. */
+export const STRENGTHENING_INDICATORS = [
+  'timeout-reduced',
+  'threshold-tightened',
+  'strict-enabled',
+  'check-appended',
+] as const;
+
 export type LooseningIndicator = (typeof LOOSENING_INDICATORS)[number];
 export type AmbiguousIndicator = (typeof AMBIGUOUS_INDICATORS)[number];
-export type IndicatorKind = LooseningIndicator | AmbiguousIndicator;
+export type StrengtheningIndicator = (typeof STRENGTHENING_INDICATORS)[number];
+export type IndicatorKind = LooseningIndicator | AmbiguousIndicator | StrengtheningIndicator;
 
-/** Which bucket an indicator falls in. Both hold the merge; only the wording differs. */
-export type IndicatorClass = 'loosening' | 'ambiguous';
+/** Which bucket an indicator falls in. `loosening` and `ambiguous` hold the merge; `strengthening` never does. */
+export type IndicatorClass = 'loosening' | 'ambiguous' | 'strengthening';
+
+/** Whether an indicator needs the CI sign-off. */
+export function holds(indicator: Indicator): boolean {
+  return indicator.class !== 'strengthening';
+}
 
 /** One recognised change, bound to the file and the place in it that produced it. */
 export interface Indicator {
@@ -68,13 +88,25 @@ export function ambiguousIndicator(
   return { kind, class: 'ambiguous', file, location, detail };
 }
 
+export function strengtheningIndicator(
+  kind: StrengtheningIndicator,
+  file: string,
+  location: string,
+  detail: string,
+): Indicator {
+  return { kind, class: 'strengthening', file, location, detail };
+}
+
 /**
  * The verdict for a whole pull request.
  *
  * - `no-change` — the diff touches no CI workflow file. Nothing to report.
- * - `tightening` — every recognised change adds coverage or is maintenance.
- * - `loosening` — at least one loosening *or* ambiguous indicator fired, so the
- *   `CI approval needed` merge gate applies.
+ * - `tightening` — every change only strengthens CI (adds checks, or makes an
+ *   existing one strictly stricter), is maintenance, or edits a shipped
+ *   reusable workflow without loosening it.
+ * - `loosening` — at least one loosening *or* ambiguous indicator fired: CI
+ *   loosened, or an existing check changed in a way not shown to be stricter.
+ *   The `CI approval needed` merge gate applies.
  */
 export const CI_CHANGE_VERDICTS = ['no-change', 'tightening', 'loosening'] as const;
 

@@ -29,8 +29,8 @@ describe('ambiguous indicators', () => {
     expect(kindsFor(head)).toEqual(['env-changed']);
   });
 
-  it('flags a timeout change in either direction', () => {
-    const head = edited('    timeout-minutes: 5', '    timeout-minutes: 30');
+  it('flags a timeout set to an expression', () => {
+    const head = edited('    timeout-minutes: 5', '    timeout-minutes: ${{ inputs.timeout }}');
     expect(kindsFor(head)).toEqual(['timeout-changed']);
   });
 
@@ -43,11 +43,16 @@ describe('ambiguous indicators', () => {
     expect(found.map((i) => i.kind)).toEqual(['unparseable']);
   });
 
-  it('flags a structural edit no named rule recognises as unclassified-change', () => {
-    // A rewritten `run:` body changes what a step actually verifies, but no named
-    // rule covers it — only the containment backstop can catch it.
+  it('flags a rewritten command as check-changed', () => {
+    // A rewritten `run:` body changes what a step verifies, and `--silent` isn't
+    // a known stricter flag.
     const head = edited('        run: pnpm test', '        run: pnpm test --silent');
-    expect(kindsFor(head)).toEqual(['unclassified-change']);
+    expect(kindsFor(head)).toEqual(['check-changed']);
+  });
+
+  it('flags a structural edit no named rule recognises as unclassified-change', () => {
+    const renamed = edited('name: CI\n', 'name: Build\n');
+    expect(kindsFor(renamed)).toEqual(['unclassified-change']);
   });
 
   it('flags a removed top-level block through the rule that owns it', () => {

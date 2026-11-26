@@ -16,7 +16,7 @@ describe('classifyWorkflowChanges', () => {
         headText: edited('        node: [20, 22]', '        node: [20, 22, 24]'),
       },
     ]);
-    expect(result).toEqual({ verdict: 'tightening', indicators: [] });
+    expect(result).toMatchObject({ verdict: 'tightening', indicators: [], strengthening: [] });
   });
 
   it('returns loosening when any one file loosens, even alongside tightening files', () => {
