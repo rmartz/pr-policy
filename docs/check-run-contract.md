@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: The check-run and label contract
-description: The external names pr-policy is bound to — the pr-policy check-run and its mirrored commit status, the CI gate labels, the UAT sign-off labels, the breaking-waiver label, the blocking labels, and the epic label — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
+description: The external names pr-policy is bound to — the pr-policy check-run and its mirrored commit status, the CI gate labels, the UAT sign-off labels and the UAT needed label, the breaking-waiver label, the blocking labels, and the epic label — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
 tags: [pr-policy, contract, labels, check-run, commit-status]
 ---
 
@@ -86,8 +86,9 @@ behind a single status for the same reason.
 
 ## `CI approval needed`: the CI merge-gate label
 
-Owned outright by the [CI-change check](checks/ci-change.md), the only label
-this package writes. It is applied when a workflow change is classified as
+Owned outright by the [CI-change check](checks/ci-change.md), one of the two
+labels this package writes (with [`UAT needed`](#uat-needed-the-uat-wait-label)).
+It is applied when a workflow change is classified as
 loosening or ambiguous, and it stays on after sign-off as the audit record. While it is present
 without the sign-off, the CI-change check reports a `hold`, leaving `pr-policy`
 pending.
@@ -103,11 +104,20 @@ only when a user with write, maintain, or admin permission applied it (see
 ## `UAT passed` and `no UAT needed`: the UAT sign-offs
 
 Read-only here. **This package never applies or removes them.** Either one,
-applied by a trusted user, passes the [UAT gate](checks/uat.md). `UAT passed`
-is the statement that a person tested the PR's current head, so it counts only
-when applied after that head was pushed. `no UAT needed` is a waiver for a
-change that needs no user testing, and isn't bound to a head. The legacy alias
-`tested` is [no longer read](checks/uat.md#tested-no-longer-counts).
+applied by a trusted user after the current head was pushed, passes the
+[UAT gate](checks/uat.md). `UAT passed` is the statement that a person tested
+the PR's current head. `no UAT needed` is a waiver from the session that tested
+a minor change's current head itself. Both are
+[bound to the head](checks/uat.md#sign-offs-are-bound-to-the-head). The legacy
+alias `tested` is [no longer read](checks/uat.md#tested-no-longer-counts).
+
+## `UAT needed`: the UAT wait label
+
+Owned outright by the [UAT check](checks/uat.md#uat-needed-marks-prs-waiting-for-a-sign-off).
+It is on a ready-for-review PR exactly while the `uat` check holds it for a
+sign-off, and off otherwise, drafts included. It only reflects the gate: the
+`hold` finding is what keeps `pr-policy` pending, so removing the label by hand
+clears nothing, and the next run puts it back.
 
 ## `contained break`: the dependency-major waiver
 

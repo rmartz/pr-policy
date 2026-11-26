@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here and classifies on its own since pr-lifecycle was retired, why the uat-label check and the tested alias were dropped, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why `UAT passed` is bound to the head and `no UAT needed` isn't, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here and classifies on its own since pr-lifecycle was retired, why the uat-label check and the tested alias were dropped, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why both UAT sign-offs are bound to the head, why pr-policy writes a UAT needed label, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -24,8 +24,9 @@ never grows. See [check-run-contract.md](check-run-contract.md).
 
 Overwriting labels another party owns (verdict labels, UAT labels) is a larger
 trust grant than reporting. Reading a UAT label to gate the merge is not; see
-[the UAT gate](#uat-is-a-hard-gate-here). This package writes only the one label
-it owns outright, `CI approval needed`.
+[the UAT gate](#uat-is-a-hard-gate-here). This package writes only the two
+labels it owns outright, `CI approval needed` and
+[`UAT needed`](#pr-policy-labels-prs-waiting-for-uat).
 
 ### Title rules block; they never rename
 
@@ -179,7 +180,7 @@ workflow change to `ci` would suppress its release, and requiring
 pr-policy enforces the hard gates a PR must pass before it merges
 (rmartz/pr-policy#13). An armed PR waits on the required `pr-policy` check until
 every gate is satisfied, so the UAT gate is a check that
-[holds by default](checks/uat.md). It never writes a UAT label.
+[holds by default](checks/uat.md). It never writes a UAT sign-off label.
 
 Static rules **only exempt** a PR from UAT, never require it. Requiring UAT is
 a judgment the session driving the PR makes and expresses through the labels.
@@ -323,28 +324,47 @@ The policy changed as it moved:
 merge-safety has since removed its barrier (rmartz/merge-safety#80), so this
 check is the only one. See [checks/base-branch.md](checks/base-branch.md).
 
-### `UAT passed` doesn't survive a new head
+### UAT sign-offs don't survive a new head
 
-A new head needs a person to look again. `UAT passed` counts only when it was
-applied after the current head was pushed (rmartz/pr-policy#85). That holds even
-for a clean rebase: an approval judges the diff, but UAT judges the running
-code, and a rebase changes the code it runs with.
+A new head needs testing again. `UAT passed` and `no UAT needed` each count only
+when applied after the current head was pushed (rmartz/pr-policy#85 for
+`UAT passed`). That holds even for a clean rebase: an approval judges the diff,
+but UAT judges the running code, and a rebase changes the code it runs with.
+
+`no UAT needed` was first left unbound, as a judgment of what kind of change the
+PR is. pr-lifecycle stripped a stale waiver, and once it was retired the session
+had to remember to remove one. Under the session-driven process the waiver
+means the session tested a minor change's current head and recorded the
+evidence, which is a statement about the code, like `UAT passed`. Binding it
+makes the gate enforce that: a push after the waiver re-holds `uat` until the
+session re-tests and re-applies it. PRs that need no UAT carry no label, so
+Dependabot and other path- or title-exempt PRs are unaffected.
+
+It ships as a `feat`, not a breaking change, following the precedent of binding
+`UAT passed` (rmartz/pr-policy#87). It needs no change in any consumer's code or
+config. It only holds more often, and a hold is pending, never red, cleared by
+re-applying the label. A major would send every consumer a Dependabot major for
+a tightening they don't have to act on.
 
 The push time must be one the author can't forge, so it comes from GitHub's own
 records (the force-push event and the head's earliest check suite), never a
 commit date. Like who applied a label, when they applied it is a fact about the
 label on the PR now, so the rule stays inside "content, not history". See
-[checks/uat.md](checks/uat.md#uat-passed-is-bound-to-the-head).
+[checks/uat.md](checks/uat.md#sign-offs-are-bound-to-the-head).
 
-### `no UAT needed` isn't bound to the head
+### pr-policy labels PRs waiting for UAT
 
-A waiver judges what kind of change the PR is (a bug fix the session tested
-itself, a change with nothing user-facing), not the code it runs. A push that
-keeps the PR that kind of change leaves the judgment true, and re-applying the
-label after every fix push would be noise. pr-lifecycle used to strip a stale
-waiver; now the session that drives the PR, which applied the label, removes it
-if a later push makes the change one a person must test. Binding it to the head
-would be a gate-model change, not part of removing pr-lifecycle.
+pr-lifecycle kept a visible UAT label on every PR. With it retired, `uat` applies
+`UAT needed` while it holds a PR for a sign-off and removes it when the gate
+passes, so a person can filter for PRs waiting on them. It is reconciled the way
+`CI approval needed` is: a label this package owns outright, computed from the
+current verdict, so it stays inside "read-only" and "content, not history". It
+isn't an audit record, so unlike `CI approval needed` it comes off on sign-off.
+
+A draft never carries it: a draft isn't ready for UAT, and the caller already
+re-runs on the draft flip, so skipping drafts costs one condition. The gate still
+holds a draft; only the label waits. See
+[checks/uat.md](checks/uat.md#uat-needed-marks-prs-waiting-for-a-sign-off).
 
 ### `tested` was dropped with pr-lifecycle
 

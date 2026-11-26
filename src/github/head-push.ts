@@ -9,7 +9,7 @@
  *
  * The later of the two is the push time. Neither can be later than the real
  * push, except a check suite created late, which only makes a sign-off look
- * staler. The `uat` check reads it to bind `UAT passed` to the head.
+ * staler. The `uat` check reads it to bind `UAT passed` and `no UAT needed` to the head.
  */
 import type { PullRequestTarget } from './pull-request.js';
 import { clientOf } from './client.js';

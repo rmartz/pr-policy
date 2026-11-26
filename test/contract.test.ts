@@ -10,6 +10,7 @@ import {
   NO_UAT_NEEDED_LABEL,
   CONTAINED_BREAK_LABEL,
   PR_POLICY_CHECK_NAME,
+  UAT_NEEDED_LABEL,
   UAT_PASSED_LABEL,
 } from '../src/contract.js';
 
@@ -29,6 +30,10 @@ describe('external contract names', () => {
   it('pins the UAT sign-off labels', () => {
     expect(UAT_PASSED_LABEL).toBe('UAT passed');
     expect(NO_UAT_NEEDED_LABEL).toBe('no UAT needed');
+  });
+
+  it('pins the UAT merge-gate label', () => {
+    expect(UAT_NEEDED_LABEL).toBe('UAT needed');
   });
 
   it('pins the breaking-waiver label', () => {

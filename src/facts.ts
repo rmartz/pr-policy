@@ -103,7 +103,7 @@ function parseBase(value: unknown): PullRequestBase | undefined {
  * `workflowChanges`, `manifestChanges`, and `signOffs` are optional and default
  * to none; `body`, `author`, `base`, `draft`, and `headPushedAt` are optional
  * and stay absent. With no `signOffs`, no sign-off label counts, and with no
- * `headPushedAt`, no `UAT passed` does: trust fails closed.
+ * `headPushedAt`, no UAT sign-off does: trust fails closed.
  */
 export function parseFacts(raw: string): PullRequestFacts {
   const parsed: unknown = JSON.parse(raw);
