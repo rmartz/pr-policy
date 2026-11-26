@@ -139,7 +139,9 @@ A repo can choose to drop the gate. Pass `--skip-uat` to the
 CLI, or `selectChecks({ skipUat: true })` to `evaluatePolicy` in the library.
 The `uat` check then doesn't run: it adds no findings and gets no per-check
 status. The title and CI-change checks, and the `CI change approved` trust
-check, are unchanged. The setting belongs to the caller, never the PR. See
+check, are unchanged. The setting belongs to the caller, never the PR. Nothing
+removes a [`UAT needed`](#uat-needed-marks-prs-waiting-for-a-sign-off) left from
+before the switch, so remove those by hand. See
 [decisions.md](../decisions.md).
 
 ## Sign-offs are bound to the head
@@ -155,8 +157,9 @@ The check compares two times GitHub records, never a commit date, which the
 pusher writes and can forge:
 
 - **Applied at:** the time of the label's latest `labeled` event, the same event
-  the [actor check](#who-can-sign-off) reads. Re-applying a label (removing and
-  adding it) moves this time forward.
+  the [actor check](#who-can-sign-off) reads. Only removing the label and
+  adding it again moves this time forward: adding a label the PR already has
+  records no event. The stale-label finding says so.
 - **Pushed at:** the later of the PR's latest `head_ref_force_pushed` event and
   the creation of the head commit's earliest check suite. GitHub creates a
   commit's check suites when it is first pushed.
@@ -196,9 +199,9 @@ A facts document without `draft` reads as ready for review. The caller re-runs
 on `ready_for_review` and `converted_to_draft`, so the label follows the flip.
 
 Adding a label a repo doesn't have creates it, as GitHub does for any label
-added to an issue, with a default colour. The fleet's label roster gives it its
-colour and description. With the gate [turned off](#repos-without-uat) the check
-doesn't run, so it never applies or removes the label.
+added to an issue, with a default colour and no description. With the gate
+[turned off](#repos-without-uat) the check doesn't run, so it never applies or
+removes the label.
 
 ## `tested` no longer counts
 

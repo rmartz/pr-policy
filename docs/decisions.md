@@ -327,7 +327,7 @@ check is the only one. See [checks/base-branch.md](checks/base-branch.md).
 ### UAT sign-offs don't survive a new head
 
 A new head needs testing again. `UAT passed` and `no UAT needed` each count only
-when applied after the current head was pushed (rmartz/pr-policy#85 for
+when applied after the current head was pushed (rmartz/pr-policy#87 for
 `UAT passed`). That holds even for a clean rebase: an approval judges the diff,
 but UAT judges the running code, and a rebase changes the code it runs with.
 

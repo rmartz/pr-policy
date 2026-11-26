@@ -46,7 +46,7 @@ function staleReason(pr: PullRequestFacts, label: string): string | undefined {
   if (appliedAt === undefined) return 'the time it was applied is unknown';
   // An unparseable time compares false, so it reads as stale.
   if (Date.parse(appliedAt) > Date.parse(pr.headPushedAt)) return undefined;
-  return 'it was applied before the current head was pushed, and a new head needs testing again';
+  return 'it was applied before the current head was pushed. Once the current head is tested, remove the label and apply it again: adding a label already on the PR records nothing';
 }
 
 /**
@@ -109,7 +109,7 @@ function signOffFindings(pr: PullRequestFacts): Finding[] {
   }
 
   const waiting = hold(
-    `Waiting for UAT. Apply \`${UAT_PASSED_LABEL}\` once a person has tested the current head, or \`${NO_UAT_NEEDED_LABEL}\` once a minor change's current head has been tested and the evidence recorded on the PR.`,
+    `Waiting for UAT. Apply (or re-apply) \`${UAT_PASSED_LABEL}\` once a person has tested the current head, or \`${NO_UAT_NEEDED_LABEL}\` once a minor change's current head has been tested and the evidence recorded on the PR.`,
   );
   const why = stale.map(({ label, reason }) => info(`\`${label}\` doesn't count: ${reason}.`));
   if (state.status === 'untrusted') {

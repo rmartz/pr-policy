@@ -32,7 +32,7 @@ describe('external contract names', () => {
     expect(NO_UAT_NEEDED_LABEL).toBe('no UAT needed');
   });
 
-  it('pins the UAT merge-gate label', () => {
+  it('pins the UAT wait label', () => {
     expect(UAT_NEEDED_LABEL).toBe('UAT needed');
   });
 

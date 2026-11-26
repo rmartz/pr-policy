@@ -138,6 +138,7 @@ describe.each(['UAT passed', 'no UAT needed'])('decideUat — `%s` is bound to t
     expect(findings.map((finding) => finding.effect)).toEqual(['hold', 'info']);
     expect(findings[1]?.message).toContain(`\`${label}\` doesn't count`);
     expect(findings[1]?.message).toContain('before the current head was pushed');
+    expect(findings[1]?.message).toContain('remove the label and apply it again');
   });
 
   it('holds when applied in the same instant as the push', () => {
