@@ -112,14 +112,6 @@ something.
   the Action. It passes `skip-uat: true`: the repo skips UAT by choice. The
   library and Action it ships are still user-facing to their consumers. See
   [docs/distribution.md](docs/distribution.md).
-- **PR lifecycle labels:** [pr-lifecycle.yml](.github/workflows/pr-lifecycle.yml)
-  runs `rmartz/pr-lifecycle-action` without arming, with `uat: 'off'` matching
-  `skip-uat`: it keeps each PR's lifecycle labels current, marks every PR
-  `no UAT needed`, and posts the `pr-lifecycle/sign-off` status, which
-  pr-policy no longer reads. pr-lifecycle is being retired fleet-wide, so this
-  workflow, and the caller's `status` trigger and `sign-off-status-creators`
-  input, go in the pr-policy-action follow-up and the fleet rollout.
-  `bot-automerge.yml` still does the merging.
 
 ## Common commands
 
