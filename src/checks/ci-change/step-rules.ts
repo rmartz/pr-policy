@@ -1,14 +1,15 @@
 /**
  * Step-level rules: which steps a job lost, and the per-step guards.
  */
-import { looseningIndicator, type Indicator } from './indicators.js';
+import { ambiguousIndicator, looseningIndicator, type Indicator } from './indicators.js';
 import { guardIndicators } from './common-rules.js';
 import { runIndicators } from './run-rules.js';
-import { inputIndicators } from './stricter.js';
+import { inputIndicators, withoutJudgedStepFields } from './stricter.js';
 import {
   asArray,
   asRecord,
   commandIdentity,
+  containsAll,
   deepEqual,
   normalizeUses,
   stripActionRef,
@@ -144,6 +145,21 @@ export function stepIndicators(file: string, jobId: string, base: Node, head: No
       looseningIndicator('step-removed', file, at(key), `Step \`${key}\` was removed.`),
     ),
     ...pairs.flatMap(({ key, step, counterpart }) => [
+      // Each step's other fields are compared with its own counterpart, so a
+      // decoy step can't carry the old context for a step whose context changed.
+      ...(containsAll(
+        normalizeUses(withoutJudgedStepFields(step)),
+        normalizeUses(withoutJudgedStepFields(counterpart)),
+      )
+        ? []
+        : [
+            ambiguousIndicator(
+              'unclassified-change',
+              file,
+              at(key),
+              'The step changed outside its command, inputs, and timeout, in a way no rule recognises.',
+            ),
+          ]),
       ...guardIndicators(file, at(key), step, counterpart),
       ...runIndicators(file, at(key), asRecord(step)?.run, asRecord(counterpart)?.run),
       ...inputIndicators(file, at(key), asRecord(step)?.with, asRecord(counterpart)?.with),

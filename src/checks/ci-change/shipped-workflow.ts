@@ -6,6 +6,7 @@
  */
 import { parse } from 'yaml';
 import type { FileChange } from '../../policy.js';
+import { asRecord } from './structure.js';
 
 /** The parsed document, or `null` when the text isn't YAML. */
 export function parses(text: string): { doc: unknown } | null {
@@ -18,9 +19,9 @@ export function parses(text: string): { doc: unknown } | null {
 
 /** Whether a workflow document's `on:` is `workflow_call` and nothing else. */
 function onlyWorkflowCall(doc: unknown): boolean {
-  if (typeof doc !== 'object' || doc === null) return false;
   // YAML 1.1 readers turn a bare `on` key into `true`; the `yaml` parser keeps it.
-  const on = (doc as Record<string, unknown>)['on'];
+  const on = asRecord(doc)?.on;
+  if (on === undefined) return false;
   if (on === 'workflow_call') return true;
   if (Array.isArray(on)) return on.length === 1 && on[0] === 'workflow_call';
   if (typeof on === 'object' && on !== null) {

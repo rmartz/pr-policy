@@ -21,12 +21,12 @@ changes: mixing product code with a CI change never holds on its own. Why is in
 
 ## What it reports
 
-| Verdict               | Findings                                                    | `CI approval needed`                                  |
-| --------------------- | ----------------------------------------------------------- | ----------------------------------------------------- |
-| No workflow change    | none                                                        | removed if stale and unsigned                         |
-| Strengthening only    | one informational note, plus one per strengthening edit     | removed if stale and unsigned                         |
-| Loosening, unsigned   | one **hold** (pending) finding, plus one note per indicator | applied                                               |
-| Loosening, signed off | informational only                                          | kept (never removed once `CI change approved` is set) |
+| Verdict               | Findings                                                      | `CI approval needed`                                  |
+| --------------------- | ------------------------------------------------------------- | ----------------------------------------------------- |
+| No workflow change    | none                                                          | removed if stale and unsigned                         |
+| Strengthening only    | one note, plus one per strengthening or shipped-workflow edit | removed if stale and unsigned                         |
+| Loosening, unsigned   | one **hold** (pending) finding, plus one note per indicator   | applied                                               |
+| Loosening, signed off | informational only                                            | kept (never removed once `CI change approved` is set) |
 
 "Loosening" here is the verdict name: it covers a changed check as well
 (`CI_CHANGE_VERDICTS` keeps `tightening` and `loosening` for API stability).
@@ -72,7 +72,7 @@ evidence only and never holds.
 | `trigger-narrowed`        | An `on:` event disappeared; an inclusive filter lost entries or appeared where there was none; an `*-ignore` filter gained entries. |
 | `matrix-reduced`          | A matrix dimension disappeared or lost values, or `exclude` gained a combination.                                                   |
 | `needs-reduced`           | A job stopped waiting on a dependency.                                                                                              |
-| `failure-ignored`         | A kept step's `run:` gained an `\|\|` (whatever follows it), an `exit 0`, or a `set +e`: each can make a failing check succeed.     |
+| `failure-ignored`         | A kept step's `run:` gained an `\|\|` (other than `\|\| exit 1`, `\|\| false`), an `exit 0`, or a `set +e` / `set +o errexit`.      |
 | `threshold-loosened`      | A [known bound](#strictly-stricter-edits) moved the loose way, went negative, or was removed.                                       |
 | `strict-disabled`         | A known strict switch was turned off or removed.                                                                                    |
 | `timeout-raised`          | `timeout-minutes` was raised, or removed (GitHub's 360-minute default then applies).                                                |
@@ -174,7 +174,8 @@ That leaves a known gap: a loosening whose direction the classifier can't read,
 such as an `if:` rewritten to match less or a command replaced outright, passes
 on a shipped workflow. Holding every ambiguous edit there would gate every
 product change to it, which is the case this rule exists to stop. A loosening
-it can read (a removed step, a raised cap, a swallowed failure) still holds.
+it can read (a removed step, a raised cap, a swallowed failure, a `strict` or
+bound input default loosened under `on.workflow_call.inputs`) still holds.
 
 ## Strengthening and maintenance
 
@@ -216,12 +217,15 @@ so tightening a bound on an unnamed step isn't read as removing it. Replacing
 
 ## The containment backstop
 
-When no holding rule fires, the classifier asks one more question: **does the
-head document still contain everything the base one did?** It ignores the
-fields the stricter rules already judged (`with:`, `timeout-minutes`, and a
-`run:` command's arguments). A command step keeps its executable and
-subcommand, so its other fields, such as `if:`, are still compared with its
-own counterpart's and can't match a different step's.
+Each paired step is first compared with its own counterpart, without the
+fields the stricter rules already judged (`run:`, `with:`, `timeout-minutes`).
+Any other difference, such as a changed `if:`, is `unclassified-change` at that
+step, so a decoy copy carrying the old context can't hide it.
+
+Then, when no holding rule fires, the classifier asks one more question:
+**does the head document still contain everything the base one did?** It
+ignores the same judged fields, but a step known only by its command keeps its
+executable and subcommand, so its other fields can't match a different step's.
 If yes, the change is additive, stricter, or cosmetic, and the verdict is
 `tightening`. If no, something
 structural changed that no rule recognises, and the verdict is `loosening` via

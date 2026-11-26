@@ -260,6 +260,21 @@ export function timeoutIndicators(
 }
 
 /**
+ * A step without the fields judged above. With `keepIdentity`, a step known
+ * only by its command keeps the identity it is paired by, so in a whole-job
+ * comparison its other fields can't match a different step's.
+ */
+export function withoutJudgedStepFields(step: Node, keepIdentity = false): Node {
+  const fields = asRecord(step);
+  if (!fields) return step;
+  const { run, with: _with, 'timeout-minutes': _timeout, ...kept } = fields;
+  const keyless = kept.id === undefined && kept.name === undefined && kept.uses === undefined;
+  return keepIdentity && keyless && typeof run === 'string'
+    ? { ...kept, run: commandIdentity(run) }
+    : kept;
+}
+
+/**
  * A copy of the document without the fields judged above, for the containment
  * backstop: those fields' edits are already reported, stricter or not.
  */
@@ -276,14 +291,7 @@ export function withoutJudgedFields(doc: Node): Node {
     }
     const { with: _with, 'timeout-minutes': _timeout, ...rest } = map;
     const steps = Array.isArray(rest.steps)
-      ? rest.steps.map((step: Node) => {
-          const fields = asRecord(step);
-          if (!fields) return step;
-          const { run, with: _stepWith, 'timeout-minutes': _stepTimeout, ...kept } = fields;
-          // A step known only by its command keeps the identity it is paired by,
-          // so its other fields can't match a different step's.
-          return typeof run === 'string' ? { ...kept, run: commandIdentity(run) } : kept;
-        })
+      ? rest.steps.map((step: Node) => withoutJudgedStepFields(step, true))
       : rest.steps;
     stripped[id] = steps === undefined ? rest : { ...rest, steps };
   }

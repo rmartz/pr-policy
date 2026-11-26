@@ -332,7 +332,7 @@ describe('the backstop keeps a command step its identity', () => {
       step('pnpm test', `if: github.event_name == 'push'`),
       step('pnpm build', 'if: always()'),
     );
-    expect(judge(base, head).holds).toEqual(['unclassified-change']);
+    expect(judge(base, head).holds).toEqual(['unclassified-change', 'unclassified-change']);
   });
 
   it('holds working-directory values swapped between two command steps', () => {
@@ -344,7 +344,7 @@ describe('the backstop keeps a command step its identity', () => {
       step('pnpm test', 'working-directory: docs'),
       step('pnpm build', 'working-directory: app'),
     );
-    expect(judge(base, head).holds).toEqual(['unclassified-change']);
+    expect(judge(base, head).holds).toEqual(['unclassified-change', 'unclassified-change']);
   });
 
   it('pairs `pnpm run` steps by their script, not by `run`', () => {
@@ -360,5 +360,58 @@ describe('bound names', () => {
   it('holds a lowered bound whose name only ends in a known one', () => {
     const base = testRuns('scanner --scan-max-lines 5000');
     expect(judge(base, testRuns('scanner --scan-max-lines 10')).holds).toEqual(['check-changed']);
+  });
+});
+
+describe('round-5 regressions', () => {
+  const workflow = (...steps: string[]) =>
+    `on: pull_request\njobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n${steps.join('')}`;
+
+  it('holds a step whose context changed while a decoy copy carries the old one', () => {
+    const lint = (on: string, failOnError: boolean) =>
+      `      - uses: some/lint@v1\n        if: github.event_name == '${on}'\n        with:\n          fail-on-error: ${failOnError}\n`;
+    const base = workflow(lint('pull_request', true));
+    const head = workflow(lint('push', true), lint('pull_request', false));
+    expect(judge(base, head).holds).toContain('unclassified-change');
+
+    const run = (on: string, cap: number) =>
+      `      - run: pnpm lint --max-warnings ${cap}\n        if: github.event_name == '${on}'\n`;
+    const decoy = judge(
+      workflow(run('pull_request', 5)),
+      workflow(run('push', 3), run('pull_request', 999)),
+    );
+    expect(decoy.verdict).toBe('loosening');
+  });
+
+  it('pairs an unnamed command by its executable, not by a flag value', () => {
+    const step = (command: string) => workflow(`      - run: ${command}\n`);
+    expect(judge(step('eslint --max-warnings 5 .'), step('eslint --max-warnings 0 .'))).toEqual({
+      verdict: 'tightening',
+      holds: [],
+      stricter: ['threshold-tightened'],
+    });
+    expect(
+      judge(step('pytest --cov-fail-under 80 tests'), step('pytest --cov-fail-under 90 tests'))
+        .stricter,
+    ).toEqual(['threshold-tightened']);
+  });
+
+  it('reads every form of turning errexit off as a swallowed failure', () => {
+    for (const command of ['set +eu; pnpm test', 'set +o errexit; pnpm test']) {
+      expect(judge(BASE_WORKFLOW, testRuns(command)).holds).toEqual(['failure-ignored']);
+    }
+  });
+
+  it('does not read `|| exit 1` or `|| false` as swallowing a failure', () => {
+    for (const command of ['pnpm test || exit 1', 'pnpm test || false']) {
+      expect(judge(BASE_WORKFLOW, testRuns(command)).holds).toEqual(['check-changed']);
+    }
+  });
+
+  it("reads a reusable workflow's input default with the vocabulary", () => {
+    const callable = (strict: boolean, cap: number) =>
+      `on:\n  workflow_call:\n    inputs:\n      strict:\n        type: boolean\n        default: ${strict}\n      max-warnings:\n        type: number\n        default: ${cap}\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    steps:\n      - run: ./lint.sh\n`;
+    expect(judge(callable(true, 0), callable(false, 0)).holds).toEqual(['strict-disabled']);
+    expect(judge(callable(true, 0), callable(true, 10)).holds).toEqual(['threshold-loosened']);
   });
 });

@@ -138,6 +138,10 @@ const RUNNER_WORDS = new Set(['run', 'exec', 'x', 'dlx', '--']);
  */
 export function commandIdentity(command: string): string {
   const [executable = '', ...rest] = command.trim().split(/\s+/);
-  const subcommand = rest.find((word) => !RUNNER_WORDS.has(word) && !word.startsWith('-'));
-  return subcommand === undefined ? executable : `${executable} ${subcommand}`;
+  // The subcommand directly follows the executable (past runner words); a flag
+  // ends the search, so a flag's value (`--max-warnings 5`) is never taken.
+  const subcommand = rest.find((word) => !RUNNER_WORDS.has(word));
+  return subcommand === undefined || subcommand.startsWith('-')
+    ? executable
+    : `${executable} ${subcommand}`;
 }

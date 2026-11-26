@@ -22,7 +22,7 @@ import { jobIndicators } from './job-rules.js';
 import { isShippedOnEverySide } from './shipped-workflow.js';
 import { withoutJudgedFields } from './stricter.js';
 import { containsAll, normalizeUses, type Node } from './structure.js';
-import { topLevelIndicators, triggerIndicators } from './workflow-rules.js';
+import { callInputIndicators, topLevelIndicators, triggerIndicators } from './workflow-rules.js';
 
 /** One workflow file's before/after text. */
 export type WorkflowFileChange = FileChange;
@@ -94,6 +94,7 @@ function assessWorkflowFile(change: WorkflowFileChange): Indicator[] {
 
   const found = [
     ...triggerIndicators(path, before.doc, after.doc),
+    ...callInputIndicators(path, before.doc, after.doc),
     ...topLevelIndicators(path, before.doc, after.doc),
     ...jobIndicators(path, before.doc, after.doc),
   ];

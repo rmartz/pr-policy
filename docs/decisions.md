@@ -79,8 +79,9 @@ The [`ci-change` check](checks/ci-change.md) follows two policies:
 ### CI sign-off only for a loosened or changed check
 
 The fleet's CI sign-off rule asks for `CI change approved` only when a change
-loosens CI or changes what an existing check enforces. A new check, or an existing one made strictly stricter, is a
-strengthening and needs none, even in a PR that also changes product code. So
+loosens CI or changes what an existing check enforces. A new check, or an
+existing one made strictly stricter, is a strengthening and needs none, even in
+a PR that also changes product code. So
 the [`ci-change` check](checks/ci-change.md) holds on a loosening or ambiguous
 indicator and passes a strengthening, whatever else the PR touches.
 
@@ -112,6 +113,10 @@ what a workflow diff can show:
 - **Anything else holds.** A rewritten command, a swapped action, or a changed
   or removed input may tighten or loosen, and a diff can't say which. A false
   hold costs one label; a false pass skips the sign-off.
+- **A command is compared word by word.** A `run:` value is opaque shell with
+  no tree to compare, so after the YAML is parsed it is split into words (a
+  line break is a word). That is why only the base plus vocabulary edits, or a
+  pure `&&` append, pass: it is a parsed value, not diff text.
 
 A `with:` input an existing step gains passes, like every other field an
 existing step gains, unless it is a known bound: a new `max-lines` may raise

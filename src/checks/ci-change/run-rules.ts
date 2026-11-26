@@ -27,7 +27,13 @@ import { deepEqual, type Node } from './structure.js';
  * runs, and decides the status, when the left side fails), `exit 0`, and
  * `set +e`. A newly added one is a loosening wherever it guards.
  */
-const SWALLOWS_FAILURE = [/\|\|/g, /(^|;|&&)\s*exit\s+0\b/gm, /\bset\s+\+e\b/gm];
+const SWALLOWS_FAILURE = [
+  // Not `|| exit 1`, `|| false` or `|| return 1`: those still fail.
+  /\|\|(?!\s*(exit\s+[1-9]|false\b|return\s+[1-9]))/g,
+  /(^|;|&&)\s*exit\s+0\b/gm,
+  /\bset\s+\+[a-z]*e[a-z]*\b/gm,
+  /\bset\s+\+o\s+errexit\b/gm,
+];
 
 function swallowCount(command: string): number {
   return SWALLOWS_FAILURE.reduce((total, idiom) => total + (command.match(idiom)?.length ?? 0), 0);
