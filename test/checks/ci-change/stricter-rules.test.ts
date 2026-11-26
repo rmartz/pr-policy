@@ -103,9 +103,24 @@ describe('stricter commands', () => {
     ]);
   });
 
-  it('holds an appended command, which a diff cannot tell from a replaced check', () => {
-    expect(judge(BASE_WORKFLOW, testRuns('pnpm test && pnpm lint')).holds).toEqual([
+  it('passes a check appended with &&, since the base command still fails the step', () => {
+    expect(judge(BASE_WORKFLOW, testRuns('pnpm test && pnpm lint'))).toEqual({
+      verdict: 'tightening',
+      holds: [],
+      stricter: ['check-appended'],
+    });
+  });
+
+  it('holds any other append: a new line, `;`, `||`, or a swallowed failure after &&', () => {
+    expect(judge(BASE_WORKFLOW, testRuns('pnpm test; pnpm lint')).holds).toEqual(['check-changed']);
+    expect(judge(BASE_WORKFLOW, testRuns('pnpm test || pnpm retry')).holds).toEqual([
       'check-changed',
+    ]);
+    expect(judge(BASE_WORKFLOW, testRuns('pnpm test && pnpm lint || true')).holds).toEqual([
+      'failure-ignored',
+    ]);
+    expect(judge(BASE_WORKFLOW, testRuns('pnpm test && exit 0')).holds).toEqual([
+      'failure-ignored',
     ]);
   });
 
@@ -188,7 +203,7 @@ describe('stricter inputs', () => {
     });
   });
 
-  it('passes a newly added strict switch, but holds a new bound or a negated switch', () => {
+  it('passes a newly added strict switch, but holds a new bound', () => {
     const base = testWith('config: ci.yml');
     expect(judge(base, testWith('config: ci.yml', 'fail_on_error: true')).stricter).toEqual([
       'strict-enabled',
@@ -197,9 +212,8 @@ describe('stricter inputs', () => {
     expect(judge(base, testWith('config: ci.yml', 'max-lines: 2000')).holds).toEqual([
       'check-changed',
     ]);
-    expect(judge(base, testWith('config: ci.yml', 'disable-strict: true')).holds).toEqual([
-      'check-changed',
-    ]);
+    // A negated switch is no strict switch: it is an unknown input, which passes.
+    expect(judge(base, testWith('config: ci.yml', 'disable-strict: true')).stricter).toEqual([]);
   });
 
   it('reads a raised cap, strict turned off, or either removed as a loosening', () => {
@@ -218,13 +232,17 @@ describe('stricter inputs', () => {
     ]);
   });
 
-  it('holds a removed or added unknown input', () => {
+  it('holds a removed or changed unknown input, and passes an added one', () => {
     const base = testWith('max-lines: 400', 'strict: true', 'paths: src');
     expect(judge(base, testWith('max-lines: 400', 'strict: true')).holds).toEqual([
       'check-changed',
     ]);
-    const added = testWith('max-lines: 400', 'strict: true', 'paths: src', 'config: other.yml');
-    expect(judge(base, added).holds).toEqual(['check-changed']);
+    expect(judge(base, testWith('max-lines: 400', 'strict: true', 'paths: lib')).holds).toEqual([
+      'check-changed',
+    ]);
+    // Like any field an existing step gains (rmartz/pr-policy#134).
+    const added = testWith('max-lines: 400', 'strict: true', 'paths: src', 'cache: pnpm');
+    expect(judge(base, added)).toEqual({ verdict: 'tightening', holds: [], stricter: [] });
   });
 
   it('judges the inputs a job passes to a reusable workflow', () => {

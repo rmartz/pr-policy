@@ -42,6 +42,7 @@ export const STRENGTHENING_INDICATORS = [
   'timeout-reduced',
   'threshold-tightened',
   'strict-enabled',
+  'check-appended',
 ] as const;
 
 export type LooseningIndicator = (typeof LOOSENING_INDICATORS)[number];

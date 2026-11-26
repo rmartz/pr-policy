@@ -129,10 +129,10 @@ export function toIndicator(verdict: Verdict, file: string, location: string): I
 }
 
 /**
- * Judge one input that appeared, with no value before. A new bound holds: the
- * value already in force (a tool default, a config file, the action's input
- * default) is unknown, so a new one may raise it. Only a strict switch can
- * safely appear, because turning it on can't relax anything.
+ * Judge a known bound or strict switch that appeared, with no value before. A
+ * new bound holds: the value already in force (a tool default, a config file,
+ * the action's input default) is unknown, so a new one may raise it. Only a
+ * strict switch can safely appear, because turning it on can't relax anything.
  */
 function judgeAdded(name: string, value: Node): Verdict | undefined {
   if (isStrictSwitch(name) && isTrue(value)) {
@@ -188,6 +188,9 @@ export function inputIndicators(
   for (const name of new Set([...Object.keys(before), ...Object.keys(after)])) {
     const at = `${location}.with.${name}`;
     if (deepEqual(before[name], after[name])) continue;
+    // A gained input outside the vocabulary passes, like any field an existing
+    // step gains (rmartz/pr-policy#134 tracks that gap). A gained bound holds.
+    if (!(name in before) && directionOf(name) === undefined && !isStrictSwitch(name)) continue;
     const verdict = !(name in after)
       ? judgeRemoved(name, before[name])
       : !(name in before)

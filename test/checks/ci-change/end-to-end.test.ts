@@ -74,6 +74,14 @@ describe('ci-change end to end', () => {
     expect(outcome.messages.join('\n')).toContain('threshold-tightened (strengthening)');
   });
 
+  it('passes a check appended to an existing command with &&', async () => {
+    const outcome = await run([
+      ci(edited('        run: pnpm test', '        run: pnpm test && pnpm typecheck')),
+    ]);
+    expect(outcome).toMatchObject({ held: false, labelled: false });
+    expect(outcome.messages.join('\n')).toContain('check-appended (strengthening)');
+  });
+
   it('holds and labels an existing check changed in a way that is not stricter', async () => {
     const outcome = await run([
       ci(edited('        run: pnpm test', '        run: pnpm test:unit')),

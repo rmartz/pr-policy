@@ -113,6 +113,15 @@ function judgeRun(base: string, head: string): Verdict[] {
       i += removed[0];
       continue;
     }
+    // The whole base command, then `&&` and more: the base still runs and still
+    // fails the step, so the appended command only adds a check. A swallowed
+    // failure was ruled out before the walk.
+    if (from === undefined && to === '&&') {
+      return [
+        ...verdicts,
+        stricter('check-appended', `\`${after.slice(j + 1).join(' ')}\` appended with \`&&\`.`),
+      ];
+    }
     // A loosening already seen still holds as one, even on a shipped workflow.
     return [
       ...verdicts.filter((verdict) => 'looser' in verdict),

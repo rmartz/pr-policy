@@ -104,15 +104,21 @@ what a workflow diff can show:
 - **A swallowed failure is a loosening.** A command that gains `|| true`,
   `|| :`, `|| exit 0`, or `set +e` is `failure-ignored`, so it holds even on a
   shipped workflow.
-- **Anything else holds.** A rewritten command, an appended command, a swapped
-  action, or a new unknown input may tighten or loosen, and a diff can't say
-  which. A false hold costs one label; a false pass skips the sign-off.
+- **A pure append adds a check.** A command that is the base word for word,
+  then `&&` and another command, still runs the base and still fails the step,
+  so it passes as `check-appended`. An append after `;`, `||`, or a new line
+  may not fail the step, and holds.
+- **Anything else holds.** A rewritten command, a swapped action, or a changed
+  or removed input may tighten or loosen, and a diff can't say which. A false
+  hold costs one label; a false pass skips the sign-off.
 
-A `with:` input an existing step gained used to pass, as containment. It now
-holds unless it is a strict switch, because a new `paths:` or `config:` input
-changes what the step checks. That costs a label on maintenance such as
-`cache: pnpm` added to `actions/setup-node`: the classifier can't tell a setup
-action from a check by its inputs, and a false hold is the cheap failure.
+A `with:` input an existing step gains passes, like every other field an
+existing step gains, unless it is a known bound: a new `max-lines` may raise
+the value the action defaulted to, so it holds. Holding every gained input
+would cost a label on maintenance such as `cache: pnpm` on
+`actions/setup-node`, while a gained `working-directory:` still passed. The
+user chose consistency here, and the remaining gap for all gained fields is
+rmartz/pr-policy#134.
 
 Thresholds outside `.github/workflows/**`, such as a repo-hygiene file cap, are
 outside this check's input, so a change to them is never gated here. Widening

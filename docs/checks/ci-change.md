@@ -111,6 +111,7 @@ proves nothing.
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
 | `threshold-tightened` | A known bound that already had a value moved the strict way, to a non-negative number.                    |
 | `strict-enabled`      | A known strict switch turned on: a `with:` input set to `true`, or a bare flag added to a `run:` command. |
+| `check-appended`      | A kept command is the base word for word, then `&&` and another command, with no swallowed failure.       |
 | `timeout-reduced`     | `timeout-minutes` was lowered, or first set at or under GitHub's 360-minute default.                      |
 
 A bound **added** where there was none holds as `check-changed`: the value in
@@ -136,12 +137,16 @@ removed is `threshold-loosened`, and a strict switch turned off or removed is
 [shipped workflow](#shipped-reusable-workflows).
 
 A `run:` command passes only when the head is the base word for word, except
-for known bounds tightened and strict switches inserted. A newly swallowed
-failure is `failure-ignored`, a loosening. Any other edit is `check-changed`,
-including an appended command: the diff can't tell `pnpm test && pnpm lint`
-from a replaced check by intent. A `with:` input passes only when every changed
-input is a known bound tightened or a strict switch turned on; an added bound,
-or an unknown input added, removed or changed, is `check-changed`.
+for known bounds tightened and strict switches inserted, or when the whole base
+command is followed by `&&` and another command (`check-appended`): the base
+still runs and still fails the step. A newly swallowed failure is
+`failure-ignored`, a loosening. Any other edit is `check-changed`, including an
+append after `;`, `||`, or a new line, which may not fail the step.
+
+A `with:` input passes when it is a known bound tightened, a strict switch
+turned on, or an unknown input newly added (like any field an existing step
+gains, see below). An added known bound, or an unknown input removed or
+changed, is `check-changed`.
 
 Thresholds that live outside `.github/workflows/**`, such as a
 `.repo-hygiene.yml` file cap or an eslint config, are outside this check's
@@ -180,7 +185,8 @@ These produce no holding indicator, and so no label:
 Containment still reads a field an existing job or step _gained_ as an
 addition, so a new `working-directory:`, `shell:`, or `defaults:` passes even
 though it can change what a check covers. That gap predates the strengthening
-rule and is tracked in rmartz/pr-policy#134. A gained `with:` input holds.
+rule and is tracked in rmartz/pr-policy#134, along with a gained unknown
+`with:` input.
 
 ## Step identity
 
