@@ -7,7 +7,8 @@
 import { parse } from 'yaml';
 import type { FileChange } from '../../policy.js';
 
-function parses(text: string): { doc: unknown } | null {
+/** The parsed document, or `null` when the text isn't YAML. */
+export function parses(text: string): { doc: unknown } | null {
   try {
     return { doc: parse(text) };
   } catch {

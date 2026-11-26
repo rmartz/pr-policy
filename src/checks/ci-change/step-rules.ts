@@ -8,6 +8,7 @@ import { inputIndicators } from './stricter.js';
 import {
   asArray,
   asRecord,
+  commandIdentity,
   deepEqual,
   normalizeUses,
   stripActionRef,
@@ -62,8 +63,7 @@ function groupByKey(steps: readonly Node[]): Map<string, Node[]> {
 const isRunKey = (key: string) => key.startsWith('run:');
 
 /** The executable and subcommand of a command-keyed step (`pnpm lint`). */
-const leadingWords = (key: string) =>
-  key.slice('run:'.length).trim().split(/\s+/).slice(0, 2).join(' ');
+const leadingWords = (key: string) => commandIdentity(key.slice('run:'.length));
 
 /**
  * Pair every base step with the head step it became, or report it removed.

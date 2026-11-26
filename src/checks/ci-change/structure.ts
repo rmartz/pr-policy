@@ -128,3 +128,16 @@ export function normalizeUses(node: Node): Node {
   }
   return out;
 }
+
+/** Package-runner words skipped when naming a command (`pnpm run test` → `pnpm test`). */
+const RUNNER_WORDS = new Set(['run', 'exec', 'x', 'dlx', '--']);
+
+/**
+ * The executable and subcommand a `run:` command starts with (`pnpm lint`), the
+ * identity a command-keyed step keeps when its arguments are edited.
+ */
+export function commandIdentity(command: string): string {
+  const [executable = '', ...rest] = command.trim().split(/\s+/);
+  const subcommand = rest.find((word) => !RUNNER_WORDS.has(word) && !word.startsWith('-'));
+  return subcommand === undefined ? executable : `${executable} ${subcommand}`;
+}

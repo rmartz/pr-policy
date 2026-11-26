@@ -20,7 +20,7 @@ import {
   type LooseningIndicator,
   type StrengtheningIndicator,
 } from './indicators.js';
-import { asRecord, deepEqual, type Node } from './structure.js';
+import { asRecord, commandIdentity, deepEqual, type Node } from './structure.js';
 
 /** Bounds where a lower value rejects more: lowering one can only fail more runs. */
 const LOWER_IS_STRICTER = [
@@ -37,6 +37,7 @@ const LOWER_IS_STRICTER = [
 /** Bounds where a higher value rejects more, such as a coverage floor. */
 const HIGHER_IS_STRICTER = [
   'fail-under',
+  'cov-fail-under',
   'min-coverage',
   'minimum-coverage',
   'coverage-threshold',
@@ -60,14 +61,11 @@ function normalizeName(name: string): string {
 }
 
 /**
- * A bound matches by its whole name or its last dash-separated words
- * (`cov-fail-under`). A negated name (`no-max-warnings`) never matches. Only a
- * bound that already had a value can be tightened, so a suffix match can at
- * worst pass a lowered value of a flag named like a bound.
+ * A bound matches by its whole name only: `--scan-max-lines` lowered scans
+ * less, so a suffix of a known name proves nothing.
  */
 function matchesBound(name: string, vocabulary: readonly string[]): boolean {
-  if (name.startsWith('no-') || name.includes('-no-')) return false;
-  return vocabulary.some((entry) => name === entry || name.endsWith(`-${entry}`));
+  return vocabulary.includes(name);
 }
 
 export function directionOf(rawName: string): Direction | undefined {
@@ -278,8 +276,10 @@ export function withoutJudgedFields(doc: Node): Node {
       ? rest.steps.map((step: Node) => {
           const fields = asRecord(step);
           if (!fields) return step;
-          const { run: _run, with: _stepWith, 'timeout-minutes': _stepTimeout, ...kept } = fields;
-          return kept;
+          const { run, with: _stepWith, 'timeout-minutes': _stepTimeout, ...kept } = fields;
+          // A step known only by its command keeps the identity it is paired by,
+          // so its other fields can't match a different step's.
+          return typeof run === 'string' ? { ...kept, run: commandIdentity(run) } : kept;
         })
       : rest.steps;
     stripped[id] = steps === undefined ? rest : { ...rest, steps };

@@ -260,3 +260,59 @@ describe('stricter timeouts', () => {
     });
   });
 });
+
+describe('the backstop keeps a command step its identity', () => {
+  /** A workflow whose `check` job runs `steps` (YAML step lines, already indented). */
+  const workflow = (...steps: string[]) =>
+    `on: pull_request\njobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n${steps.join('')}`;
+  const step = (run: string, field = '') =>
+    `      - run: ${run}\n${field ? `        ${field}\n` : ''}`;
+
+  it('holds a changed if: hidden by a new step carrying the old one', () => {
+    const base = workflow(step('pnpm test', `if: github.event_name != 'schedule'`));
+    const head = workflow(
+      step('pnpm test', 'if: false'),
+      step('pnpm build', `if: github.event_name != 'schedule'`),
+    );
+    expect(judge(base, head).holds).toEqual(['unclassified-change']);
+  });
+
+  it('holds if: conditions swapped between two command steps', () => {
+    const base = workflow(
+      step('pnpm test', 'if: always()'),
+      step('pnpm build', `if: github.event_name == 'push'`),
+    );
+    const head = workflow(
+      step('pnpm test', `if: github.event_name == 'push'`),
+      step('pnpm build', 'if: always()'),
+    );
+    expect(judge(base, head).holds).toEqual(['unclassified-change']);
+  });
+
+  it('holds working-directory values swapped between two command steps', () => {
+    const base = workflow(
+      step('pnpm test', 'working-directory: app'),
+      step('pnpm build', 'working-directory: docs'),
+    );
+    const head = workflow(
+      step('pnpm test', 'working-directory: docs'),
+      step('pnpm build', 'working-directory: app'),
+    );
+    expect(judge(base, head).holds).toEqual(['unclassified-change']);
+  });
+
+  it('pairs `pnpm run` steps by their script, not by `run`', () => {
+    const base = workflow(step('pnpm run test'));
+    expect(judge(base, workflow(step('pnpm run build'))).holds).toEqual(['step-removed']);
+    expect(judge(base, workflow(step('pnpm run test --strict'))).stricter).toEqual([
+      'strict-enabled',
+    ]);
+  });
+});
+
+describe('bound names', () => {
+  it('holds a lowered bound whose name only ends in a known one', () => {
+    const base = testRuns('scanner --scan-max-lines 5000');
+    expect(judge(base, testRuns('scanner --scan-max-lines 10')).holds).toEqual(['check-changed']);
+  });
+});

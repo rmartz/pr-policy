@@ -10,18 +10,9 @@
  *   product consumers call, so it takes a release type like any other product
  *   code.
  */
-import { parse } from 'yaml';
 import type { FileChange } from '../../policy.js';
-import { isShippedReusableWorkflow } from '../ci-change/shipped-workflow.js';
+import { isShippedReusableWorkflow, parses } from '../ci-change/shipped-workflow.js';
 import { deepEqual, normalizeUses } from '../ci-change/structure.js';
-
-function parses(text: string): { doc: unknown } | null {
-  try {
-    return { doc: parse(text) };
-  } catch {
-    return null;
-  }
-}
 
 function isPinBumpOnly(change: FileChange): boolean {
   if (change.baseText === undefined || change.headText === undefined) return false;

@@ -129,6 +129,14 @@ describe('ci-change end to end', () => {
     expect(outcome.messages.join('\n')).toContain('Shipped reusable workflow, not CI');
   });
 
+  it('passes a rewritten if: on a shipped reusable workflow (rmartz/vercel-preview-ci#58)', async () => {
+    const edit = shipped(
+      "if: github.event.action != 'closed'",
+      "if: github.event.action == 'opened' || contains(github.event.pull_request.labels.*.name, 'preview')",
+    );
+    expect(await run([edit])).toMatchObject({ held: false, labelled: false });
+  });
+
   it('reads a workflow whose base is not shipped as CI', async () => {
     const outcome = await run([
       {

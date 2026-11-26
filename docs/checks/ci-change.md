@@ -116,17 +116,17 @@ proves nothing.
 A bound **added** where there was none holds as `check-changed`: the value in
 force before (the tool's default, a config file, the action's input default)
 is unknown, so `flake8 --max-line-length 500` may raise it. A negative bound is
-never tightened (`--max-warnings -1` means no limit to eslint). Bounds match on
-the whole name or its trailing words (so `--cov-fail-under` matches
-`fail-under`, and `maxWarnings` reads as `max-warnings`), never on a negated
-`no-` name. Strict switches match by exact name only, so `--non-strict` and
-`disable-strict` don't count:
+never tightened (`--max-warnings -1` means no limit to eslint). Every name
+matches exactly, after dashes, underscores and camelCase are normalised
+(`maxWarnings` reads as `max-warnings`). A suffix proves nothing:
+`--scan-max-lines` lowered scans less. So `--non-strict` and `disable-strict`
+don't count as `strict` either:
 
 - **Lower is stricter:** `max-warnings`, `max-lines`, `max-lines-per-function`,
   `max-line-length`, `max-len`, `max-complexity`, `max-statements`,
   `max-params`.
-- **Higher is stricter:** `fail-under`, `min-coverage`, `minimum-coverage`,
-  `coverage-threshold`.
+- **Higher is stricter:** `fail-under`, `cov-fail-under`, `min-coverage`,
+  `minimum-coverage`, `coverage-threshold`.
 - **Strict switches:** `strict`, `fail-on-error`, `fail-on-warning`,
   `fail-on-warnings`.
 
@@ -195,7 +195,8 @@ step is paired and judged, not only the first of its key.
 A step whose `id:` or `name:` is _edited_ therefore reads as a removal plus an
 addition, and is reported as `step-removed`. A step known only by its `run:`
 command is the exception: a vanished one is paired with an appeared one that
-starts with the same two words (`pnpm lint`) and their commands are compared,
+starts with the same executable and subcommand (`pnpm lint`; `pnpm run lint`
+reads the same) and their commands are compared,
 so tightening a bound on an unnamed step isn't read as removing it. Replacing
 `pnpm test` with `pnpm build` is still `step-removed`.
 
@@ -203,7 +204,10 @@ so tightening a bound on an unnamed step isn't read as removing it. Replacing
 
 When no holding rule fires, the classifier asks one more question: **does the
 head document still contain everything the base one did?** It ignores the
-fields the stricter rules already judged (`run:`, `with:`, `timeout-minutes`).
+fields the stricter rules already judged (`with:`, `timeout-minutes`, and a
+`run:` command's arguments). A command step keeps its executable and
+subcommand, so its other fields, such as `if:`, are still compared with its
+own counterpart's and can't match a different step's.
 If yes, the change is additive, stricter, or cosmetic, and the verdict is
 `tightening`. If no, something
 structural changed that no rule recognises, and the verdict is `loosening` via
