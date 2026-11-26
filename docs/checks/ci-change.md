@@ -177,6 +177,15 @@ product change to it, which is the case this rule exists to stop. A loosening
 it can read (a removed step, a raised cap, a swallowed failure, a `strict` or
 bound input default loosened under `on.workflow_call.inputs`) still holds.
 
+Two edits hold on a shipped workflow by the user's choice, though they are
+often product changes there. Any newly added `||` is `failure-ignored`, so
+product shell like `[ -n "$X" ] || X=default` holds. And an unnamed step whose
+executable or subcommand changes (`./deploy.sh` → `bash ./deploy.sh`) reads as
+`step-removed`, because a step known only by its command is
+[paired by it](#step-identity); the same edit on a named step is
+`check-changed` and passes. Name a step to have its command edits judged as
+edits.
+
 ## Strengthening and maintenance
 
 These produce no holding indicator, and so no label:
