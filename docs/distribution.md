@@ -39,9 +39,8 @@ ships through the Action like it does everywhere else.
 
 ## Hosted callers: the library with a token
 
-A caller with no `gh` binary, such as the gate App's webhook server in
-[`rmartz/pr-lifecycle-app`](https://github.com/rmartz/pr-lifecycle-app), runs
-the library directly. Every GitHub call in `src/github/` goes through one
+A caller with no `gh` binary, such as a GitHub App's webhook server, runs the
+library directly. Every GitHub call in `src/github/` goes through one
 `GitHubClient` ([`src/github/client.ts`](../src/github/client.ts)), with two
 implementations:
 

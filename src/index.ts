@@ -1,20 +1,4 @@
 export { CHECKS, selectChecks, type PolicyOptions } from './checks/index.js';
-export {
-  parseSignOffDescription,
-  GITHUB_ACTIONS_BOT,
-  parseSignOffStatusCreators,
-  readSignOffStatus,
-  SIGN_OFF_REQUIREMENTS,
-  SIGN_OFF_STATUS_CONTEXT,
-  SIGN_OFF_STATUS_VERSIONS,
-  UAT_SIGN_OFF_OUTCOMES,
-  WAIVER_STATES,
-  type SignOffClassification,
-  type SignOffRequirement,
-  type SignOffStatusReading,
-  type UatSignOffOutcome,
-  type WaiverState,
-} from './sign-off-status.js';
 export { CI_CHANGE_CHECK, ciChangeCheck, decideCiChange } from './checks/ci-change/index.js';
 export {
   classifyWorkflowChanges,
@@ -41,7 +25,6 @@ export {
 } from './checks/dependabot/index.js';
 export { parseClaims, type Claim } from './checks/dependabot/claims.js';
 export { MERGE_BLOCK_CHECK, decideMergeBlock, mergeBlockCheck } from './checks/merge-block.js';
-export { UAT_LABEL_CHECK, decideUatLabel, uatLabelCheck } from './checks/uat-label.js';
 export { isWorkflowPath } from './checks/ci-change/workflow-paths.js';
 export { TITLE_CHECK, decideTitle, titleCheck } from './checks/title/index.js';
 export {
@@ -64,11 +47,9 @@ export {
   CI_CHANGE_APPROVED_LABEL,
   DNM_LABEL,
   DO_NOT_MERGE_LABEL,
-  ESCALATION_NEEDED_LABEL,
   HOTFIX_LABEL,
   PR_POLICY_CHECK_NAME,
   RELEASE_PLEASE_PENDING_LABEL,
-  UAT_LABELS,
 } from './contract.js';
 export { evaluatePolicy, type PolicyEvaluation } from './evaluate.js';
 export { parseFacts } from './facts.js';
@@ -96,7 +77,6 @@ export {
 } from './github/pull-request.js';
 export type {
   CheckResult,
-  CommitStatus,
   FileChange,
   Finding,
   PolicyCheck,

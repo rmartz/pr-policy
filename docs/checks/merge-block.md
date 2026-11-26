@@ -1,7 +1,7 @@
 ---
 type: Library
 title: Blocking labels
-description: The merge-block check — holds pr-policy pending while a PR carries do not merge, dnm, blocked, or escalation needed, how labels are matched, why it holds rather than blocks, and why any actor's label counts.
+description: The merge-block check — holds pr-policy pending while a PR carries do not merge, dnm, or blocked, how labels are matched, why it holds rather than blocks, and why any actor's label counts.
 resource: src/checks/merge-block.ts
 tags: [pr-policy, labels, merge-gate]
 ---
@@ -11,16 +11,16 @@ tags: [pr-policy, labels, merge-gate]
 The `merge-block` check (`src/checks/merge-block.ts`) holds `pr-policy` pending
 while the PR carries any of these labels:
 
-| Label               | Usual meaning                                 |
-| ------------------- | --------------------------------------------- |
-| `do not merge`      | A person's explicit veto.                     |
-| `dnm`               | Shorthand for `do not merge`.                 |
-| `blocked`           | Waiting on something outside the PR.          |
-| `escalation needed` | The review flow needs the author or a person. |
+| Label          | Usual meaning                        |
+| -------------- | ------------------------------------ |
+| `do not merge` | A person's explicit veto.            |
+| `dnm`          | Shorthand for `do not merge`.        |
+| `blocked`      | Waiting on something outside the PR. |
 
 Because `pr-policy` is a required check, the label stops every merge path: a
-person pressing merge, native auto-merge, and the coordinator. Before this
-check, only the coordinator's `/merge` dispatch rule skipped these labels.
+person pressing merge, native auto-merge, and bot-automerge.
+`escalation needed` was a blocking label until its only writer, pr-lifecycle,
+was retired.
 
 Matching ignores case and treats `-`, `_`, and spaces alike, so `Do Not Merge`,
 `do-not-merge`, and `DO_NOT_MERGE` all count. The finding names each label as

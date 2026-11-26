@@ -37,17 +37,6 @@ export interface SignOff {
   appliedAt?: string;
 }
 
-/**
- * The latest commit status on the head SHA for one context, as GitHub reports
- * it. `creator` is absent when GitHub names no live account.
- */
-export interface CommitStatus {
-  /** `success`, `pending`, `failure`, or `error`. */
-  state: string;
-  description: string;
-  creator?: LabelActor;
-}
-
 /** The account that opened a PR, as GitHub reports it (`dependabot[bot]`, `Bot`). */
 export interface PullRequestAuthor {
   login: string;
@@ -76,8 +65,7 @@ export interface PullRequestBase {
 /**
  * The facts about a pull request that policy checks judge. Every field is a
  * property of the PR's current state — its content and the labels on it, never
- * its review history, which belongs to the separate lifecycle reconciler in
- * `rmartz/pr-lifecycle`.
+ * its review history.
  */
 export interface PullRequestFacts {
   title: string;
@@ -108,16 +96,9 @@ export interface PullRequestFacts {
    * When the current head was pushed (ISO 8601), from times the author can't
    * forge: the latest force-push event and the head commit's earliest check
    * suite, never a commit date. `gatherFacts` sets it whenever a head-bound
-   * sign-off (`UAT passed`, `tested`) is on the PR; absent, those don't count.
+   * sign-off (`UAT passed`) is on the PR; absent, it doesn't count.
    */
   headPushedAt?: string;
-  /**
-   * The latest `pr-lifecycle/sign-off` status on the head SHA: pr-lifecycle's
-   * classification of which human sign-off this head needs. Absent when
-   * pr-lifecycle hasn't posted one, which keeps the checks on their own
-   * classification until the repo cuts over (src/sign-off-status.ts).
-   */
-  signOffStatus?: CommitStatus;
 }
 
 /**

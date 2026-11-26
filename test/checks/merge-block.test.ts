@@ -31,13 +31,7 @@ describe('decideMergeBlock', () => {
   });
 
   it('matches regardless of case and separators', () => {
-    for (const label of [
-      'Do Not Merge',
-      'do-not-merge',
-      'DO_NOT_MERGE',
-      'DNM',
-      'Escalation-Needed',
-    ]) {
+    for (const label of ['Do Not Merge', 'do-not-merge', 'DO_NOT_MERGE', 'DNM']) {
       expect(effects([label])).toEqual(['hold']);
     }
   });

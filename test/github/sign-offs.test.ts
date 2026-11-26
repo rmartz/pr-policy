@@ -72,12 +72,12 @@ describe.each(await transports())('gatherSignOffs over %s', (_name, makeClient) 
   });
 
   it('falls back to the legacy level for a custom role', async () => {
-    github.responses.set(EVENTS, [event('tested', 'reed')]);
+    github.responses.set(EVENTS, [event('UAT passed', 'reed')]);
     github.responses.set('repos/o/r/collaborators/reed/permission', {
       permission: 'admin',
       role_name: 'release-manager',
     });
-    const [signOff] = await gatherSignOffs(target(), ['tested']);
+    const [signOff] = await gatherSignOffs(target(), ['UAT passed']);
     expect(signOff?.appliedBy?.permission).toBe('admin');
   });
 
@@ -96,9 +96,9 @@ describe.each(await transports())('gatherSignOffs over %s', (_name, makeClient) 
 
   it('records no actor when no event names a live account', async () => {
     github.responses.set(EVENTS, [event('UAT passed', null)]);
-    expect(await gatherSignOffs(target(), ['UAT passed', 'tested'])).toEqual([
+    expect(await gatherSignOffs(target(), ['UAT passed', 'no UAT needed'])).toEqual([
       { label: 'UAT passed', appliedAt: '2026-10-01T10:00:00Z' },
-      { label: 'tested' },
+      { label: 'no UAT needed' },
     ]);
   });
 

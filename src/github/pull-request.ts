@@ -12,7 +12,6 @@ import type { ClientTarget } from './client.js';
 import { clientOf } from './client.js';
 import type { FileChange, OpenPullRequest, PullRequestBase, PullRequestFacts } from '../policy.js';
 import { gatherHeadPushedAt } from './head-push.js';
-import { gatherSignOffStatus } from './sign-off-status.js';
 import { gatherSignOffs } from './sign-offs.js';
 
 export interface PullRequestTarget extends ClientTarget {
@@ -147,16 +146,14 @@ export async function gatherFacts(
     const pushedAt = await gatherHeadPushedAt(target, headSha);
     if (pushedAt !== undefined) facts.headPushedAt = pushedAt;
   }
-  const signOffStatus = await gatherSignOffStatus(target, headSha);
-  if (signOffStatus !== undefined) facts.signOffStatus = signOffStatus;
   return { facts, headSha };
 }
 
 /**
- * The open PRs whose head is `sha`. A `status` event carries a SHA, not a PR,
- * so this is how a caller re-evaluates when pr-lifecycle posts its sign-off
- * status. A PR whose head has since moved isn't returned: its newer head gets
- * its own status. A failed lookup throws.
+ * The open PRs whose head is `sha`. An event such as `status` or
+ * `workflow_run` carries a SHA, not a PR, so this is how a caller re-evaluates
+ * on one. A PR whose head has since moved isn't returned: its newer head gets
+ * its own run. A failed lookup throws.
  */
 export async function openPullRequestsAtHead(
   target: ClientTarget & { repo: string },
