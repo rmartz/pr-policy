@@ -49,7 +49,8 @@ describe('stricter commands', () => {
     ]);
     const base = testRuns('pnpm eslint . --max-warnings 0');
     const duplicated = testRuns('pnpm eslint . --max-warnings 0 --max-warnings 999');
-    expect(judge(base, duplicated).holds).toEqual(['check-changed']);
+    // The later duplicate wins, so the bound in force rose.
+    expect(judge(base, duplicated).holds).toEqual(['threshold-loosened', 'check-changed']);
   });
 
   it('reads a bound made negative, which some tools read as no limit, as loosened', () => {
@@ -69,7 +70,10 @@ describe('stricter commands', () => {
 
   it('keeps a loosening visible beside an unknown edit to the same command', () => {
     const base = testRuns('pnpm eslint src --max-warnings 0');
-    expect(judge(base, testRuns('pnpm eslint lib')).holds).toEqual(['check-changed']);
+    expect(judge(base, testRuns('pnpm eslint lib')).holds).toEqual([
+      'threshold-loosened',
+      'check-changed',
+    ]);
     const raised = judge(base, testRuns('pnpm eslint src --max-warnings 9 --quiet'));
     expect(raised.holds).toEqual(['threshold-loosened', 'check-changed']);
   });
@@ -413,5 +417,30 @@ describe('round-5 regressions', () => {
       `on:\n  workflow_call:\n    inputs:\n      strict:\n        type: boolean\n        default: ${strict}\n      max-warnings:\n        type: number\n        default: ${cap}\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    steps:\n      - run: ./lint.sh\n`;
     expect(judge(callable(true, 0), callable(false, 0)).holds).toEqual(['strict-disabled']);
     expect(judge(callable(true, 0), callable(true, 10)).holds).toEqual(['threshold-loosened']);
+  });
+});
+
+describe('round-6 regressions on a shipped workflow', () => {
+  const shipped = (command: string) =>
+    `on: workflow_call\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    steps:\n      - name: Lint\n        run: ${command}\n`;
+
+  it('holds a known loosening that follows an edit it cannot classify', () => {
+    expect(
+      judge(shipped('eslint src --max-warnings 0'), shipped('eslint lib --max-warnings 50')).holds,
+    ).toEqual(['threshold-loosened']);
+    expect(
+      judge(
+        shipped('pnpm lint --format a --max-warnings 0'),
+        shipped('pnpm lint --format b --max-warnings 100'),
+      ).holds,
+    ).toEqual(['threshold-loosened']);
+    expect(judge(shipped('pnpm lint src --strict'), shipped('pnpm lint lib')).holds).toEqual([
+      'strict-disabled',
+    ]);
+  });
+
+  it('holds an exit 0 added in any position', () => {
+    const head = shipped('|\n          if [ -n "$SKIP" ]; then exit 0; fi\n          ./lint.sh');
+    expect(judge(shipped('./lint.sh'), head).holds).toEqual(['failure-ignored']);
   });
 });

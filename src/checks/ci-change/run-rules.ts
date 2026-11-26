@@ -30,7 +30,7 @@ import { deepEqual, type Node } from './structure.js';
 const SWALLOWS_FAILURE = [
   // Not `|| exit 1`, `|| false` or `|| return 1`: those still fail.
   /\|\|(?!\s*(exit\s+[1-9]|false\b|return\s+[1-9]))/g,
-  /(^|;|&&)\s*exit\s+0\b/gm,
+  /\bexit\s+0\b/g,
   /\bset\s+\+[a-z]*e[a-z]*\b/gm,
   /\bset\s+\+o\s+errexit\b/gm,
 ];
@@ -105,6 +105,36 @@ function removedFlag(base: readonly string[], at: number): [number, Verdict] | u
     : undefined;
 }
 
+/** Each known bound (with its value) and strict switch in a command, by flag. */
+function knownFlags(command: readonly string[]): Map<string, string | true> {
+  const flags = new Map<string, string | true>();
+  command.forEach((word, at) => {
+    const value = command[at + 1];
+    if (directionOf(word) !== undefined && value !== undefined) flags.set(word, value);
+    else if (isStrictSwitch(word)) flags.set(word, true);
+  });
+  return flags;
+}
+
+/**
+ * The loosenings among known flags, compared by flag rather than by position:
+ * a bound raised or removed, a strict switch removed.
+ */
+function knownLoosenings(before: readonly string[], after: readonly string[]): Verdict[] {
+  const was = knownFlags(before);
+  const now = knownFlags(after);
+  return [...was].flatMap(([flag, value]): Verdict[] => {
+    const next = now.get(flag);
+    const verdict =
+      next === undefined
+        ? judgeRemoved(flag, value)
+        : typeof value === 'string' && typeof next === 'string'
+          ? judgeChanged(flag, value, next)
+          : undefined;
+    return verdict && 'looser' in verdict ? [verdict] : [];
+  });
+}
+
 /**
  * Judge an edited command. It is strictly stricter only when the head is the
  * base with known bounds tightened or strict switches inserted, word for word
@@ -149,9 +179,10 @@ function judgeRun(base: string, head: string): Verdict[] {
       i += removed[0];
       continue;
     }
-    // A loosening already seen still holds as one, even on a shipped workflow.
+    // A loosening it can read still holds as one, even on a shipped workflow,
+    // wherever it sits relative to the edit the walk couldn't classify.
     return [
-      ...verdicts.filter((verdict) => 'looser' in verdict),
+      ...knownLoosenings(before, after),
       { changed: "The command changed in a way that isn't known to be stricter." },
     ];
   }

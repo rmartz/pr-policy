@@ -62,20 +62,20 @@ evidence only and never holds.
 
 ## Loosening indicators
 
-| Indicator                 | Fires when                                                                                                                          |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `workflow-removed`        | A workflow file is deleted, taking every check in it away.                                                                          |
-| `job-removed`             | A job key present at the merge base is absent at head. A renamed job reads as one.                                                  |
-| `step-removed`            | A job lost a step (see [step identity](#step-identity)).                                                                            |
-| `continue-on-error-added` | `continue-on-error` became truthy on a job or step that did not have it.                                                            |
-| `if-added`                | An `if:` appeared on a job or step that previously always ran.                                                                      |
-| `trigger-narrowed`        | An `on:` event disappeared; an inclusive filter lost entries or appeared where there was none; an `*-ignore` filter gained entries. |
-| `matrix-reduced`          | A matrix dimension disappeared or lost values, or `exclude` gained a combination.                                                   |
-| `needs-reduced`           | A job stopped waiting on a dependency.                                                                                              |
-| `failure-ignored`         | A kept step's `run:` gained an `\|\|` (other than `\|\| exit 1`, `\|\| false`), an `exit 0`, or a `set +e` / `set +o errexit`.      |
-| `threshold-loosened`      | A [known bound](#strictly-stricter-edits) moved the loose way, went negative, or was removed.                                       |
-| `strict-disabled`         | A known strict switch was turned off or removed.                                                                                    |
-| `timeout-raised`          | `timeout-minutes` was raised, or removed (GitHub's 360-minute default then applies).                                                |
+| Indicator                 | Fires when                                                                                                                                           |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workflow-removed`        | A workflow file is deleted, taking every check in it away.                                                                                           |
+| `job-removed`             | A job key present at the merge base is absent at head. A renamed job reads as one.                                                                   |
+| `step-removed`            | A job lost a step (see [step identity](#step-identity)).                                                                                             |
+| `continue-on-error-added` | `continue-on-error` became truthy on a job or step that did not have it.                                                                             |
+| `if-added`                | An `if:` appeared on a job or step that previously always ran.                                                                                       |
+| `trigger-narrowed`        | An `on:` event disappeared; an inclusive filter lost entries or appeared where there was none; an `*-ignore` filter gained entries.                  |
+| `matrix-reduced`          | A matrix dimension disappeared or lost values, or `exclude` gained a combination.                                                                    |
+| `needs-reduced`           | A job stopped waiting on a dependency.                                                                                                               |
+| `failure-ignored`         | A kept step's `run:` gained a [swallowing form](../decisions.md#ci-sign-off-only-for-a-loosened-or-changed-check): an `\|\|`, `exit 0`, or `set +e`. |
+| `threshold-loosened`      | A [known bound](#strictly-stricter-edits) moved the loose way, went negative, or was removed.                                                        |
+| `strict-disabled`         | A known strict switch was turned off or removed.                                                                                                     |
+| `timeout-raised`          | `timeout-minutes` was raised, or removed (GitHub's 360-minute default then applies).                                                                 |
 
 `continue-on-error` counts as enabled for **any** value that is not absent and
 not literal `false` — including a `${{ }}` expression, whose value is unknowable
@@ -143,7 +143,10 @@ command (`check-appended`): the base still runs and still fails the step.
 Nothing may follow that command: a new line, `;`, `|`, `&`, grouping, or
 substitution after it could decide the step's status instead, because under
 `bash -e` a failure inside an `&&` list doesn't stop the script. A newly added
-`||`, `exit 0`, or `set +e` is `failure-ignored`, a loosening. Any other edit is
+swallowing form (`||`, `exit 0`, `set +e`; see `failure-ignored`) is a
+loosening. A known bound raised or removed, or a strict switch removed, is
+found by flag wherever it sits, even beside an edit the walk can't classify.
+Any other edit is
 `check-changed`. A swallow merely moved onto another command, with none added,
 is `check-changed` too, so it passes on a shipped workflow.
 
@@ -177,8 +180,9 @@ product change to it, which is the case this rule exists to stop. A loosening
 it can read (a removed step, a raised cap, a swallowed failure, a `strict` or
 bound input default loosened under `on.workflow_call.inputs`) still holds.
 
-Two edits hold on a shipped workflow by the user's choice, though they are
-often product changes there. Any newly added `||` is `failure-ignored`, so
+Two edits hold on a shipped workflow on purpose, though they are often
+product changes there, because a miss would skip the sign-off. Any newly added
+swallowing `||` is `failure-ignored`, since it can hide any failure, so
 product shell like `[ -n "$X" ] || X=default` holds. And an unnamed step whose
 executable or subcommand changes (`./deploy.sh` → `bash ./deploy.sh`) reads as
 `step-removed`, because a step known only by its command is

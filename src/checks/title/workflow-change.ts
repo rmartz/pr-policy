@@ -11,8 +11,8 @@
  *   code.
  */
 import type { FileChange } from '../../policy.js';
-import { isShippedReusableWorkflow, parses } from '../ci-change/shipped-workflow.js';
-import { deepEqual, normalizeUses } from '../ci-change/structure.js';
+import { isShippedReusableWorkflow } from '../ci-change/shipped-workflow.js';
+import { deepEqual, normalizeUses, parses } from '../ci-change/structure.js';
 
 function isPinBumpOnly(change: FileChange): boolean {
   if (change.baseText === undefined || change.headText === undefined) return false;

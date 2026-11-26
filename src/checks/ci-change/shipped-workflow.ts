@@ -4,18 +4,8 @@
  * call, not the repo's own CI. The title check types it as product code, and the
  * CI-change check holds only on its loosening (docs/decisions.md).
  */
-import { parse } from 'yaml';
 import type { FileChange } from '../../policy.js';
-import { asRecord } from './structure.js';
-
-/** The parsed document, or `null` when the text isn't YAML. */
-export function parses(text: string): { doc: unknown } | null {
-  try {
-    return { doc: parse(text) };
-  } catch {
-    return null;
-  }
-}
+import { asRecord, parses } from './structure.js';
 
 /** Whether a workflow document's `on:` is `workflow_call` and nothing else. */
 function onlyWorkflowCall(doc: unknown): boolean {

@@ -103,9 +103,12 @@ what a workflow diff can show:
   strict switch turned off (`strict-disabled`), and a timeout raised
   (`timeout-raised`). These are loosening indicators, not ambiguous ones.
 - **A swallowed failure is a loosening.** A command that gains an `||`, an
-  `exit 0`, or a `set +e` can now succeed when a check in it fails, so it is
+  `exit 0` (anywhere, including `then exit 0`), or a `set +e` /
+  `set +o errexit` can now succeed when a check in it fails, so it is
   `failure-ignored` and holds even on a shipped workflow. Any `||` counts, not
-  only `|| true`: `|| /bin/true` swallows just as well.
+  only `|| true` (`|| /bin/true` swallows just as well), except one whose right
+  side still fails: `|| exit N` or `|| return N` with N from 1 to 9, or
+  `|| false`.
 - **A pure append adds a check.** A command that is exactly the base, then
   `&&` and one simple command, still runs the base and still fails the step,
   so it passes as `check-appended`. Anything after that command (a new line,
@@ -122,9 +125,9 @@ A `with:` input an existing step gains passes, like every other field an
 existing step gains, unless it is a known bound: a new `max-lines` may raise
 the value the action defaulted to, so it holds. Holding every gained input
 would cost a label on maintenance such as `cache: pnpm` on
-`actions/setup-node`, while a gained `working-directory:` still passed. The
-user chose consistency here, and the remaining gap for all gained fields is
-rmartz/pr-policy#134.
+`actions/setup-node`, while a gained `working-directory:` still passed, so
+gained inputs are treated like every other gained field. The remaining gap for
+all of them is rmartz/pr-policy#134.
 
 Thresholds outside `.github/workflows/**`, such as a repo-hygiene file cap, are
 outside this check's input, so a change to them is never gated here. Widening

@@ -7,6 +7,7 @@
  * reliably. These helpers are the narrow vocabulary the rules use to walk that
  * tree without reaching for `any`.
  */
+import { parse } from 'yaml';
 
 /** A parsed YAML document node of unknown shape. */
 export type Node = unknown;
@@ -144,4 +145,13 @@ export function commandIdentity(command: string): string {
   return subcommand === undefined || subcommand.startsWith('-')
     ? executable
     : `${executable} ${subcommand}`;
+}
+
+/** The parsed document, or `null` when the text isn't YAML. */
+export function parses(text: string): { doc: unknown } | null {
+  try {
+    return { doc: parse(text) };
+  } catch {
+    return null;
+  }
 }
