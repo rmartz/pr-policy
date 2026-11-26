@@ -1,13 +1,14 @@
 /**
  * Rules that read identically on a job and on a step: the two loosening guards
- * (`continue-on-error`, a newly-added `if:`) and the two ambiguous ones
- * (`env`, `timeout-minutes`).
+ * (`continue-on-error`, a newly-added `if:`), `env`, and `timeout-minutes`
+ * (stricter when lowered, see stricter.ts).
  *
  * Jobs and steps are different nodes in the document, but the directive treats
  * these four fields the same way at either level, so they live here once rather
  * than being duplicated — and drifting — across the job and step rule sets.
  */
 import { ambiguousIndicator, looseningIndicator, type Indicator } from './indicators.js';
+import { timeoutIndicators } from './stricter.js';
 import { asRecord, deepEqual, type Node } from './structure.js';
 
 /**
@@ -61,16 +62,9 @@ export function guardIndicators(
     found.push(ambiguousIndicator('env-changed', file, `${location}.env`, `\`env\` changed.`));
   }
 
-  if (!deepEqual(before['timeout-minutes'], after['timeout-minutes'])) {
-    found.push(
-      ambiguousIndicator(
-        'timeout-changed',
-        file,
-        `${location}.timeout-minutes`,
-        `\`timeout-minutes\` changed from ${JSON.stringify(before['timeout-minutes']) ?? 'unset'} to ${JSON.stringify(after['timeout-minutes']) ?? 'unset'}.`,
-      ),
-    );
-  }
+  found.push(
+    ...timeoutIndicators(file, location, before['timeout-minutes'], after['timeout-minutes']),
+  );
 
   return found;
 }

@@ -10,13 +10,17 @@ export {
   AMBIGUOUS_INDICATORS,
   CI_CHANGE_VERDICTS,
   LOOSENING_INDICATORS,
+  STRENGTHENING_INDICATORS,
+  holds,
   type AmbiguousIndicator,
   type CiChangeVerdict,
   type Indicator,
   type IndicatorClass,
   type IndicatorKind,
   type LooseningIndicator,
+  type StrengtheningIndicator,
 } from './checks/ci-change/indicators.js';
+export { isShippedReusableWorkflow } from './checks/ci-change/shipped-workflow.js';
 export {
   DEPENDABOT_CHECK,
   DEPENDABOT_LOGIN,

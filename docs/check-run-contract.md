@@ -88,8 +88,10 @@ behind a single status for the same reason.
 
 Owned outright by the [CI-change check](checks/ci-change.md), one of the two
 labels this package writes (with [`UAT needed`](#uat-needed-the-uat-wait-label)).
-It is applied when a workflow change is classified as
-loosening or ambiguous, and it stays on after sign-off as the audit record. While it is present
+It is applied when a workflow change loosens CI or changes what an existing
+check enforces in a way not shown to be strictly stricter (a loosening or
+ambiguous indicator). A change that only strengthens CI never gets it. It stays
+on after sign-off as the audit record. While it is present
 without the sign-off, the CI-change check reports a `hold`, leaving `pr-policy`
 pending.
 

@@ -76,6 +76,43 @@ The [`ci-change` check](checks/ci-change.md) follows two policies:
   The composition judgment that a loosening must stand alone stays with the
   review.
 
+### CI sign-off only for a loosened or changed check
+
+The CI sign-off rule (rmartz/ai `docs/directives/ci-governance.md`) asks for
+`CI change approved` only when a change loosens CI or changes what an existing
+check enforces. A new check, or an existing one made strictly stricter, is a
+strengthening and needs none, even in a PR that also changes product code. So
+the [`ci-change` check](checks/ci-change.md) holds on a loosening or ambiguous
+indicator and passes a strengthening, whatever else the PR touches.
+
+Telling "stricter" from "different" is the hard part, and the check only claims
+what a workflow diff can show:
+
+- **Additions are structural and reliable.** A new workflow, job, step, or
+  matrix entry adds a check; the containment backstop already proves it.
+- **Stricter edits come from a closed vocabulary.** A lowered `max-warnings`,
+  a raised `fail-under`, `strict` turned on, a lowered `timeout-minutes`. The
+  list is explicit because names lie: `--min-severity` raised reports fewer
+  issues, and `--max-depth` lowered scans less. A bound outside the list holds,
+  whichever way it moved.
+- **Anything else holds.** A rewritten command, an appended command, a swapped
+  action, or a new unknown input may tighten or loosen, and a diff can't say
+  which. A false hold costs one label; a false pass skips the sign-off.
+
+A `with:` input an existing step gained used to pass, as containment. It now
+holds unless it is a known bound or strict switch, because a new `paths:` or
+`config:` input changes what the step checks.
+
+Thresholds outside `.github/workflows/**`, such as a repo-hygiene file cap, are
+outside this check's input, so a change to them is never gated here. Widening
+the input would mean reading and comparing each tool's config format.
+
+A shipped reusable workflow (`workflow_call` only) is product code, so only its
+loosening holds: loosening it still needs the sign-off unless the change was
+expressly requested. An expressly requested CI change needs nothing from
+pr-policy: the session that was asked applies `CI change approved`, quoting the
+request.
+
 ### Waiting on a sign-off is pending, not red
 
 Findings carry an effect: `block`, `hold`, or `info`. An unsigned CI loosening
@@ -167,7 +204,7 @@ workflow change to `ci` would suppress its release, and requiring
 `breaking change` would cut a spurious major. So:
 
 - A `workflow_call`-only workflow is shipped product code, and the title check
-  ignores it. The trigger alone decides this. See
+  ignores it. The `ci-change` check holds only on its loosening. The trigger alone decides this. See
   [checks/title.md](checks/title.md).
 - The coordinator's sibling-rebase signal is path-based, so the `ci` type
   doesn't need to carry it. An own-CI change on a non-release type gets an

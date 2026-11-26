@@ -13,7 +13,7 @@ import {
   isManifestPath,
   manifestVersions,
 } from './title/sensitive-bump.js';
-import { isShippedReusableWorkflow } from './title/workflow-change.js';
+import { isShippedReusableWorkflow } from './ci-change/shipped-workflow.js';
 import { isTestPath } from './test-paths.js';
 
 export const PATH_KINDS = [

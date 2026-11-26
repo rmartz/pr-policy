@@ -6,7 +6,9 @@
  *
  * 1. **Reconcile while unsigned, freeze once signed.** Until a human applies
  *    `CI change approved`, the gate label tracks the current head: added when
- *    the head loosens CI, removed when a later push takes the loosening away.
+ *    the head loosens CI or changes what an existing check enforces, removed
+ *    when a later push takes that away. A change that only strengthens CI (new
+ *    checks, or an existing one made strictly stricter) needs no label.
  *    Once signed off it is never removed — it is the audit record, and silently
  *    reverting a human judgment is exactly what this package must not do.
  * 2. **`CI change approved` is never written here.** It is the human act the
@@ -39,15 +41,30 @@ function untrustedApproval(approval: SignOffState): Finding[] {
     : [];
 }
 
-function evidenceOf(classification: Classification): Finding[] {
-  return classification.indicators.map((indicator): Finding => ({
+function notesOf(indicators: readonly Indicator[], prefix = ''): Finding[] {
+  return indicators.map((indicator): Finding => ({
     check: CI_CHANGE_CHECK,
-    message: indicatorMessage(indicator),
+    message: `${prefix}${indicatorMessage(indicator)}`,
     effect: 'info',
   }));
 }
 
-/** Decide the findings and label edits for one classified PR: hold on a loosening, and reconcile the label. */
+const SHIPPED_PREFIX = 'Shipped reusable workflow, not CI: ';
+
+/** Every note: what holds, then the stricter edits, then the shipped-workflow edits. */
+function evidenceOf(classification: Classification): Finding[] {
+  return [
+    ...notesOf(classification.indicators),
+    ...notesOf(classification.strengthening ?? []),
+    ...notesOf(classification.shippedEdits ?? [], SHIPPED_PREFIX),
+  ];
+}
+
+/**
+ * Decide the findings and label edits for one classified PR: hold when CI
+ * loosens or an existing check changes in a way not shown to be stricter, and
+ * reconcile the label. Whatever else the PR changes doesn't matter.
+ */
 export function decideCiChange(classification: Classification, pr: CiFacts): CheckResult {
   const approval = signOffState(pr, [CI_CHANGE_APPROVED_LABEL]);
   const signedOff = approval.status === 'trusted';
@@ -61,10 +78,11 @@ export function decideCiChange(classification: Classification, pr: CiFacts): Che
   if (!loosening) {
     const note: Finding = {
       check: CI_CHANGE_CHECK,
-      message: 'Workflow changes only add coverage or are maintenance. No sign-off needed.',
+      message:
+        'Workflow changes only strengthen CI (new checks, or existing ones made strictly stricter), are maintenance, or edit a shipped reusable workflow without loosening it. No sign-off needed.',
       effect: 'info',
     };
-    return { findings: [note], labelsToAdd, labelsToRemove };
+    return { findings: [note, ...evidenceOf(classification)], labelsToAdd, labelsToRemove };
   }
 
   // Unsigned is a `hold`, not a `block`: nothing is broken, the PR is waiting on
@@ -73,13 +91,13 @@ export function decideCiChange(classification: Classification, pr: CiFacts): Che
   const headline: Finding = signedOff
     ? {
         check: CI_CHANGE_CHECK,
-        message: `CI loosening signed off with \`${CI_CHANGE_APPROVED_LABEL}\``,
+        message: `CI change signed off with \`${CI_CHANGE_APPROVED_LABEL}\``,
         effect: 'info',
         headline: true,
       }
     : {
         check: CI_CHANGE_CHECK,
-        message: `This PR loosens CI and is waiting for a human to review the change and apply \`${CI_CHANGE_APPROVED_LABEL}\`. No code change clears this. Ambiguous indicators are treated as loosening because a miss skips the sign-off entirely.`,
+        message: `This PR loosens CI or changes what an existing check enforces, and is waiting for a human to review the change and apply \`${CI_CHANGE_APPROVED_LABEL}\`. No code change clears this. A change not shown to be strictly stricter is treated as loosening, because a miss skips the sign-off entirely.`,
         effect: 'hold',
       };
   return {
