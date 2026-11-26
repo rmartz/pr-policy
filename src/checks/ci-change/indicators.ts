@@ -21,6 +21,9 @@ export const LOOSENING_INDICATORS = [
   'matrix-reduced',
   'needs-reduced',
   'failure-ignored',
+  'threshold-loosened',
+  'strict-disabled',
+  'timeout-raised',
 ] as const;
 
 /** Changes to what an existing check enforces that can't be shown to be strictly stricter. */

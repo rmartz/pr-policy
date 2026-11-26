@@ -78,8 +78,7 @@ The [`ci-change` check](checks/ci-change.md) follows two policies:
 
 ### CI sign-off only for a loosened or changed check
 
-The CI sign-off rule (rmartz/ai `docs/directives/ci-governance.md`) asks for
-`CI change approved` only when a change loosens CI or changes what an existing
+The fleet's CI sign-off rule asks for `CI change approved` only when a change loosens CI or changes what an existing
 check enforces. A new check, or an existing one made strictly stricter, is a
 strengthening and needs none, even in a PR that also changes product code. So
 the [`ci-change` check](checks/ci-change.md) holds on a loosening or ambiguous
@@ -88,14 +87,20 @@ indicator and passes a strengthening, whatever else the PR touches.
 Telling "stricter" from "different" is the hard part, and the check only claims
 what a workflow diff can show:
 
-- **Additions are structural and reliable.** A new workflow, job, step, or
-  matrix entry adds a check; the containment backstop already proves it.
+- **Additions are structural.** A new workflow, job, step, or matrix entry adds
+  a check; the containment backstop proves it. Containment also passes a field
+  an existing job or step gained, such as `working-directory:`, which is a gap
+  (rmartz/pr-policy#134).
 - **Stricter edits come from a closed vocabulary.** A lowered `max-warnings`,
   a raised `fail-under`, `strict` turned on, a lowered `timeout-minutes`. The
   list is explicit because names lie: `--min-severity` raised reports fewer
   issues, and `--max-depth` lowered scans less. A bound outside the list holds,
   whichever way it moved. So does a known bound added where there was none:
   the value in force before (a tool default or config file) is unknown.
+- **A known direction names a loosening.** The same vocabulary that proves a
+  bound tightened proves one loosened or removed (`threshold-loosened`), a
+  strict switch turned off (`strict-disabled`), and a timeout raised
+  (`timeout-raised`). These are loosening indicators, not ambiguous ones.
 - **A swallowed failure is a loosening.** A command that gains `|| true`,
   `|| :`, `|| exit 0`, or `set +e` is `failure-ignored`, so it holds even on a
   shipped workflow.
@@ -104,20 +109,24 @@ what a workflow diff can show:
   which. A false hold costs one label; a false pass skips the sign-off.
 
 A `with:` input an existing step gained used to pass, as containment. It now
-holds unless it is a known bound or strict switch, because a new `paths:` or
-`config:` input changes what the step checks.
+holds unless it is a strict switch, because a new `paths:` or `config:` input
+changes what the step checks. That costs a label on maintenance such as
+`cache: pnpm` added to `actions/setup-node`: the classifier can't tell a setup
+action from a check by its inputs, and a false hold is the cheap failure.
 
 Thresholds outside `.github/workflows/**`, such as a repo-hygiene file cap, are
 outside this check's input, so a change to them is never gated here. Widening
 the input would mean reading and comparing each tool's config format.
 
-A shipped reusable workflow (`workflow_call` only) is product code, so only its
-loosening holds: loosening it still needs the sign-off unless the change was
-expressly requested. Its ambiguous edits don't hold, which accepts a gap: a
-loosening seen only as ambiguous, like an `if:` rewritten to match less, passes
-there. Holding them would gate every product edit to the workflow. An expressly
-requested CI change needs nothing from pr-policy: the session that was asked
-applies `CI change approved`, quoting the request.
+A shipped reusable workflow (`workflow_call` only, on every side that exists)
+is product code, so only its loosening holds: loosening it still needs the
+sign-off unless the change was expressly requested. Its ambiguous edits don't
+hold, which accepts a gap: a loosening seen only as ambiguous, like an `if:`
+rewritten to match less, passes there. Holding them would gate every product
+edit to the workflow. Every loosening the classifier can read still holds.
+
+An expressly requested CI change needs nothing from pr-policy: the session that
+was asked applies `CI change approved`, quoting the request.
 
 ### Waiting on a sign-off is pending, not red
 

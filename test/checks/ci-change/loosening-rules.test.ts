@@ -128,4 +128,11 @@ describe('loosening indicators', () => {
     });
     expect(found.map((i) => i.kind)).toEqual(['needs-reduced']);
   });
+
+  it('flags a raised or removed timeout', () => {
+    expect(kindsFor(edited('    timeout-minutes: 5', '    timeout-minutes: 30'))).toEqual([
+      'timeout-raised',
+    ]);
+    expect(kindsFor(edited('    timeout-minutes: 5\n', ''))).toEqual(['timeout-raised']);
+  });
 });

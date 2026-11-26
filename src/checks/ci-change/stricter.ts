@@ -14,8 +14,10 @@
  */
 import {
   ambiguousIndicator,
+  looseningIndicator,
   strengtheningIndicator,
   type Indicator,
+  type LooseningIndicator,
   type StrengtheningIndicator,
 } from './indicators.js';
 import { asRecord, deepEqual, type Node } from './structure.js';
@@ -80,14 +82,17 @@ export function isStrictSwitch(rawName: string): boolean {
   return (STRICT_SWITCHES as readonly string[]).includes(normalizeName(rawName));
 }
 
-/**
- * A non-negative number. A negative bound is never read as tightened: to
- * eslint, `--max-warnings -1` means no limit at all.
- */
-function asNumber(value: Node): number | undefined {
-  if (typeof value === 'number') return Number.isFinite(value) && value >= 0 ? value : undefined;
-  if (typeof value !== 'string' || !/^\d+(\.\d+)?%?$/.test(value)) return undefined;
+/** A number, from a YAML number or a numeric word (`80`, `-1`, `90%`). */
+function asSigned(value: Node): number | undefined {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value !== 'string' || !/^-?\d+(\.\d+)?%?$/.test(value)) return undefined;
   return Number.parseFloat(value);
+}
+
+/** A non-negative number. To eslint, `--max-warnings -1` means no limit at all. */
+function asNumber(value: Node): number | undefined {
+  const number = asSigned(value);
+  return number !== undefined && number >= 0 ? number : undefined;
 }
 
 function isTrue(value: Node): boolean {
@@ -98,16 +103,30 @@ function isStricterValue(direction: Direction, before: number, after: number): b
   return direction === 'lower' ? after < before : after > before;
 }
 
-/** One judged edit: a strictly stricter one, or a change that holds. */
-export type Verdict = { stricter: StrengtheningIndicator; detail: string } | { changed: string };
+/**
+ * One judged edit: strictly stricter, plainly looser (a known bound or switch
+ * moved the loose way), or a change whose direction is unknown. The last two
+ * hold; only a loosening holds on a shipped reusable workflow.
+ */
+export type Verdict =
+  | { stricter: StrengtheningIndicator; detail: string }
+  | { looser: LooseningIndicator; detail: string }
+  | { changed: string };
 
 export function stricter(kind: StrengtheningIndicator, detail: string): Verdict {
   return { stricter: kind, detail };
 }
 
+export function looser(kind: LooseningIndicator, detail: string): Verdict {
+  return { looser: kind, detail };
+}
+
 export function toIndicator(verdict: Verdict, file: string, location: string): Indicator {
-  return 'changed' in verdict
-    ? ambiguousIndicator('check-changed', file, location, verdict.changed)
+  if ('changed' in verdict) {
+    return ambiguousIndicator('check-changed', file, location, verdict.changed);
+  }
+  return 'looser' in verdict
+    ? looseningIndicator(verdict.looser, file, location, verdict.detail)
     : strengtheningIndicator(verdict.stricter, file, location, verdict.detail);
 }
 
@@ -124,18 +143,35 @@ function judgeAdded(name: string, value: Node): Verdict | undefined {
   return undefined;
 }
 
+/** Judge one input or flag that disappeared: a known bound or a switch that was on. */
+export function judgeRemoved(name: string, value: Node): Verdict | undefined {
+  if (directionOf(name) !== undefined && asNumber(value) !== undefined) {
+    return looser('threshold-loosened', `\`${name}\` (${String(value)}) was removed.`);
+  }
+  if (isStrictSwitch(name) && isTrue(value)) {
+    return looser('strict-disabled', `\`${name}\` was removed.`);
+  }
+  return undefined;
+}
+
 /** Judge one input or flag whose value changed. */
 export function judgeChanged(name: string, before: Node, after: Node): Verdict | undefined {
   const direction = directionOf(name);
   const from = asNumber(before);
-  const to = asNumber(after);
+  const to = asSigned(after);
   if (direction !== undefined && from !== undefined && to !== undefined) {
-    return isStricterValue(direction, from, to)
-      ? stricter('threshold-tightened', `\`${name}\` tightened from ${from} to ${to}.`)
-      : undefined;
+    if (to >= 0 && isStricterValue(direction, from, to)) {
+      return stricter('threshold-tightened', `\`${name}\` tightened from ${from} to ${to}.`);
+    }
+    return to === from
+      ? undefined
+      : looser('threshold-loosened', `\`${name}\` loosened from ${from} to ${to}.`);
   }
   if (isStrictSwitch(name) && !isTrue(before) && isTrue(after)) {
     return stricter('strict-enabled', `\`${name}\` turned on.`);
+  }
+  if (isStrictSwitch(name) && isTrue(before) && !isTrue(after)) {
+    return looser('strict-disabled', `\`${name}\` turned off.`);
   }
   return undefined;
 }
@@ -155,7 +191,7 @@ export function inputIndicators(
     const at = `${location}.with.${name}`;
     if (deepEqual(before[name], after[name])) continue;
     const verdict = !(name in after)
-      ? undefined
+      ? judgeRemoved(name, before[name])
       : !(name in before)
         ? judgeAdded(name, after[name])
         : judgeChanged(name, before[name], after[name]);
@@ -176,8 +212,8 @@ export function inputIndicators(
 
 /**
  * The judged edit to `timeout-minutes`. A lower limit, or a first limit at or
- * under GitHub's default, can only fail more runs. Anything else (a raise, a
- * removal, an expression) is `timeout-changed`, which holds.
+ * under GitHub's default, can only fail more runs. A raised or removed limit is
+ * `timeout-raised`, a loosening. An expression is `timeout-changed`.
  */
 export function timeoutIndicators(
   file: string,
@@ -190,7 +226,18 @@ export function timeoutIndicators(
   const from = base === undefined ? DEFAULT_TIMEOUT_MINUTES : asNumber(base);
   const to = asNumber(head);
   const describe = (value: Node) => JSON.stringify(value) ?? 'unset';
-  if (from !== undefined && to !== undefined && to === from) return [];
+  const limit = head === undefined ? DEFAULT_TIMEOUT_MINUTES : to;
+  if (from !== undefined && limit !== undefined && limit === from) return [];
+  if (from !== undefined && limit !== undefined && limit > from) {
+    return [
+      looseningIndicator(
+        'timeout-raised',
+        file,
+        at,
+        `\`timeout-minutes\` raised from ${describe(base)} to ${describe(head)}.`,
+      ),
+    ];
+  }
   if (from !== undefined && to !== undefined && to < from) {
     return [
       strengtheningIndicator(

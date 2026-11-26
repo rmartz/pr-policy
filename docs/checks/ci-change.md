@@ -72,7 +72,10 @@ evidence only and never holds.
 | `trigger-narrowed`        | An `on:` event disappeared; an inclusive filter lost entries or appeared where there was none; an `*-ignore` filter gained entries. |
 | `matrix-reduced`          | A matrix dimension disappeared or lost values, or `exclude` gained a combination.                                                   |
 | `needs-reduced`           | A job stopped waiting on a dependency.                                                                                              |
-| `failure-ignored`         | A kept step's `run:` gained a failure-swallowing idiom: `\|\| true`, `\|\| :`, `\|\| exit 0`, or `set +e`.                          |
+| `failure-ignored`         | A kept step's `run:` gained a failure-swallowing idiom: `\|\| true`, `\|\| :`, `\|\| echo`, `\|\| exit 0`, `; exit 0`, or `set +e`. |
+| `threshold-loosened`      | A [known bound](#strictly-stricter-edits) moved the loose way, went negative, or was removed.                                       |
+| `strict-disabled`         | A known strict switch was turned off or removed.                                                                                    |
+| `timeout-raised`          | `timeout-minutes` was raised, or removed (GitHub's 360-minute default then applies).                                                |
 
 `continue-on-error` counts as enabled for **any** value that is not absent and
 not literal `false` — including a `${{ }}` expression, whose value is unknowable
@@ -88,12 +91,12 @@ strictly stricter from the diff alone, so each needs the sign-off.
 | `runs-on-changed`     | A job's runner target changed.                                                                          |
 | `permissions-changed` | A workflow- or job-level `permissions` block changed.                                                   |
 | `env-changed`         | A workflow-, job-, or step-level `env` block changed.                                                   |
-| `timeout-changed`     | A `timeout-minutes` was raised, removed, or set to an expression.                                       |
+| `timeout-changed`     | A `timeout-minutes` was set to an expression, so its direction is unknown.                              |
 | `check-changed`       | A kept step's `run:` command, or a step's or job's `with:` inputs, changed in a way not shown stricter. |
 | `unparseable`         | A file could not be parsed at head or at the merge base, so nothing can be compared.                    |
 | `unclassified-change` | The change is not purely additive and matched no rule — the [backstop](#the-containment-backstop).      |
 
-A raised timeout is itself a loosening under the CI directive. A lowered one is
+A raised timeout is a loosening (`timeout-raised`). A lowered one is
 [strictly stricter](#strictly-stricter-edits).
 
 ## Strictly stricter edits
@@ -127,13 +130,18 @@ the whole name or its trailing words (so `--cov-fail-under` matches
 - **Strict switches:** `strict`, `fail-on-error`, `fail-on-warning`,
   `fail-on-warnings`.
 
+The same vocabulary names a loosening: a known bound moved the other way or
+removed is `threshold-loosened`, and a strict switch turned off or removed is
+`strict-disabled`. Both are loosening indicators, so they hold even on a
+[shipped workflow](#shipped-reusable-workflows).
+
 A `run:` command passes only when the head is the base word for word, except
 for known bounds tightened and strict switches inserted. A newly swallowed
 failure is `failure-ignored`, a loosening. Any other edit is `check-changed`,
 including an appended command: the diff can't tell `pnpm test && pnpm lint`
 from a replaced check by intent. A `with:` input passes only when every changed
-input is a known bound tightened or a strict switch turned on; a removed, added
-or unknown input is `check-changed`.
+input is a known bound tightened or a strict switch turned on; an added bound,
+or an unknown input added, removed or changed, is `check-changed`.
 
 Thresholds that live outside `.github/workflows/**`, such as a
 `.repo-hygiene.yml` file cap or an eslint config, are outside this check's
@@ -142,43 +150,54 @@ input. Changing them is never gated here, in either direction.
 ## Shipped reusable workflows
 
 A workflow whose only trigger is `workflow_call` is shipped product code, not
-this repo's CI (the same test the [title check](title.md) uses). Only its
+this repo's CI (the same test the [title check](title.md) uses). Here it must
+be one on every side that exists: a file that only becomes `workflow_call`-only,
+or whose base can't be parsed, is read as CI. Only its
 **loosening** indicators hold: loosening a shipped workflow still needs the
 sign-off unless the change was expressly requested, and then the session that
 was asked applies `CI change approved` itself, quoting the request. Its other
 edits, ambiguous or stricter, are listed as "Shipped reusable workflow, not CI"
 notes and never hold.
 
-That leaves a known gap: a loosening the classifier can only see as ambiguous,
-such as an `if:` rewritten to match less, passes on a shipped workflow. Holding
-every ambiguous edit there would gate every product change to it, which is the
-case this rule exists to stop. A CI workflow converted to `workflow_call` only
-still holds, because losing its other triggers is `trigger-narrowed`.
+That leaves a known gap: a loosening whose direction the classifier can't read,
+such as an `if:` rewritten to match less or a command replaced outright, passes
+on a shipped workflow. Holding every ambiguous edit there would gate every
+product change to it, which is the case this rule exists to stop. A loosening
+it can read (a removed step, a raised cap, a swallowed failure) still holds.
 
-## Tightening and maintenance
+## Strengthening and maintenance
 
 These produce no holding indicator, and so no label:
 
 - Steps or jobs only added; a brand-new workflow file.
+- An existing check made [strictly stricter](#strictly-stricter-edits).
+- A [shipped workflow](#shipped-reusable-workflows) edited without a loosening.
 - Action version bumps (`uses: actions/checkout@v4` → `@v5`).
 - New trigger events, branches, paths, or matrix dimensions.
 - Comment-only or purely cosmetic edits.
 - Steps reordered — reordering is not a loosening.
+
+Containment still reads a field an existing job or step _gained_ as an
+addition, so a new `working-directory:`, `shell:`, or `defaults:` passes even
+though it can change what a check covers. That gap predates the strengthening
+rule and is tracked in rmartz/pr-policy#134. A gained `with:` input holds.
 
 ## Step identity
 
 Steps are paired across revisions by a stable key, not by index: an insertion
 near the top of a job would otherwise report every step after it as removed. The
 key is the first of `id:`, `name:`, `uses:` (with its `@ref` stripped), `run:`,
-and finally the step's own serialized content. A key repeated within a job
-(two `actions/cache` steps) gets its occurrence number, so every step is
-paired and judged.
+and finally the step's own serialized content. Steps sharing a key (two
+`actions/cache` steps) are paired by content first, so a new one inserted before
+an old one is an addition; only the leftovers are paired in order. Every base
+step is paired and judged, not only the first of its key.
 
 A step whose `id:` or `name:` is _edited_ therefore reads as a removal plus an
 addition, and is reported as `step-removed`. A step known only by its `run:`
-command is the exception: when as many command-keyed steps vanished as
-appeared, they are paired in order and their commands compared, so tightening a
-bound on an unnamed step isn't read as removing it.
+command is the exception: a vanished one is paired with an appeared one that
+starts with the same two words (`pnpm lint`) and their commands are compared,
+so tightening a bound on an unnamed step isn't read as removing it. Replacing
+`pnpm test` with `pnpm build` is still `step-removed`.
 
 ## The containment backstop
 

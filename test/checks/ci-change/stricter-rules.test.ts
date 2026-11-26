@@ -52,23 +52,40 @@ describe('stricter commands', () => {
     expect(judge(base, duplicated).holds).toEqual(['check-changed']);
   });
 
-  it('holds a bound made negative, which some tools read as no limit', () => {
+  it('reads a bound made negative, which some tools read as no limit, as loosened', () => {
     const base = testRuns('pnpm eslint . --max-warnings 0');
     expect(judge(base, testRuns('pnpm eslint . --max-warnings -1')).holds).toEqual([
-      'check-changed',
+      'threshold-loosened',
     ]);
   });
 
-  it('holds a raised bound', () => {
+  it('reads a removed bound or strict flag as a loosening', () => {
+    const base = testRuns('pnpm eslint . --max-warnings 0 --strict');
+    expect(judge(base, testRuns('pnpm eslint . --strict')).holds).toEqual(['threshold-loosened']);
+    expect(judge(base, testRuns('pnpm eslint . --max-warnings 0')).holds).toEqual([
+      'strict-disabled',
+    ]);
+  });
+
+  it('keeps a loosening visible beside an unknown edit to the same command', () => {
+    const base = testRuns('pnpm eslint src --max-warnings 0');
+    expect(judge(base, testRuns('pnpm eslint lib')).holds).toEqual(['check-changed']);
+    const raised = judge(base, testRuns('pnpm eslint src --max-warnings 9 --quiet'));
+    expect(raised.holds).toEqual(['threshold-loosened', 'check-changed']);
+  });
+
+  it('reads a raised cap as a loosening', () => {
     const base = testRuns('pnpm eslint . --max-warnings=5');
     expect(judge(base, testRuns('pnpm eslint . --max-warnings=10')).holds).toEqual([
-      'check-changed',
+      'threshold-loosened',
     ]);
   });
 
-  it('holds a lowered coverage floor', () => {
+  it('reads a lowered coverage floor as a loosening', () => {
     const base = testRuns('pytest --cov-fail-under 90');
-    expect(judge(base, testRuns('pytest --cov-fail-under 80')).holds).toEqual(['check-changed']);
+    expect(judge(base, testRuns('pytest --cov-fail-under 80')).holds).toEqual([
+      'threshold-loosened',
+    ]);
   });
 
   it('holds a bound outside the known vocabulary, whatever its direction', () => {
@@ -93,11 +110,39 @@ describe('stricter commands', () => {
   });
 
   it('reads a newly swallowed failure as a loosening', () => {
-    for (const command of ['pnpm test || true', '"pnpm test || :"', 'set +e; pnpm test']) {
+    for (const command of [
+      'pnpm test || true',
+      '"pnpm test || :"',
+      'set +e; pnpm test',
+      'pnpm test; exit 0',
+      'pnpm test || echo failed',
+    ]) {
       expect(judge(BASE_WORKFLOW, testRuns(command)).holds).toEqual(['failure-ignored']);
     }
     const base = testRuns('pnpm test || true');
     expect(judge(base, testRuns('pnpm test --strict || true')).holds).toEqual([]);
+  });
+
+  it('reads a new step inserted before a same-keyed one as an addition', () => {
+    const caches = (...keys: string[]) =>
+      edited(
+        '      - uses: actions/checkout@v4\n',
+        `      - uses: actions/checkout@v4\n${keys.map((key) => `      - uses: actions/cache@v4\n        with:\n          key: ${key}\n`).join('')}`,
+      );
+    expect(judge(caches('deps'), caches('build', 'deps'))).toEqual({
+      verdict: 'tightening',
+      holds: [],
+      stricter: [],
+    });
+  });
+
+  it('reads a command step replaced by an unrelated one as a removal', () => {
+    const lint = (command: string) =>
+      edited(
+        '      - uses: actions/checkout@v4\n',
+        `      - uses: actions/checkout@v4\n      - run: ${command}\n`,
+      );
+    expect(judge(lint('pnpm lint'), lint('pnpm build')).holds).toEqual(['step-removed']);
   });
 
   it('judges every step that shares a key, not only the first', () => {
@@ -157,14 +202,24 @@ describe('stricter inputs', () => {
     ]);
   });
 
-  it('holds a raised cap, strict turned off, a removed input, and an unknown new input', () => {
+  it('reads a raised cap, strict turned off, or either removed as a loosening', () => {
     const base = testWith('max-lines: 400', 'strict: true', 'paths: src');
     expect(judge(base, testWith('max-lines: 500', 'strict: true', 'paths: src')).holds).toEqual([
-      'check-changed',
+      'threshold-loosened',
     ]);
     expect(judge(base, testWith('max-lines: 400', 'strict: false', 'paths: src')).holds).toEqual([
-      'check-changed',
+      'strict-disabled',
     ]);
+    expect(judge(base, testWith('strict: true', 'paths: src')).holds).toEqual([
+      'threshold-loosened',
+    ]);
+    expect(judge(base, testWith('max-lines: 400', 'paths: src')).holds).toEqual([
+      'strict-disabled',
+    ]);
+  });
+
+  it('holds a removed or added unknown input', () => {
+    const base = testWith('max-lines: 400', 'strict: true', 'paths: src');
     expect(judge(base, testWith('max-lines: 400', 'strict: true')).holds).toEqual([
       'check-changed',
     ]);
@@ -176,7 +231,7 @@ describe('stricter inputs', () => {
     const caller = (cap: number) =>
       `${BASE_WORKFLOW}  hygiene:\n    uses: org/hygiene/.github/workflows/check.yml@v1\n    with:\n      max-lines: ${cap}\n`;
     expect(judge(caller(400), caller(300)).stricter).toEqual(['threshold-tightened']);
-    expect(judge(caller(400), caller(500)).holds).toEqual(['check-changed']);
+    expect(judge(caller(400), caller(500)).holds).toEqual(['threshold-loosened']);
   });
 });
 
@@ -190,14 +245,14 @@ describe('stricter timeouts', () => {
     });
   });
 
-  it("passes a first timeout at or under GitHub's default, and holds one above it", () => {
+  it("passes a first timeout at or under GitHub's default, and reads one above it as raised", () => {
     const deploy = (minutes: number) =>
       edited(
         '  deploy:\n    needs: [build]\n',
         `  deploy:\n    needs: [build]\n    timeout-minutes: ${minutes}\n`,
       );
     expect(strengtheningFor(deploy(30))).toEqual(['timeout-reduced']);
-    expect(judge(BASE_WORKFLOW, deploy(400)).holds).toEqual(['timeout-changed']);
+    expect(judge(BASE_WORKFLOW, deploy(400)).holds).toEqual(['timeout-raised']);
     expect(judge(BASE_WORKFLOW, deploy(360))).toEqual({
       verdict: 'tightening',
       holds: [],

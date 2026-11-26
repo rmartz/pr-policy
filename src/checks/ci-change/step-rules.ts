@@ -5,7 +5,14 @@ import { looseningIndicator, type Indicator } from './indicators.js';
 import { guardIndicators } from './common-rules.js';
 import { runIndicators } from './run-rules.js';
 import { inputIndicators } from './stricter.js';
-import { asArray, asRecord, stripActionRef, type Node } from './structure.js';
+import {
+  asArray,
+  asRecord,
+  deepEqual,
+  normalizeUses,
+  stripActionRef,
+  type Node,
+} from './structure.js';
 
 /** The `steps:` sequence of a job, or `[]` when the job declares none. */
 export function stepsOf(job: Node): Node[] {
@@ -20,7 +27,7 @@ export function stepsOf(job: Node): Node[] {
  * insertion as removed. The fallbacks descend from most to least explicit, and a
  * step with none of them falls back to its own serialized content — which pairs
  * an untouched step with itself and treats an edited one as a replacement. A
- * step keyed by its `run:` text gets a second chance in {@link pairCommandSteps}.
+ * step keyed by its `run:` text gets a second chance in {@link pairSteps}.
  */
 export function stepKey(step: Node): string {
   const map = asRecord(step);
@@ -33,62 +40,96 @@ export function stepKey(step: Node): string {
   return `step:${JSON.stringify(map)}`;
 }
 
-function byKey(steps: readonly Node[]): Map<string, Node> {
-  const index = new Map<string, Node>();
-  const seen = new Map<string, number>();
+interface KeyedStep {
+  key: string;
+  step: Node;
+}
+
+/** A base step and the head step it is compared with. */
+interface StepPair extends KeyedStep {
+  counterpart: Node;
+}
+
+function groupByKey(steps: readonly Node[]): Map<string, Node[]> {
+  const groups = new Map<string, Node[]>();
   for (const step of steps) {
     const key = stepKey(step);
-    // A repeated key (two `actions/cache` steps) gets its occurrence number, so
-    // every step is paired and judged, not only the first of each key.
-    const count = (seen.get(key) ?? 0) + 1;
-    seen.set(key, count);
-    index.set(count === 1 ? key : `${key}#${count}`, step);
+    groups.set(key, [...(groups.get(key) ?? []), step]);
   }
-  return index;
+  return groups;
 }
 
 const isRunKey = (key: string) => key.startsWith('run:');
 
+/** The executable and subcommand of a command-keyed step (`pnpm lint`). */
+const leadingWords = (key: string) =>
+  key.slice('run:'.length).trim().split(/\s+/).slice(0, 2).join(' ');
+
 /**
- * Pair the steps known only by their command. Such a step's key *is* its
- * `run:` text, so editing the command would read as a removal. When the same
- * number of command-keyed steps vanished as appeared, they are paired in order
- * and their commands compared instead; otherwise the vanished ones are removals.
+ * Pair every base step with the head step it became, or report it removed.
+ *
+ * Steps sharing a key (two `actions/cache` steps) are paired by content first,
+ * so a new same-keyed step inserted before an old one is an addition, and only
+ * the leftovers are paired in order. A step known only by its command has its
+ * `run:` text as its key, so editing the command would read as a removal: a
+ * vanished one is paired with an appeared one that starts with the same words
+ * (`pnpm lint`), and is a removal otherwise.
  */
-function pairCommandSteps(before: Map<string, Node>, after: Map<string, Node>): Map<string, Node> {
-  const vanished = [...before.keys()].filter((key) => isRunKey(key) && !after.has(key));
-  const appeared = [...after.keys()].filter((key) => isRunKey(key) && !before.has(key));
-  const paired = new Map<string, Node>();
-  if (vanished.length !== appeared.length) return paired;
-  vanished.forEach((key, i) => {
-    const counterpart = appeared[i];
-    if (counterpart !== undefined) paired.set(key, after.get(counterpart));
+export function pairSteps(
+  base: readonly Node[],
+  head: readonly Node[],
+): { pairs: StepPair[]; removed: KeyedStep[] } {
+  const before = groupByKey(base);
+  const after = groupByKey(head);
+  const pairs: StepPair[] = [];
+  const unpaired: KeyedStep[] = [];
+  const appeared: KeyedStep[] = [];
+
+  for (const [key, steps] of before) {
+    const candidates = [...(after.get(key) ?? [])];
+    const leftover = steps.filter((step) => {
+      const at = candidates.findIndex((candidate) =>
+        deepEqual(normalizeUses(step), normalizeUses(candidate)),
+      );
+      if (at === -1) return true;
+      pairs.push({ key, step, counterpart: candidates.splice(at, 1)[0] });
+      return false;
+    });
+    for (const step of leftover) {
+      const counterpart = candidates.shift();
+      if (counterpart === undefined) unpaired.push({ key, step });
+      else pairs.push({ key, step, counterpart });
+    }
+    appeared.push(...candidates.map((step) => ({ key, step })));
+  }
+  for (const [key, steps] of after) {
+    if (!before.has(key)) appeared.push(...steps.map((step) => ({ key, step })));
+  }
+
+  const removed = unpaired.filter(({ key, step }) => {
+    if (!isRunKey(key)) return true;
+    const at = appeared.findIndex(
+      (candidate) => isRunKey(candidate.key) && leadingWords(candidate.key) === leadingWords(key),
+    );
+    if (at === -1) return true;
+    pairs.push({ key, step, counterpart: appeared.splice(at, 1)[0]?.step });
+    return false;
   });
-  return paired;
+  return { pairs, removed };
 }
 
 /** Removed steps, the per-step guards, and edits to each kept step's command and inputs. */
 export function stepIndicators(file: string, jobId: string, base: Node, head: Node): Indicator[] {
-  const before = byKey(stepsOf(base));
-  const after = byKey(stepsOf(head));
-  const edited = pairCommandSteps(before, after);
-  const found: Indicator[] = [];
-
-  for (const [key, step] of before) {
-    const location = `jobs.${jobId}.steps[${key}]`;
-    const counterpart = after.get(key) ?? edited.get(key);
-    if (counterpart === undefined) {
-      found.push(
-        looseningIndicator('step-removed', file, location, `Step \`${key}\` was removed.`),
-      );
-      continue;
-    }
-    found.push(
-      ...guardIndicators(file, location, step, counterpart),
-      ...runIndicators(file, location, asRecord(step)?.run, asRecord(counterpart)?.run),
-      ...inputIndicators(file, location, asRecord(step)?.with, asRecord(counterpart)?.with),
-    );
-  }
-
-  return found;
+  const { pairs, removed } = pairSteps(stepsOf(base), stepsOf(head));
+  const at = (key: string) => `jobs.${jobId}.steps[${key}]`;
+  return [
+    ...removed.map(({ key }) =>
+      looseningIndicator('step-removed', file, at(key), `Step \`${key}\` was removed.`),
+    ),
+    ...pairs.flatMap(({ key, step, counterpart }) => [
+      ...guardIndicators(file, at(key), step, counterpart),
+      ...runIndicators(file, at(key), asRecord(step)?.run, asRecord(counterpart)?.run),
+      ...inputIndicators(file, at(key), asRecord(step)?.with, asRecord(counterpart)?.with),
+    ]),
+  ];
 }

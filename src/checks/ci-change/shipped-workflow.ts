@@ -41,3 +41,21 @@ export function isShippedReusableWorkflow(change: FileChange): boolean {
   const parsed = parses(text);
   return parsed !== null && onlyWorkflowCall(parsed.doc);
 }
+
+/**
+ * Whether the CI-change check reads the file as shipped: a shipped workflow on
+ * every side that exists. A file that only becomes `workflow_call`-only, or
+ * whose base can't be parsed, is still read as CI.
+ */
+export function isShippedOnEverySide(change: FileChange): boolean {
+  const sides = [change.baseText, change.headText].filter(
+    (text): text is string => text !== undefined,
+  );
+  return (
+    sides.length > 0 &&
+    sides.every((text) => {
+      const parsed = parses(text);
+      return parsed !== null && onlyWorkflowCall(parsed.doc);
+    })
+  );
+}

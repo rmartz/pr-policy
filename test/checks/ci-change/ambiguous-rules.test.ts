@@ -29,13 +29,8 @@ describe('ambiguous indicators', () => {
     expect(kindsFor(head)).toEqual(['env-changed']);
   });
 
-  it('flags a raised timeout', () => {
-    const head = edited('    timeout-minutes: 5', '    timeout-minutes: 30');
-    expect(kindsFor(head)).toEqual(['timeout-changed']);
-  });
-
-  it('flags a removed timeout', () => {
-    const head = edited('    timeout-minutes: 5\n', '');
+  it('flags a timeout set to an expression', () => {
+    const head = edited('    timeout-minutes: 5', '    timeout-minutes: ${{ inputs.timeout }}');
     expect(kindsFor(head)).toEqual(['timeout-changed']);
   });
 

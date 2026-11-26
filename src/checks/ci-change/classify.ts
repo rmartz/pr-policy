@@ -19,7 +19,7 @@ import {
   type Indicator,
 } from './indicators.js';
 import { jobIndicators } from './job-rules.js';
-import { isShippedReusableWorkflow } from './shipped-workflow.js';
+import { isShippedOnEverySide } from './shipped-workflow.js';
 import { withoutJudgedFields } from './stricter.js';
 import { containsAll, normalizeUses, type Node } from './structure.js';
 import { topLevelIndicators, triggerIndicators } from './workflow-rules.js';
@@ -121,7 +121,7 @@ function assessWorkflowFile(change: WorkflowFileChange): Indicator[] {
 function splitFile(change: WorkflowFileChange): Required<Omit<Classification, 'verdict'>> {
   const all = assessWorkflowFile(change);
   // A shipped reusable workflow is product code: only its loosening holds.
-  if (isShippedReusableWorkflow(change)) {
+  if (isShippedOnEverySide(change)) {
     return {
       indicators: all.filter((indicator) => indicator.class === 'loosening'),
       strengthening: [],

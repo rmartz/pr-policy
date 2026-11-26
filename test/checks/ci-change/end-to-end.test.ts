@@ -113,13 +113,31 @@ describe('ci-change end to end', () => {
     expect(outcome.messages.join('\n')).toContain('trigger-narrowed');
   });
 
+  it('holds a shipped reusable workflow whose known bound is raised', async () => {
+    const base = SHIPPED_WORKFLOW.replace('run: ./gate.sh', 'run: ./gate.sh --max-warnings 0');
+    const outcome = await run([
+      { path: SHIPPED_PATH, baseText: base, headText: base.replace('warnings 0', 'warnings 50') },
+    ]);
+    expect(outcome).toMatchObject({ held: true, labelled: true });
+    expect(outcome.messages.join('\n')).toContain('threshold-loosened');
+  });
+
   it('passes a shipped reusable workflow edit that does not loosen it', async () => {
-    const edit = shipped(
-      "if: github.event.action != 'closed'",
-      "if: github.event.action == 'opened'",
-    );
+    const edit = shipped('run: ./deploy.sh', 'run: ./deploy.sh --target "$TARGET"');
     const outcome = await run([edit], ['README.md']);
     expect(outcome).toMatchObject({ held: false, labelled: false });
     expect(outcome.messages.join('\n')).toContain('Shipped reusable workflow, not CI');
+  });
+
+  it('reads a workflow whose base is not shipped as CI', async () => {
+    const outcome = await run([
+      {
+        path: SHIPPED_PATH,
+        baseText: 'jobs: [unbalanced\n',
+        headText: SHIPPED_WORKFLOW,
+      },
+    ]);
+    expect(outcome).toMatchObject({ held: true, labelled: true });
+    expect(outcome.messages.join('\n')).toContain('unparseable');
   });
 });
