@@ -24,10 +24,18 @@ export const CI_CHANGE_APPROVED_LABEL = 'CI change approved';
 /**
  * The UAT sign-offs, read and never written. `UAT passed` is a person's
  * statement that they tested the PR's current head. `no UAT needed` is a waiver
- * from the session that tested a minor change, or a person.
+ * from the session that tested a minor change's current head, or a person.
+ * Both count only for the head they were applied to.
  */
 export const UAT_PASSED_LABEL = 'UAT passed';
 export const NO_UAT_NEEDED_LABEL = 'no UAT needed';
+
+/**
+ * The label the UAT check applies while it holds a ready-for-review PR for a
+ * sign-off, and removes once the gate passes or the PR turns draft. Owned
+ * outright by this package, so people can filter for PRs waiting on UAT.
+ */
+export const UAT_NEEDED_LABEL = 'UAT needed';
 
 /**
  * A person's judgment that a dependency major bump doesn't reach this package's

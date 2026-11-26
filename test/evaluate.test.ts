@@ -57,6 +57,7 @@ describe('evaluatePolicy', () => {
     const report = await evaluatePolicy(pr);
     expect(report.outcome).toBe('pending');
     expect(report.findings.map((finding) => finding.check)).toEqual(['uat']);
+    expect(report.labelsToAdd).toEqual(['UAT needed']);
   });
 
   it('holds a PR carrying a blocking label, even one that would otherwise pass', async () => {
@@ -109,6 +110,15 @@ describe('selectChecks', () => {
     expect(report.outcome).toBe('success');
     expect(report.findings).toEqual([]);
   });
+
+  it('never touches `UAT needed` with the UAT gate skipped', async () => {
+    const report = await evaluatePolicy(
+      { ...pr, labels: ['UAT needed'] },
+      selectChecks({ skipUat: true }),
+    );
+    expect(report.labelsToAdd).toEqual([]);
+    expect(report.labelsToRemove).toEqual([]);
+  });
 });
 
 describe('evaluatePolicy — Dependabot PRs with the UAT gate on', () => {
@@ -140,6 +150,7 @@ describe('evaluatePolicy — Dependabot PRs with the UAT gate on', () => {
     });
     const report = await evaluatePolicy(facts, selectChecks());
     expect(report.outcome).toBe('success');
+    expect(report.labelsToAdd).toEqual([]);
     expect(report.findings).toContainEqual(
       expect.objectContaining({
         check: 'uat',
@@ -159,6 +170,7 @@ describe('evaluatePolicy — Dependabot PRs with the UAT gate on', () => {
     });
     const report = await evaluatePolicy(facts, selectChecks());
     expect(report.outcome).toBe('success');
+    expect(report.labelsToAdd).toEqual([]);
     expect(report.findings).toContainEqual(
       expect.objectContaining({ check: 'uat', message: 'No UAT needed: the PR changes only ci.' }),
     );

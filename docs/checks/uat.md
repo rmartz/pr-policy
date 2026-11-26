@@ -1,7 +1,7 @@
 ---
 type: Library
 title: UAT sign-off
-description: The uat check — a hard merge gate that holds every PR until its paths or a refactor title exempt it, or it carries a trusted no UAT needed, or a UAT passed applied after the current head was pushed — the trivial-PR rules and their fleet replay, why Dependabot PRs pass with no labels, who applies each sign-off under the session-driven process, the label actor check, the head binding and the push time it reads, turning the gate off for a repo without UAT, and why the legacy tested alias was dropped.
+description: The uat check — a hard merge gate that holds every PR until its paths or a refactor title exempt it, or it carries a trusted UAT passed or no UAT needed applied after the current head was pushed — the trivial-PR rules and their fleet replay, why Dependabot PRs pass with no labels, who applies each sign-off under the session-driven process, the label actor check, the head binding and the push time it reads, the UAT needed label it keeps on PRs waiting for a sign-off, turning the gate off for a repo without UAT, and why the legacy tested alias was dropped.
 resource: src/checks/uat/index.ts
 tags: [pr-policy, uat, sign-off, merge-gate]
 ---
@@ -14,19 +14,22 @@ true.
 
 1. **The PR doesn't need UAT.** Every path is in an exempt category (below), or
    the title is a [`refactor`](#refactors).
-2. **`no UAT needed` is on the PR,** applied by a trusted user.
-3. **`UAT passed` is on the PR,** applied by a trusted user **after the current
-   head was pushed** (see [below](#uat-passed-is-bound-to-the-head)).
+2. **`UAT passed` or `no UAT needed` is on the PR,** applied by a trusted user
+   **after the current head was pushed** (see
+   [below](#sign-offs-are-bound-to-the-head)).
 
 A missing sign-off is a `hold`, never "not required". That's what makes the gate
 race-free: auto-merge can be armed at any point, and the merge still waits here.
-The check never applies or removes a UAT label.
+The check never applies or removes a sign-off label. It keeps its own
+[`UAT needed`](#uat-needed-marks-prs-waiting-for-a-sign-off) label in step with
+the verdict.
 
 ## Who applies the sign-off
 
 Each PR is driven by the agent session that opened it. For a **minor** change
-(a bug fix, a small adjustment) the session tests the changed behaviour itself,
-records what it checked on the PR, and applies `no UAT needed`. For a **major**
+(a bug fix, a small adjustment) the session tests the changed behaviour itself
+on the current head, records what it checked on the PR, and applies
+`no UAT needed`. For a **major**
 change a person tests it, and the session applies `UAT passed` once they OK the
 current head. Agents act with the user's token, so both count as a trusted user
 (see [who can sign off](#who-can-sign-off)).
@@ -123,7 +126,7 @@ person".
 | Trivial                                | `info`: the categories it touches | passes this gate |
 | Trusted sign-off label                 | `info` headline: label and who    | passes this gate |
 | Sign-off label from an untrusted actor | `hold`, plus `info` saying why    | pending          |
-| `UAT passed` from before the head      | `hold`, plus `info` saying why    | pending          |
+| Sign-off applied before the head       | `hold`, plus `info` saying why    | pending          |
 | No sign-off label                      | `hold`                            | pending          |
 
 The caller runs on `labeled` / `unlabeled`, so applying a label re-evaluates
@@ -136,47 +139,69 @@ A repo can choose to drop the gate. Pass `--skip-uat` to the
 CLI, or `selectChecks({ skipUat: true })` to `evaluatePolicy` in the library.
 The `uat` check then doesn't run: it adds no findings and gets no per-check
 status. The title and CI-change checks, and the `CI change approved` trust
-check, are unchanged. The setting belongs to the caller, never the PR. See
+check, are unchanged. The setting belongs to the caller, never the PR. Nothing
+removes a [`UAT needed`](#uat-needed-marks-prs-waiting-for-a-sign-off) left from
+before the switch, so remove those by hand. See
 [decisions.md](../decisions.md).
 
-## `UAT passed` is bound to the head
+## Sign-offs are bound to the head
 
-`UAT passed` says a person tested the code, so it counts only when it was
-applied **after the current head was pushed**. Any new head needs a person to
-look again, including a clean rebase. Why is in
-[decisions.md](../decisions.md#uat-passed-doesnt-survive-a-new-head).
+`UAT passed` and `no UAT needed` both say the current head was tested: by a
+person, or by the session for a minor change. So each counts only when it was
+applied **after the current head was pushed**. Any new head needs testing
+again, including a clean rebase. A push after the sign-off re-holds the gate
+until whoever tests re-applies the label. Why is in
+[decisions.md](../decisions.md#uat-sign-offs-dont-survive-a-new-head).
 
 The check compares two times GitHub records, never a commit date, which the
 pusher writes and can forge:
 
 - **Applied at:** the time of the label's latest `labeled` event, the same event
-  the [actor check](#who-can-sign-off) reads.
+  the [actor check](#who-can-sign-off) reads. Only removing the label and
+  adding it again moves this time forward: adding a label the PR already has
+  records no event. The stale-label finding says so.
 - **Pushed at:** the later of the PR's latest `head_ref_force_pushed` event and
   the creation of the head commit's earliest check suite. GitHub creates a
   commit's check suites when it is first pushed.
 
 The label must be strictly later. When either time is unknown, the label doesn't
-count, so the gate fails closed. A stale `UAT passed` is set aside before trust
-is judged: the check holds with an `info` finding saying why, and a trusted
-`no UAT needed` beside it still passes. The check never removes the stale
-label.
+count, so the gate fails closed. A stale sign-off is set aside before trust is
+judged: the check holds with an `info` finding saying why, and a current trusted
+sign-off beside it still passes. The check never removes the stale label.
 
 A commit first pushed to another branch has its earliest check suite from that
 first push. So a commit pushed elsewhere, then fast-forwarded onto the PR after
-`UAT passed` was applied, would read as already pushed. A force push is caught
+the sign-off was applied, would read as already pushed. A force push is caught
 by its event.
 
-The push time is read only while `UAT passed` is on the PR. A
-caller passing a facts document sets `headPushedAt` and each sign-off's
-`appliedAt`; without them, `UAT passed` doesn't count.
+The push time is read only while a sign-off is on the PR. A caller passing a
+facts document sets `headPushedAt` and each sign-off's `appliedAt`; without
+them, neither sign-off counts.
 
-### `no UAT needed` isn't bound to the head
+PRs that [need no UAT](#trivial-prs), Dependabot's included, carry no sign-off,
+so the binding never touches them.
 
-A `no UAT needed` applied to an earlier head still counts. It judges what kind
-of change the PR is, not the code it runs, so a push doesn't undo it. The
-session that pushes is the one that applied it, and removes it if a later push
-turns the change into one a person must test. Why is in
-[decisions.md](../decisions.md#no-uat-needed-isnt-bound-to-the-head).
+## `UAT needed` marks PRs waiting for a sign-off
+
+The check applies `UAT needed` while it holds a PR for a sign-off, so people can
+filter for PRs waiting on their UAT. It removes the label once a trusted,
+current `UAT passed` or `no UAT needed` passes the gate, or once the PR no
+longer needs UAT (its paths or title now exempt it). A push that leaves the
+sign-off stale puts it back. The label is the check's own: it is
+[contract](../check-run-contract.md#uat-needed-the-uat-wait-label) and this
+package owns it outright, as it owns `CI approval needed`. Unlike that label it
+isn't an audit record, so it comes off when the gate passes.
+
+**Drafts never carry it.** A draft isn't ready for UAT, so the check removes the
+label when a PR turns draft and adds it when the PR is marked ready, if the gate
+still holds. The gate itself holds a draft just the same; only the label waits.
+A facts document without `draft` reads as ready for review. The caller re-runs
+on `ready_for_review` and `converted_to_draft`, so the label follows the flip.
+
+Adding a label a repo doesn't have creates it, as GitHub does for any label
+added to an issue, with a default colour and no description. With the gate
+[turned off](#repos-without-uat) the check doesn't run, so it never applies or
+removes the label.
 
 ## `tested` no longer counts
 

@@ -123,19 +123,22 @@ describe.each(await transports())('gatherFacts over %s', (_name, makeClient) => 
     ]);
   });
 
-  it('gathers when the head was pushed while a head-bound sign-off is on the PR', async () => {
-    github.responses.set('repos/o/r/pulls/7', { ...PR, labels: [{ name: 'UAT passed' }] });
-    github.responses.set('repos/o/r/pulls/7/files', []);
-    github.responses.set('repos/o/r/issues/7/events', []);
-    github.responses.set('repos/o/r/commits/head1/check-suites', {
-      check_suites: [{ created_at: '2026-10-01T12:00:00Z' }],
-    });
-    const { facts } = await gatherFacts(target());
-    expect(facts.headPushedAt).toBe('2026-10-01T12:00:00.000Z');
-  });
+  it.each(['UAT passed', 'no UAT needed'])(
+    'gathers when the head was pushed while `%s` is on the PR',
+    async (label) => {
+      github.responses.set('repos/o/r/pulls/7', { ...PR, labels: [{ name: label }] });
+      github.responses.set('repos/o/r/pulls/7/files', []);
+      github.responses.set('repos/o/r/issues/7/events', []);
+      github.responses.set('repos/o/r/commits/head1/check-suites', {
+        check_suites: [{ created_at: '2026-10-01T12:00:00Z' }],
+      });
+      const { facts } = await gatherFacts(target());
+      expect(facts.headPushedAt).toBe('2026-10-01T12:00:00.000Z');
+    },
+  );
 
-  it('skips the push-time reads when only a waiver is on the PR', async () => {
-    github.responses.set('repos/o/r/pulls/7', { ...PR, labels: [{ name: 'no UAT needed' }] });
+  it('skips the push-time reads when no head-bound sign-off is on the PR', async () => {
+    github.responses.set('repos/o/r/pulls/7', { ...PR, labels: [{ name: 'contained break' }] });
     github.responses.set('repos/o/r/pulls/7/files', []);
     github.responses.set('repos/o/r/issues/7/events', []);
     const { facts } = await gatherFacts(target());

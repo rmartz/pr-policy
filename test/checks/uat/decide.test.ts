@@ -102,9 +102,10 @@ describe('decideUat — sign-off labels', () => {
     const facts = pr({
       labels: ['UAT passed', 'no UAT needed'],
       signOffs: [
-        { label: 'UAT passed', appliedBy: bot },
-        { label: 'no UAT needed', appliedBy: MAINTAINER },
+        { label: 'UAT passed', appliedBy: bot, appliedAt: AFTER_PUSH },
+        { label: 'no UAT needed', appliedBy: MAINTAINER, appliedAt: AFTER_PUSH },
       ],
+      headPushedAt: PUSHED_AT,
     });
     expect(effects(facts)).toEqual(['info']);
   });
@@ -127,46 +128,57 @@ const appliedAt = (
     ...(headPushedAt === null ? {} : { headPushedAt }),
   });
 
-describe('decideUat — UAT passed is bound to the head', () => {
-  it('passes a `UAT passed` applied after the head was pushed', () => {
-    expect(effects(appliedAt('UAT passed', AFTER_PUSH))).toEqual(['info']);
+describe.each(['UAT passed', 'no UAT needed'])('decideUat — `%s` is bound to the head', (label) => {
+  it('passes when applied after the head was pushed', () => {
+    expect(effects(appliedAt(label, AFTER_PUSH))).toEqual(['info']);
   });
 
-  it('holds a `UAT passed` applied before the head was pushed, and says a person must test again', () => {
-    const { findings } = decideUat(appliedAt('UAT passed', BEFORE_PUSH));
+  it('holds when applied before the head was pushed, and says the head needs testing again', () => {
+    const { findings } = decideUat(appliedAt(label, BEFORE_PUSH));
     expect(findings.map((finding) => finding.effect)).toEqual(['hold', 'info']);
-    expect(findings[1]?.message).toContain("`UAT passed` doesn't count");
+    expect(findings[1]?.message).toContain(`\`${label}\` doesn't count`);
     expect(findings[1]?.message).toContain('before the current head was pushed');
+    expect(findings[1]?.message).toContain('remove the label and apply it again');
   });
 
-  it('holds a `UAT passed` applied in the same instant as the push', () => {
-    expect(effects(appliedAt('UAT passed', PUSHED_AT))).toEqual(['hold', 'info']);
+  it('holds when applied in the same instant as the push', () => {
+    expect(effects(appliedAt(label, PUSHED_AT))).toEqual(['hold', 'info']);
   });
 
-  it('holds a `UAT passed` when the push time is unknown', () => {
-    const { findings } = decideUat(appliedAt('UAT passed', AFTER_PUSH, null));
+  it('holds when the push time is unknown', () => {
+    const { findings } = decideUat(appliedAt(label, AFTER_PUSH, null));
     expect(findings[1]?.message).toContain('the time the current head was pushed is unknown');
   });
 
-  it('holds a `UAT passed` when the time it was applied is unknown', () => {
-    const { findings } = decideUat(appliedAt('UAT passed', undefined));
+  it('holds when the time it was applied is unknown', () => {
+    const { findings } = decideUat(appliedAt(label, undefined));
     expect(findings[1]?.message).toContain('the time it was applied is unknown');
   });
 
-  it('holds a `UAT passed` whose applied time does not parse', () => {
-    expect(effects(appliedAt('UAT passed', 'yesterday'))).toEqual(['hold', 'info']);
+  it('holds when the applied time does not parse', () => {
+    expect(effects(appliedAt(label, 'yesterday'))).toEqual(['hold', 'info']);
+  });
+});
+
+describe('decideUat — stale and current sign-offs together', () => {
+  it.each([
+    ['UAT passed', 'no UAT needed'],
+    ['no UAT needed', 'UAT passed'],
+  ])('passes on a current `%s` beside a stale `%s`', (current, stale) => {
+    const facts = pr({
+      labels: ['UAT passed', 'no UAT needed'],
+      signOffs: [
+        { label: current, appliedBy: MAINTAINER, appliedAt: AFTER_PUSH },
+        { label: stale, appliedBy: MAINTAINER, appliedAt: BEFORE_PUSH },
+      ],
+      headPushedAt: PUSHED_AT,
+    });
+    const { findings } = decideUat(facts);
+    expect(findings.map((finding) => finding.effect)).toEqual(['info']);
+    expect(findings[0]?.message).toContain(`\`${current}\``);
   });
 
-  it('keeps passing a `no UAT needed` applied before the head was pushed', () => {
-    // A waiver judges what kind of change the PR is, not the running code.
-    expect(effects(appliedAt('no UAT needed', BEFORE_PUSH))).toEqual(['info']);
-  });
-
-  it('keeps passing a `no UAT needed` when the push time is unknown', () => {
-    expect(effects(appliedAt('no UAT needed', BEFORE_PUSH, null))).toEqual(['info']);
-  });
-
-  it('passes on a trusted `no UAT needed` beside a stale `UAT passed`', () => {
+  it('holds when both are stale, and says why for each', () => {
     const facts = pr({
       labels: ['UAT passed', 'no UAT needed'],
       signOffs: [
@@ -175,12 +187,83 @@ describe('decideUat — UAT passed is bound to the head', () => {
       ],
       headPushedAt: PUSHED_AT,
     });
-    const { findings } = decideUat(facts);
-    expect(findings.map((finding) => finding.effect)).toEqual(['info']);
-    expect(findings[0]?.message).toContain('`no UAT needed`');
+    expect(effects(facts)).toEqual(['hold', 'info', 'info']);
   });
 
   it('no longer reads the retired `tested` alias', () => {
     expect(effects(appliedAt('tested', AFTER_PUSH))).toEqual(['hold']);
+  });
+});
+
+describe('decideUat — the `UAT needed` label', () => {
+  const edits = (facts: PullRequestFacts) => {
+    const { labelsToAdd, labelsToRemove } = decideUat(facts);
+    return { labelsToAdd, labelsToRemove };
+  };
+  const none = { labelsToAdd: [], labelsToRemove: [] };
+
+  it('adds it while the gate holds a ready PR', () => {
+    expect(edits(pr({ draft: false }))).toEqual({
+      labelsToAdd: ['UAT needed'],
+      labelsToRemove: [],
+    });
+  });
+
+  it('adds it when the draft state is unknown, which reads as ready', () => {
+    expect(edits(pr())).toEqual({ labelsToAdd: ['UAT needed'], labelsToRemove: [] });
+  });
+
+  it('leaves it in place while the gate still holds', () => {
+    expect(edits(pr({ labels: ['UAT needed'] }))).toEqual(none);
+  });
+
+  it('never adds it to a draft, which is not ready for UAT', () => {
+    expect(edits(pr({ draft: true }))).toEqual(none);
+  });
+
+  it('removes it when the PR turns draft', () => {
+    expect(edits(pr({ draft: true, labels: ['UAT needed'] }))).toEqual({
+      labelsToAdd: [],
+      labelsToRemove: ['UAT needed'],
+    });
+  });
+
+  it.each(['UAT passed', 'no UAT needed'])(
+    'removes it once a trusted `%s` passes the gate',
+    (label) => {
+      const facts = appliedAt(label, AFTER_PUSH);
+      expect(edits({ ...facts, labels: [...facts.labels, 'UAT needed'] })).toEqual({
+        labelsToAdd: [],
+        labelsToRemove: ['UAT needed'],
+      });
+    },
+  );
+
+  it('adds it back when a push leaves the sign-off stale', () => {
+    expect(edits(appliedAt('no UAT needed', BEFORE_PUSH))).toEqual({
+      labelsToAdd: ['UAT needed'],
+      labelsToRemove: [],
+    });
+  });
+
+  it('keeps it while the only sign-off is untrusted', () => {
+    const bot: LabelActor = { login: 'app[bot]', type: 'Bot', permission: 'none' };
+    const facts = labelledBy('UAT passed', bot);
+    expect(edits({ ...facts, labels: [...facts.labels, 'UAT needed'] })).toEqual(none);
+  });
+
+  it('removes it when the PR no longer needs UAT', () => {
+    expect(edits(pr({ changedFiles: ['docs/a.md'], labels: ['UAT needed'] }))).toEqual({
+      labelsToAdd: [],
+      labelsToRemove: ['UAT needed'],
+    });
+    expect(edits(pr({ title: 'refactor: split it', labels: ['UAT needed'] }))).toEqual({
+      labelsToAdd: [],
+      labelsToRemove: ['UAT needed'],
+    });
+  });
+
+  it('never touches it on a PR that needs no UAT and lacks it', () => {
+    expect(edits(pr({ changedFiles: ['docs/a.md'] }))).toEqual(none);
   });
 });
