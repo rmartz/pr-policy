@@ -19,20 +19,11 @@ const USAGE = `Usage:
          its head, and apply the label edits the checks planned. --json
          prints the evaluation instead and changes nothing.
 --sha    Evaluate every open PR whose head is <sha>, as --pr does. For a
-         caller's "status" trigger, which carries a SHA, not a PR: re-run when
-         pr-lifecycle posts its pr-lifecycle/sign-off status.
+         caller trigger that carries a SHA, not a PR.
 --facts  Evaluate an offline JSON facts document ("-" reads stdin) and print
          the evaluation. Exits 1 only on "failure" ("pending" exits 0).
 --skip-uat
-         Don't run the UAT gate, for a repo with no user-acceptance testing.
---sign-off-status-creators <login,...>
-         GitHub App logins trusted to post the pr-lifecycle/sign-off status,
-         e.g. rmartz-merge-bot[bot]. Exact matches only; github-actions[bot]
-         is refused. A person who could merge is always trusted.
---require-uat-label
-         Hold any PR that carries no UAT label (no UAT needed, UAT pending,
-         UAT ready, UAT passed). Off by default; turn it on once pr-lifecycle,
-         which applies the labels, runs on the default branch.`;
+         Don't run the UAT gate, for a repo with no user-acceptance testing.`;
 
 async function readInput(path: string): Promise<string> {
   if (path !== '-') return readFile(path, 'utf8');
@@ -52,8 +43,6 @@ async function main(argv: readonly string[]): Promise<number> {
       repo: { type: 'string' },
       json: { type: 'boolean' },
       'skip-uat': { type: 'boolean' },
-      'sign-off-status-creators': { type: 'string' },
-      'require-uat-label': { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -65,11 +54,7 @@ async function main(argv: readonly string[]): Promise<number> {
     console.error(USAGE);
     return 2;
   }
-  const checks = selectChecks({
-    skipUat: values['skip-uat'],
-    signOffStatusCreators: (values['sign-off-status-creators'] ?? '').split(','),
-    requireUatLabel: values['require-uat-label'],
-  });
+  const checks = selectChecks({ skipUat: values['skip-uat'] });
 
   if (values.facts !== undefined) {
     const evaluation = await evaluatePolicy(parseFacts(await readInput(values.facts)), checks);

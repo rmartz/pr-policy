@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety and pr-lifecycle, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red and why that doesn't read as running CI, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here, why it reads pr-lifecycle's classification from a commit status, why a named GitHub App may post that status but github-actions[bot] never, why an untrusted status is ignored rather than held on, why requiring a UAT label is opt-in and trusts any actor, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why `UAT passed` is bound to the head, why a v2 status alone decides the UAT sign-off, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here and classifies on its own since pr-lifecycle was retired, why the uat-label check and the tested alias were dropped, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why `UAT passed` is bound to the head and `no UAT needed` isn't, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -20,22 +20,17 @@ two checks are CI-change classification and title-type rules. Every check report
 into one `pr-policy` check-run, so the required-status contract is set once and
 never grows. See [check-run-contract.md](check-run-contract.md).
 
-### Read-only: the reconcilers live in pr-lifecycle
+### Read-only
 
-Overwriting labels another party owns (verdict labels, UAT labels, approval
-freshness) is a larger trust grant than reporting. Reading a UAT label to gate
-the merge is not; see [the UAT gate](#uat-is-a-hard-gate-here-the-lifecycle-stays-in-pr-lifecycle). Those reconcilers live in
-`rmartz/pr-lifecycle`, and so does the classification of which sign-off a PR
-needs. This package writes only labels it owns outright, and only until a repo
-cuts over to pr-lifecycle's sign-off status. It reads exactly one thing
-pr-lifecycle writes, that [status](#the-gate-reads-pr-lifecycles-classification-from-a-commit-status),
-and never pr-lifecycle's labels.
+Overwriting labels another party owns (verdict labels, UAT labels) is a larger
+trust grant than reporting. Reading a UAT label to gate the merge is not; see
+[the UAT gate](#uat-is-a-hard-gate-here). This package writes only the one label
+it owns outright, `CI approval needed`.
 
 ### Title rules block; they never rename
 
 The squash merge uses the PR title, so the title is the commit subject that
-reaches `main`. Native auto-merge, which pr-lifecycle arms, has no merge-time
-step that could rewrite it, and renaming the PR here would rewrite author-owned
+reaches `main`. Native auto-merge has no merge-time step that could rewrite it, and renaming the PR here would rewrite author-owned
 text and re-trigger CI. So the title check stays
 red until the author (or `/fix-review`) fixes the title. See
 [checks/title.md](checks/title.md).
@@ -92,27 +87,6 @@ can't clear a human gate. A `neutral` conclusion avoids the red, but it
 **passes** a required check, which would let the loosening merge unsigned. Pending avoids both: it reads as waiting, and a
 required check that isn't complete still holds the merge.
 
-### A held `pr-policy` doesn't read as running CI
-
-A pending required check could look like "CI still running" to a coordinator
-that waits on running CI before it reviews. That would be a deadlock for a UAT
-hold, because the review is what applies `no UAT needed`. It doesn't happen,
-and the reason is where the held check-run lives.
-
-A `GITHUB_TOKEN` check-run is filed into the head commit's oldest GitHub Actions
-check suite, which has already finished. Posting an `in_progress` check-run
-there doesn't reopen it: the suite stays `completed`. Observed on a PR held by
-`blocked`, the hosting suite was an earlier `pr-policy` run that read
-`completed / cancelled`, and every Actions suite on the commit was `completed`.
-A coordinator that judges CI by suite state, keeping the latest run per
-workflow, sees CI passed. The PR then moves through review and parks on the
-labels behind the hold (`UAT pending`, `CI approval needed`, or the blocking
-label), not on the check.
-
-Nothing here depends on that coordinator. The required check still holds the
-merge for any merge path. This only records why the two don't wait on each
-other.
-
 ### Title rules: `!`, labels, and what counts as CI
 
 The title check expresses the `!` ↔ label reconciliation as findings rather
@@ -137,7 +111,7 @@ waiver is a label, `contained break`, trusted through `signOffState`, because it
 is the same kind of judgment as a UAT waiver. The alternatives were weaker:
 
 - Honoring a human's _removal_ of `breaking change` would read the label's
-  history, which belongs to the lifecycle reconciler, not a content check.
+  history, which a content check doesn't read.
 - A per-repo list of exempt dependencies bakes in "this wrapper never exposes
   its CLI's majors", which is false the first time the CLI's break leaks through
   an input. A per-PR judgment is right each time.
@@ -166,9 +140,10 @@ release helpers). It keeps blocking `package.json` fields outside the
 dependency blocks and build or deploy config (`vercel.json`, `tsconfig.json`):
 each decides what is built, published, or deployed, so it can change what ships.
 
-The `ci` rule exists because rmartz/pr-lifecycle#115 exempts these four types
-from UAT, and the author picks the title. An unchecked type would be a way
-around UAT, so the exemption is only as strong as these rules. The `ci` rule and
+The `ci` rule exists because the review treats these four types as needing no
+UAT, the `uat` check exempts `refactor`, and the author picks the title. An
+unchecked type would be a way around UAT, so the exemption is only as strong as
+these rules. The `ci` rule and
 the UAT trivial-path rules read one module (`src/checks/path-kinds.ts`), so they
 can't drift.
 
@@ -179,7 +154,7 @@ content that no path list captures. Moving modules from a horizontal to a
 vertical layout touches only source and changes nothing; a one-line config edit
 can change everything. A static rule would either block honest chores or pass
 dishonest ones, so the review judges it. The consequence is that a `chore`
-title can't exempt a PR from UAT: pr-lifecycle#115 judges it by the trivial-path
+title can't exempt a PR from UAT: the `uat` check judges it by the trivial-path
 rules, like `feat` or `fix`, and leaves the rest to the review. Those rules
 exempt every non-product path, CI and tooling included, so a `chore` that only
 touches the repo's tooling needs no UAT.
@@ -199,118 +174,38 @@ workflow change to `ci` would suppress its release, and requiring
 - A release type is never told to retitle to `ci`. This covers the
   linter/formatter-bump rule too.
 
-### UAT is a hard gate here; the lifecycle stays in pr-lifecycle
+### UAT is a hard gate here
 
-rmartz/pr-policy#13 settled the split. **pr-lifecycle** moves a PR through
-review, fix, and approval, and arms native auto-merge on `approved`.
-**pr-policy** enforces the hard gates a PR must pass before it merges. An
-approved, armed PR waits on the required `pr-policy` check until every gate is
-satisfied. So the UAT gate moved in from pr-lifecycle as a check that
-[holds by default](checks/uat.md). It still never writes a UAT label.
+pr-policy enforces the hard gates a PR must pass before it merges
+(rmartz/pr-policy#13). An armed PR waits on the required `pr-policy` check until
+every gate is satisfied, so the UAT gate is a check that
+[holds by default](checks/uat.md). It never writes a UAT label.
 
 Static rules **only exempt** a PR from UAT, never require it. Requiring UAT is
-a judgment the review agent makes and expresses through the labels.
+a judgment the session driving the PR makes and expresses through the labels.
 
-### The gate reads pr-lifecycle's classification from a commit status
+### pr-policy classifies on its own
 
-Which human sign-off a PR needs (none, a CI sign-off, or UAT) is decided in one
-place, pr-lifecycle (rmartz/pr-lifecycle#119), and handed to this gate as the
-`pr-lifecycle/sign-off` commit status on the head SHA (rmartz/pr-policy#89).
-Two alternatives were weighed:
+Until pr-policy v3 dropped it, pr-lifecycle decided which sign-off each head needed
+and posted it as a `pr-lifecycle/sign-off` commit status, which the `uat` and
+`ci-change` checks trusted over their own classification (rmartz/pr-policy#89,
+rmartz/pr-policy#109). The fleet retired pr-lifecycle: each PR is now driven by the agent
+session that opened it, which self-reviews, tests, and applies the UAT label
+itself. So the status path, and the `--sign-off-status-creators` trust list it
+needed, were removed, and the checks' own classification is the only path.
 
-- **A classifier library both tools import.** Two pinned copies of one library
-  can drift apart between releases, so the label a PR shows and the gate could
-  disagree.
-- **Reading pr-lifecycle's labels.** Labels are for people, anyone can edit
-  them, and a label isn't tied to a commit, so it can describe an older head.
+The opposite direction, rmartz/pr-policy#85, would have removed the fallback
+and made the status mandatory. It was closed in favour of this.
 
-A commit status is tied to its SHA by GitHub, so a push can never leave the gate
-reading an old classification, with no timestamp to get right. The gate still
-checks who posted it ([below](#a-named-github-app-may-post-the-status-github-actionsbot-never)),
-and an unknown format version holds. pr-lifecycle judges whether a `no UAT
-needed` waiver is current (`v1`'s `waiver=`), because only it can verify a clean
-rebase, and under `v2` it reports the whole UAT sign-off
-([below](#a-v2-status-alone-decides-the-uat-sign-off)).
+Two things went with it:
 
-The gate keeps what blocks a merge directly: the title rules (whose
-type-versus-paths rules are what make a title type trustworthy to classify on),
-dependency and merge-target rules, and who applied a person's sign-off. Its own
-classification stays as the fallback while no status is present, so each repo
-cuts over when its pr-lifecycle starts posting; rmartz/pr-policy#85 removes the
-fallback.
+- **The `uat-label` check.** It held a PR with no UAT label, which only worked
+  while pr-lifecycle kept exactly one on every PR. Nothing does now, and the
+  `uat` gate already holds a PR that needs a sign-off and lacks one.
+- **`escalation needed` as a blocking label.** pr-lifecycle was its only writer.
 
-### A named GitHub App may post the status; `github-actions[bot]` never
-
-The status counts when a `User` who could merge posted it, or a GitHub App the
-caller names by exact login in `sign-off-status-creators` (rmartz/pr-policy#97).
-The fleet runs pr-lifecycle with an App token, not a personal one, so trusting
-only people would reject every status it posts.
-
-The protection is the token, not the account type. A dedicated App's token can
-only be minted by a workflow holding that App's private key, a secret, just as a
-personal token is. `github-actions[bot]` is different: any workflow in the repo
-can post as it with its `GITHUB_TOKEN`, including one a PR adds, so it can never
-be trusted, and the option refuses it rather than leaving that to the caller.
-Matching is exact and case-sensitive, with no globs, so the caller names the one
-identity it means.
-
-The list belongs to the caller, like `skip-uat`, never to the PR. It is a list
-rather than one login so pr-lifecycle can move to its own App (planned, to tell
-its activity from the merge bot's) by changing an input, with no pr-policy
-release, and so a repo can trust both during the switch. It covers only the
-status: a person's sign-off labels still need a person, because an App applying
-`UAT passed` would claim testing nobody did.
-
-The library and CLI name no App by default, so the package stays generic.
-pr-policy-action defaults its input to `rmartz-pr-lifecycle[bot]`, the fleet's
-pr-lifecycle App, so the two sides match with no configuration
-(rmartz/pr-policy#101).
-
-### An untrusted status is ignored, not held on
-
-A `pr-lifecycle/sign-off` status from a creator the caller doesn't trust is
-treated as **no status**: the checks classify the PR themselves and add an
-`info` finding naming the creator and the input that trusts it
-(rmartz/pr-policy#101). Holding on it, as before, failed closed in the wrong
-place:
-
-- pr-lifecycle's identity is set in one workflow and the trust list in another,
-  so they drift: secrets seeded before the pr-policy caller is updated, a repo
-  bootstrapped with one side, a switch to a new App.
-- Once they drift, every PR holds, including the PR that fixes the list, because
-  pr-policy runs from the base branch. Only an admin bypass recovers.
-  rmartz/merge-safety nearly hit this during the fleet rollout.
-
-Ignoring is as safe as holding while the fallback classification exists: an
-ignored status can't loosen anything, because the PR is judged exactly as if
-pr-lifecycle hadn't posted. A forged `requirement=none` therefore can't pass a
-code change. A status from a **trusted** creator that the gate can't use (an
-unknown version or key, a state other than `success`) still holds: that is
-pr-lifecycle and pr-policy disagreeing about the contract, not about trust.
-
-This depends on the fallback. rmartz/pr-policy#85 removes it, after which
-"ignore" would have to become "hold" again, so #85 must not ship until the
-pr-policy-action default is released and pinned fleet-wide.
-
-### Every PR can be required to carry a UAT label: opt-in, from any actor
-
-With `requireUatLabel`, the [`uat-label`](checks/uat-label.md) check holds any
-PR that carries no UAT label, so every merged PR has an explicit, auditable UAT
-determination (rmartz/pr-policy#103). Two choices make it safe:
-
-- **Presence trusts any actor.** pr-lifecycle writes these labels as
-  `github-actions[bot]`, so requiring a trusted person would reject all of them.
-  Presence only adds a requirement and never passes a PR: the UAT gate still
-  decides with its own trust rule. So an untrusted label can't loosen anything.
-- **It is opt-in.** On by default, it would hold every PR in a repo whose
-  pr-lifecycle isn't running yet, including the PR that adds pr-lifecycle,
-  because pr-policy runs from the base branch: the same lockout as an untrusted
-  sign-off status. A repo turns it on once its pr-lifecycle caller is on the
-  default branch.
-
-It runs even when the UAT gate is skipped, because pr-lifecycle records
-`no UAT needed` in such a repo, and that is the determination it checks. A
-missing label is a `hold`, not a `block`: it clears once pr-lifecycle runs.
+`CI approval needed` is unchanged: this package always wrote it while no status
+was present, and now always does.
 
 ### UAT is only for the product's user-facing behaviour
 
@@ -373,10 +268,9 @@ lookup (a non-collaborator's 404) is `none`, so the gate fails closed.
 
 ### A blocking label holds, from anyone
 
-`do not merge`, `dnm`, `blocked`, and `escalation needed` are enforced here
-because `pr-policy` is the one required check every merge path waits on. Only the
-coordinator honored them before, so a person or native auto-merge could merge
-past them. The label is a fact about the PR's current state, so it fits "content,
+`do not merge`, `dnm`, and `blocked` are enforced here because `pr-policy` is
+the one required check every merge path waits on, so neither a person nor
+auto-merge can merge past them. The label is a fact about the PR's current state, so it fits "content,
 not history".
 
 It is a `hold`, not a `block`: a person put the label on, and only a person
@@ -431,17 +325,10 @@ check is the only one. See [checks/base-branch.md](checks/base-branch.md).
 
 ### `UAT passed` doesn't survive a new head
 
-A new head needs a person to look again. `UAT passed` (and `tested`) counts only
-when it was applied after the current head was pushed (rmartz/pr-policy#85). That
-holds even for a verified clean rebase, which carries an approval across in
-pr-lifecycle: an approval judges the diff, but UAT judges the running code, and a
-rebase changes the code it runs with.
-
-pr-policy enforces the binding itself rather than leaving it to pr-lifecycle.
-After a clean rebase the approval carries over and the PR stays armed, and
-pr-policy re-runs on `synchronize`. Reading the label alone, it could pass on the
-stale `UAT passed` before pr-lifecycle replaced it, and the PR would merge in
-that window.
+A new head needs a person to look again. `UAT passed` counts only when it was
+applied after the current head was pushed (rmartz/pr-policy#85). That holds even
+for a clean rebase: an approval judges the diff, but UAT judges the running
+code, and a rebase changes the code it runs with.
 
 The push time must be one the author can't forge, so it comes from GitHub's own
 records (the force-push event and the head's earliest check suite), never a
@@ -449,38 +336,23 @@ commit date. Like who applied a label, when they applied it is a fact about the
 label on the PR now, so the rule stays inside "content, not history". See
 [checks/uat.md](checks/uat.md#uat-passed-is-bound-to-the-head).
 
-`no UAT needed` isn't bound: pr-lifecycle keeps a stale waiver off an armed PR.
+### `no UAT needed` isn't bound to the head
 
-This binding now applies under a `v1` status or none. A `v2` status
-[decides the UAT sign-off alone](#a-v2-status-alone-decides-the-uat-sign-off).
+A waiver judges what kind of change the PR is (a bug fix the session tested
+itself, a change with nothing user-facing), not the code it runs. A push that
+keeps the PR that kind of change leaves the judgment true, and re-applying the
+label after every fix push would be noise. pr-lifecycle used to strip a stale
+waiver; now the session that drives the PR, which applied the label, removes it
+if a later push makes the change one a person must test. Binding it to the head
+would be a gate-model change, not part of removing pr-lifecycle.
 
-### A `v2` status alone decides the UAT sign-off
+### `tested` was dropped with pr-lifecycle
 
-pr-lifecycle resolves the UAT sign-off from more than labels
-(rmartz/pr-lifecycle#141): people's labels, the review agent's `uat` verdict
-records, and a `UAT passed` carried over a verified clean update or kept by a
-review's `uat: unchanged` attestation. Re-judging only the labels here couldn't
-follow that. It would hold every PR the agent waived, because the only `no UAT
-needed` on it is the one pr-lifecycle writes as a `Bot`, and every pass it
-carried over. So a `v2` status reports the outcome as `signoff=waived`,
-`passed`, or `absent`, and the `uat` check trusts it alone, reading no UAT label
-(rmartz/pr-policy#109).
-
-This is safe because the trust boundary moves to the status creator, whose rule
-is unchanged: a `User` who could merge, or an App named in
-`sign-off-status-creators`, never `github-actions[bot]`. pr-lifecycle already
-checks author trust, head binding and carry-over for both labels and verdict
-records, and the App it posts as already arms and merges PRs, so trusting its
-report grants it nothing new. The window that made pr-policy bind `UAT passed`
-itself doesn't reopen: a status is tied to its SHA, so a new head carries no
-`v2` status until pr-lifecycle posts one, and until then the check falls back
-to the labels with their binding.
-
-The CI sign-off is unchanged. `CI change approved` is the human act the CI gate
-exists to require, so it is still read through `signOffState` under any status.
-`v1` is still accepted, exactly as before, so the release is a minor and the
-fleet can bump pr-policy-action before pr-lifecycle posts `v2`. Dropping `v1` is
-a later breaking change.
+`tested` was read as an alias of `UAT passed` while pr-lifecycle renamed it
+across the fleet. With pr-lifecycle retired nothing writes it, and the session
+applies `UAT passed` directly. The major release that removed the status path
+was the cheapest point to drop it: a PR that still carries only `tested` waits
+for `UAT passed`, which a head-bound sign-off needs after any push anyway.
 
 ## Open
 

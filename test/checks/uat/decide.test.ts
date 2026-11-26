@@ -79,7 +79,7 @@ describe('decideUat — a refactor passes without a label', () => {
 });
 
 describe('decideUat — sign-off labels', () => {
-  it.each(['UAT passed', 'tested', 'no UAT needed'])('passes on a trusted `%s`', (label) => {
+  it.each(['UAT passed', 'no UAT needed'])('passes on a trusted `%s`', (label) => {
     const { findings } = decideUat(labelledBy(label, MAINTAINER));
     expect(findings.map((finding) => finding.effect)).toEqual(['info']);
     expect(findings[0]?.headline).toBe(true);
@@ -100,9 +100,9 @@ describe('decideUat — sign-off labels', () => {
   it('passes when any one of several sign-offs is trusted', () => {
     const bot: LabelActor = { login: 'app[bot]', type: 'Bot', permission: 'none' };
     const facts = pr({
-      labels: ['tested', 'no UAT needed'],
+      labels: ['UAT passed', 'no UAT needed'],
       signOffs: [
-        { label: 'tested', appliedBy: bot },
+        { label: 'UAT passed', appliedBy: bot },
         { label: 'no UAT needed', appliedBy: MAINTAINER },
       ],
     });
@@ -128,19 +128,16 @@ const appliedAt = (
   });
 
 describe('decideUat — UAT passed is bound to the head', () => {
-  it.each(['UAT passed', 'tested'])('passes a `%s` applied after the head was pushed', (label) => {
-    expect(effects(appliedAt(label, AFTER_PUSH))).toEqual(['info']);
+  it('passes a `UAT passed` applied after the head was pushed', () => {
+    expect(effects(appliedAt('UAT passed', AFTER_PUSH))).toEqual(['info']);
   });
 
-  it.each(['UAT passed', 'tested'])(
-    'holds a `%s` applied before the head was pushed, and says a person must test again',
-    (label) => {
-      const { findings } = decideUat(appliedAt(label, BEFORE_PUSH));
-      expect(findings.map((finding) => finding.effect)).toEqual(['hold', 'info']);
-      expect(findings[1]?.message).toContain(`\`${label}\` doesn't count`);
-      expect(findings[1]?.message).toContain('before the current head was pushed');
-    },
-  );
+  it('holds a `UAT passed` applied before the head was pushed, and says a person must test again', () => {
+    const { findings } = decideUat(appliedAt('UAT passed', BEFORE_PUSH));
+    expect(findings.map((finding) => finding.effect)).toEqual(['hold', 'info']);
+    expect(findings[1]?.message).toContain("`UAT passed` doesn't count");
+    expect(findings[1]?.message).toContain('before the current head was pushed');
+  });
 
   it('holds a `UAT passed` applied in the same instant as the push', () => {
     expect(effects(appliedAt('UAT passed', PUSHED_AT))).toEqual(['hold', 'info']);
@@ -161,8 +158,7 @@ describe('decideUat — UAT passed is bound to the head', () => {
   });
 
   it('keeps passing a `no UAT needed` applied before the head was pushed', () => {
-    // Its staleness is pr-lifecycle's job: the waiver carries across exactly
-    // the rebases an approval does.
+    // A waiver judges what kind of change the PR is, not the running code.
     expect(effects(appliedAt('no UAT needed', BEFORE_PUSH))).toEqual(['info']);
   });
 
@@ -184,15 +180,7 @@ describe('decideUat — UAT passed is bound to the head', () => {
     expect(findings[0]?.message).toContain('`no UAT needed`');
   });
 
-  it('passes on a fresh `tested` beside a stale `UAT passed`', () => {
-    const facts = pr({
-      labels: ['UAT passed', 'tested'],
-      signOffs: [
-        { label: 'UAT passed', appliedBy: MAINTAINER, appliedAt: BEFORE_PUSH },
-        { label: 'tested', appliedBy: MAINTAINER, appliedAt: AFTER_PUSH },
-      ],
-      headPushedAt: PUSHED_AT,
-    });
-    expect(decideUat(facts).findings[0]?.message).toContain('`tested`');
+  it('no longer reads the retired `tested` alias', () => {
+    expect(effects(appliedAt('tested', AFTER_PUSH))).toEqual(['hold']);
   });
 });

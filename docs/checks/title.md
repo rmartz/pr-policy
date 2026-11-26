@@ -1,7 +1,7 @@
 ---
 type: Library
 title: Title-type rules
-description: The title check — the Conventional-Commit grammar a squash title must meet, the rule that a WIP-marked PR must be a draft, the breaking-marker and label consistency rules, the dependency-major rule and its `contained break` waiver, dependency major bumps as breaking changes, when ci-typing is required or only recommended, the paths a docs, refactor, test, or ci PR may change, why pr-lifecycle's UAT exemption depends on them, and why chore has no path rule, why a shipped reusable workflow is product code, and the release-please exemption. Violations block until the title is edited; the check never renames a PR.
+description: The title check — the Conventional-Commit grammar a squash title must meet, the rule that a WIP-marked PR must be a draft, the breaking-marker and label consistency rules, the dependency-major rule and its `contained break` waiver, dependency major bumps as breaking changes, when ci-typing is required or only recommended, the paths a docs, refactor, test, or ci PR may change, why the UAT gate's `refactor` exemption depends on them, and why chore has no path rule, why a shipped reusable workflow is product code, and the release-please exemption. Violations block until the title is edited; the check never renames a PR.
 resource: src/checks/title/index.ts
 tags: [pr-policy, title, conventional-commits, releases]
 ---
@@ -105,17 +105,19 @@ about what the PR touches (`src/checks/title/type-paths.ts`):
 `refactor` and `test` may both change docs alongside their main change: Markdown
 is always allowed and is never counted as a test, even under a test directory.
 
-**pr-lifecycle's UAT exemption depends on these rules.** rmartz/pr-lifecycle#115
-exempts a PR from UAT by its title type (`docs`, `test`, `refactor`, `ci`), and
-trusts the type only because these four rules make it truthful. The author picks
+**The UAT gate's `refactor` exemption depends on these rules.** The
+[`uat` check](uat.md#refactors) exempts a `refactor` PR by its title type, and
+the review leans on `docs`, `test`, and `ci` the same way. The type is trusted
+only because these four rules make it truthful. The author picks
 the title, and is often an agent, so loosening any of them also loosens UAT.
 
 **`chore` has no path rule.** "Changes no behaviour" is a judgement about
 content, not paths: moving modules from a horizontal to a vertical layout
 touches source without changing behaviour, and a one-line config edit can change
 it. The review owns that judgement. Because nothing here checks it, a `chore`
-title is not a UAT exemption: pr-lifecycle judges a `chore` PR by the
-trivial-path rules, like `feat` or `fix`, and otherwise leaves it to the review.
+title is not a UAT exemption: the [`uat` check](uat.md) judges a `chore` PR by
+the trivial-path rules, like `feat` or `fix`, and otherwise leaves it to the
+review.
 Those rules exempt every path that isn't the product's user-facing behaviour,
 CI and tooling included, so a `chore` that only touches tooling needs no UAT.
 

@@ -7,13 +7,9 @@ import {
   DNM_LABEL,
   DO_NOT_MERGE_LABEL,
   EPIC_LABEL,
-  ESCALATION_NEEDED_LABEL,
-  LEGACY_UAT_PASSED_LABEL,
   NO_UAT_NEEDED_LABEL,
   CONTAINED_BREAK_LABEL,
   PR_POLICY_CHECK_NAME,
-  SIGN_OFF_STATUS_CONTEXT,
-  UAT_LABELS,
   UAT_PASSED_LABEL,
 } from '../src/contract.js';
 
@@ -25,10 +21,6 @@ describe('external contract names', () => {
     expect(PR_POLICY_CHECK_NAME).toBe('pr-policy');
   });
 
-  it("pins pr-lifecycle's sign-off status context", () => {
-    expect(SIGN_OFF_STATUS_CONTEXT).toBe('pr-lifecycle/sign-off');
-  });
-
   it('pins the CI merge-gate labels', () => {
     expect(CI_APPROVAL_NEEDED_LABEL).toBe('CI approval needed');
     expect(CI_CHANGE_APPROVED_LABEL).toBe('CI change approved');
@@ -36,19 +28,7 @@ describe('external contract names', () => {
 
   it('pins the UAT sign-off labels', () => {
     expect(UAT_PASSED_LABEL).toBe('UAT passed');
-    expect(LEGACY_UAT_PASSED_LABEL).toBe('tested');
     expect(NO_UAT_NEEDED_LABEL).toBe('no UAT needed');
-  });
-
-  it("pins pr-lifecycle's UAT status labels, read for presence", () => {
-    expect(UAT_LABELS).toEqual([
-      'no UAT needed',
-      'UAT pending',
-      'UAT ready',
-      'UAT passed',
-      'tested',
-      'ready for UAT',
-    ]);
   });
 
   it('pins the breaking-waiver label', () => {
@@ -59,8 +39,7 @@ describe('external contract names', () => {
     expect(DO_NOT_MERGE_LABEL).toBe('do not merge');
     expect(DNM_LABEL).toBe('dnm');
     expect(BLOCKED_LABEL).toBe('blocked');
-    expect(ESCALATION_NEEDED_LABEL).toBe('escalation needed');
-    expect(BLOCKING_LABELS).toEqual(['do not merge', 'dnm', 'blocked', 'escalation needed']);
+    expect(BLOCKING_LABELS).toEqual(['do not merge', 'dnm', 'blocked']);
   });
 
   it('pins the epic label', () => {

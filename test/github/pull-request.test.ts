@@ -28,7 +28,6 @@ function labeled(name: string, login: string, at: string) {
 beforeEach(() => {
   github.reset();
   github.responses.set('repos/o/r/pulls/7', PR);
-  github.responses.set('repos/o/r/commits/head1/statuses', []);
   github.responses.set('repos/o/r/compare/main...head1', { merge_base_commit: { sha: 'base1' } });
 });
 
@@ -101,30 +100,6 @@ describe.each(await transports())('gatherFacts over %s', (_name, makeClient) => 
     expect(facts.changedFiles).toEqual(['src/a.ts', 'docs/a.md']);
   });
 
-  it('gathers pr-lifecycle sign-off status on the head', async () => {
-    github.responses.set('repos/o/r/pulls/7/files', []);
-    github.responses.set('repos/o/r/commits/head1/statuses', [
-      {
-        context: 'pr-lifecycle/sign-off',
-        state: 'success',
-        description: 'v1 requirement=ci',
-        creator: { login: 'bot', type: 'Bot' },
-      },
-    ]);
-    const { facts } = await gatherFacts(target());
-    expect(facts.signOffStatus).toEqual({
-      state: 'success',
-      description: 'v1 requirement=ci',
-      creator: { login: 'bot', type: 'Bot', permission: 'none' },
-    });
-  });
-
-  it('leaves the sign-off status absent when pr-lifecycle posted none', async () => {
-    github.responses.set('repos/o/r/pulls/7/files', []);
-    const { facts } = await gatherFacts(target());
-    expect(facts).not.toHaveProperty('signOffStatus');
-  });
-
   it('gathers who applied each sign-off label', async () => {
     github.responses.set('repos/o/r/pulls/7', { ...PR, labels: [{ name: 'UAT passed' }] });
     github.responses.set('repos/o/r/pulls/7/files', []);
@@ -149,7 +124,7 @@ describe.each(await transports())('gatherFacts over %s', (_name, makeClient) => 
   });
 
   it('gathers when the head was pushed while a head-bound sign-off is on the PR', async () => {
-    github.responses.set('repos/o/r/pulls/7', { ...PR, labels: [{ name: 'tested' }] });
+    github.responses.set('repos/o/r/pulls/7', { ...PR, labels: [{ name: 'UAT passed' }] });
     github.responses.set('repos/o/r/pulls/7/files', []);
     github.responses.set('repos/o/r/issues/7/events', []);
     github.responses.set('repos/o/r/commits/head1/check-suites', {

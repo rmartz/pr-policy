@@ -49,19 +49,16 @@ Invariants that hold whatever a future change looks like:
   required-status migration.
 - **Read-only.** A check never renames the PR, edits its body, or overrides
   another party's labels. The only labels this package writes are ones it owns
-  outright (`CI approval needed`). Reconcilers belong in `rmartz/pr-lifecycle`.
+  outright (`CI approval needed`). A reconciler doesn't belong in this package.
 - **Never `CI change approved`.** This package never applies it. That label is
   the human act the CI gate exists to require.
 - **Waiting on a human is a `hold`, never a `block`.** A human-gated finding
   leaves `pr-policy` pending; red is reserved for problems the author can fix.
 - **Content, not history.** A check's input is the PR's current state: its
   content, and who applied each sign-off label on it. If a rule needs review
-  history, it belongs to the lifecycle reconciler.
+  history, it doesn't belong here.
 - **A sign-off counts only from someone who could merge.** Read every human
-  sign-off label through `signOffState` (`src/sign-off.ts`). The one exception
-  is UAT under a `v2` status: the `uat` check reads no label and trusts the
-  sign-off the trusted status creator reports
-  ([why](docs/decisions.md#a-v2-status-alone-decides-the-uat-sign-off)).
+  sign-off label through `signOffState` (`src/sign-off.ts`).
 
 ## Adding a CI-change indicator
 
@@ -118,8 +115,10 @@ something.
 - **PR lifecycle labels:** [pr-lifecycle.yml](.github/workflows/pr-lifecycle.yml)
   runs `rmartz/pr-lifecycle-action` without arming, with `uat: 'off'` matching
   `skip-uat`: it keeps each PR's lifecycle labels current, marks every PR
-  `no UAT needed`, and posts the `pr-lifecycle/sign-off` status (as the
-  `rmartz-pr-lifecycle` App, which the `pr-policy` caller trusts).
+  `no UAT needed`, and posts the `pr-lifecycle/sign-off` status, which
+  pr-policy no longer reads. pr-lifecycle is being retired fleet-wide, so this
+  workflow, and the caller's `status` trigger and `sign-off-status-creators`
+  input, go in the pr-policy-action follow-up and the fleet rollout.
   `bot-automerge.yml` still does the merging.
 
 ## Common commands

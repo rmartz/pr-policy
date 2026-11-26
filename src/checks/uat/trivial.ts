@@ -5,8 +5,8 @@
  * and repo metadata. These rules
  * only ever **exempt**: a PR is trivial when every path it touches falls in an
  * exempt category, and a single path outside them leaves the gate holding. They
- * never add a requirement; the review agent's judgment, expressed through the
- * labels, covers that. The path kinds themselves live in ../path-kinds.ts,
+ * never add a requirement; the judgment of the session driving the PR,
+ * expressed through the labels, covers that. The path kinds themselves live in ../path-kinds.ts,
  * shared with the title check. Replay against merged fleet PRs is recorded in
  * docs/checks/uat.md.
  */

@@ -12,13 +12,6 @@
  */
 export const PR_POLICY_CHECK_NAME = 'pr-policy';
 
-/**
- * The commit status pr-lifecycle posts on each head with its classification of
- * the sign-off that head needs. Read here, never written; pr-lifecycle owns the
- * name and the description format (rmartz/pr-lifecycle#119).
- */
-export const SIGN_OFF_STATUS_CONTEXT = 'pr-lifecycle/sign-off';
-
 /** The merge-gate label the CI-change check applies to an unsigned loosening. */
 export const CI_APPROVAL_NEEDED_LABEL = 'CI approval needed';
 
@@ -30,36 +23,11 @@ export const CI_CHANGE_APPROVED_LABEL = 'CI change approved';
 
 /**
  * The UAT sign-offs, read and never written. `UAT passed` is a person's
- * statement that they tested the PR; `tested` is its name until the fleet rename
- * finishes. `no UAT needed` is a waiver from the review
- * agent or a person.
+ * statement that they tested the PR's current head. `no UAT needed` is a waiver
+ * from the session that tested a minor change, or a person.
  */
 export const UAT_PASSED_LABEL = 'UAT passed';
-export const LEGACY_UAT_PASSED_LABEL = 'tested';
 export const NO_UAT_NEEDED_LABEL = 'no UAT needed';
-
-/**
- * pr-lifecycle's UAT status labels, written by pr-lifecycle and read here only
- * for the opt-in `uat-label` presence check: `UAT pending` while UAT is
- * waiting, `UAT ready` once the PR is ready to test. `ready for UAT` is the
- * older name of `UAT ready`.
- */
-export const UAT_PENDING_LABEL = 'UAT pending';
-export const UAT_READY_LABEL = 'UAT ready';
-export const LEGACY_UAT_READY_LABEL = 'ready for UAT';
-
-/**
- * Every label that records a UAT determination on a PR, current and legacy
- * names alike. The `uat-label` check passes when any one is present.
- */
-export const UAT_LABELS = [
-  NO_UAT_NEEDED_LABEL,
-  UAT_PENDING_LABEL,
-  UAT_READY_LABEL,
-  UAT_PASSED_LABEL,
-  LEGACY_UAT_PASSED_LABEL,
-  LEGACY_UAT_READY_LABEL,
-] as const;
 
 /**
  * A person's judgment that a dependency major bump doesn't reach this package's
@@ -76,7 +44,6 @@ export const CONTAINED_BREAK_LABEL = 'contained break';
 export const SIGN_OFF_LABELS = [
   CI_CHANGE_APPROVED_LABEL,
   UAT_PASSED_LABEL,
-  LEGACY_UAT_PASSED_LABEL,
   NO_UAT_NEEDED_LABEL,
   CONTAINED_BREAK_LABEL,
 ] as const;
@@ -89,13 +56,7 @@ export const SIGN_OFF_LABELS = [
 export const DO_NOT_MERGE_LABEL = 'do not merge';
 export const DNM_LABEL = 'dnm';
 export const BLOCKED_LABEL = 'blocked';
-export const ESCALATION_NEEDED_LABEL = 'escalation needed';
-export const BLOCKING_LABELS = [
-  DO_NOT_MERGE_LABEL,
-  DNM_LABEL,
-  BLOCKED_LABEL,
-  ESCALATION_NEEDED_LABEL,
-] as const;
+export const BLOCKING_LABELS = [DO_NOT_MERGE_LABEL, DNM_LABEL, BLOCKED_LABEL] as const;
 
 /**
  * Marks a PR as an epic: a long-running feature branch that other PRs may merge

@@ -8,7 +8,7 @@ Documentation for `@rmartz/pr-policy`, written in
 [Open Knowledge Format](okf-format.md).
 
 - [What pr-policy is](overview.md): the question it answers, the one check-run
-  it posts, and how it differs from merge-safety and pr-lifecycle.
+  it posts, and how it differs from merge-safety.
 - [The check-run and label contract](check-run-contract.md): the external names
   this package is bound to, what failure, pending, and success mean, and why
   the verdict is mirrored to a commit status.

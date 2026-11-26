@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: The check-run and label contract
-description: The external names pr-policy is bound to — the pr-policy check-run and its mirrored commit status, the pr-lifecycle/sign-off status it reads and its v1 and v2 formats, the CI gate labels, the UAT sign-off labels and the UAT determination labels, the breaking-waiver label, the blocking labels, and the epic label — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
+description: The external names pr-policy is bound to — the pr-policy check-run and its mirrored commit status, the CI gate labels, the UAT sign-off labels, the breaking-waiver label, the blocking labels, and the epic label — what its failure, pending, and success states mean, which checks report into it, and why there is exactly one check-run.
 tags: [pr-policy, contract, labels, check-run, commit-status]
 ---
 
@@ -46,8 +46,7 @@ Findings come from these checks, in this order:
 [`merge-block`](checks/merge-block.md),
 [`base-branch`](checks/base-branch.md), [`title`](checks/title.md),
 [`ci-change`](checks/ci-change.md), [`uat`](checks/uat.md) (unless the
-repo [turns UAT off](checks/uat.md#repos-without-uat)),
-[`uat-label`](checks/uat-label.md) (only when the caller opts in), and
+repo [turns UAT off](checks/uat.md#repos-without-uat)), and
 [`dependabot`](checks/dependabot.md). A PR waiting on
 both a CI sign-off and UAT holds twice, and the title reads "Waiting on 2 human
 sign-offs".
@@ -85,73 +84,11 @@ check reports into it rather than posting its own, so adding a check never
 requires a ruleset edit in every consumer. `repo-hygiene` bundles its checks
 behind a single status for the same reason.
 
-## `pr-lifecycle/sign-off`: the classification the gate reads
-
-Read-only here. **This package never posts it.** rmartz/pr-lifecycle posts this
-commit status on every head with its classification of the human sign-off that
-head needs, and the [`uat`](checks/uat.md#pr-lifecycles-sign-off-status) and
-[`ci-change`](checks/ci-change.md) checks gate on it. The context name and the
-description format belong to pr-lifecycle (its `docs/sign-off-status.md`,
-rmartz/pr-lifecycle#119), so both repos must change them together.
-
-The description is a version token followed by `key=value` pairs, in any order.
-The gate accepts formats `v1` and `v2`. They differ only in the key that carries
-the UAT sign-off, and each rejects the other's:
-
-| Key           | Versions | Values                       | Meaning                                                                                   |
-| ------------- | -------- | ---------------------------- | ----------------------------------------------------------------------------------------- |
-| `requirement` | both     | `none`, `ci`, `uat`          | The one sign-off the head needs. Required.                                                |
-| `signoff`     | `v2`     | `waived`, `passed`, `absent` | The UAT sign-off pr-lifecycle resolved for this head. Required with `uat`, else absent.   |
-| `waiver`      | `v1`     | `current`, `stale`, `absent` | Whether a trusted `no UAT needed` counts for this head. Required with `uat`, else absent. |
-| `loosening`   | both     | `yes`, `no` (default)        | Whether the PR loosens CI, so a bundled loosening still needs `CI change approved`.       |
-
-For example `v2 requirement=uat signoff=passed`, `v1 requirement=uat
-waiver=current`, or `v2 requirement=ci loosening=yes`. The gate rejects, and
-holds on, a trusted status in any other form: an unknown version, an unknown or
-repeated key, an unknown value, a sign-off key with a requirement other than
-`uat`, a `uat` requirement without one, a state other than `success`. An
-untrusted creator's status is ignored (below). So pr-lifecycle bumps the version
-for any new key.
-
-`signoff` reports pr-lifecycle's resolved outcome, from people's labels and the
-review agent's verdict records: `waived` (a `no UAT needed`, or a `uat:
-not-needed` verdict, counts for this head), `passed` (a `UAT passed` counts for
-this head, carried over a clean update, or kept by a `uat: unchanged`
-attestation), or `absent`. The [`uat`](checks/uat.md#under-a-v2-status) check
-trusts it alone. How the sign-off was satisfied stays in pr-lifecycle. `v1` is
-accepted until the fleet posts only `v2`, then dropped in a breaking release.
-
-### Who may post it
-
-- A **`User` with write, maintain, or admin** permission, always.
-- A **GitHub App the caller names** in `sign-off-status-creators` (CLI
-  `--sign-off-status-creators`, library `selectChecks({ signOffStatusCreators })`),
-  by its exact, case-sensitive login, such as `rmartz-pr-lifecycle[bot]`. It
-  must be reported as a `Bot`. The library and CLI default names none;
-  pr-policy-action's input defaults to `rmartz-pr-lifecycle[bot]`, the fleet's
-  pr-lifecycle App, and an explicit empty value trusts only people.
-- **Never `github-actions[bot]`.** Any workflow in the repo can post as it with
-  its `GITHUB_TOKEN`, so a status from it is never trusted, and the option
-  refuses it as an entry.
-
-A status from any other creator is **ignored**, not held on: the checks judge
-the PR as if no status were posted, and an `info` finding names the creator and
-the input that trusts it. So it can't loosen anything, and a mismatch between
-pr-lifecycle's identity and the trust list can't lock the repo
-([why](decisions.md#an-untrusted-status-is-ignored-not-held-on)). A status from
-a trusted creator that the gate can't use (an unknown version or key, a state
-other than `success`) still holds. Moving pr-lifecycle to a different App is a
-change to the caller's input, with no pr-policy release. The option covers only
-this status: the human sign-off labels still need a trusted `User`.
-
 ## `CI approval needed`: the CI merge-gate label
 
-Owned by the [CI-change check](checks/ci-change.md) until a repo cuts over to
-pr-lifecycle's sign-off status; from then on pr-lifecycle writes it, and this
-package edits it no more on a PR that carries the status. It is applied when a
-workflow change is classified as loosening or ambiguous, and it stays on after
-sign-off as the audit record. The coordinator's gate model already parks
-a PR carrying it until `CI change approved` is also present. While it is present
+Owned outright by the [CI-change check](checks/ci-change.md), the only label
+this package writes. It is applied when a workflow change is classified as
+loosening or ambiguous, and it stays on after sign-off as the audit record. While it is present
 without the sign-off, the CI-change check reports a `hold`, leaving `pr-policy`
 pending.
 
@@ -163,23 +100,14 @@ only when a user with write, maintain, or admin permission applied it (see
 [who can sign off](checks/uat.md#who-can-sign-off)). The check re-runs on
 `labeled`, so applying it clears the finding.
 
-## `UAT passed`, `tested`, and `no UAT needed`: the UAT sign-offs
+## `UAT passed` and `no UAT needed`: the UAT sign-offs
 
-Read-only here. **This package never applies or removes them.** Any one of them,
+Read-only here. **This package never applies or removes them.** Either one,
 applied by a trusted user, passes the [UAT gate](checks/uat.md). `UAT passed`
-is a person's statement that they tested the PR's current head, so it (and
-`tested`) counts only when applied after that head was pushed. `tested` is its
-old name, read until the fleet finishes the rename. `no UAT needed` is a waiver
-from the review agent or a person, and isn't bound to a head.
-
-## `UAT pending`, `UAT ready`, and the other UAT labels: the determination
-
-Read-only here. **This package never applies or removes them;** pr-lifecycle
-does. With the opt-in [`uat-label`](checks/uat-label.md) check on, a PR must
-carry at least one of `no UAT needed`, `UAT pending`, `UAT ready`, `UAT passed`,
-or the legacy `tested` / `ready for UAT` (`UAT_LABELS` in `src/contract.ts`).
-Presence counts from any actor, because it never passes a PR on its own: the
-UAT gate above still decides.
+is the statement that a person tested the PR's current head, so it counts only
+when applied after that head was pushed. `no UAT needed` is a waiver for a
+change that needs no user testing, and isn't bound to a head. The legacy alias
+`tested` is [no longer read](checks/uat.md#tested-no-longer-counts).
 
 ## `contained break`: the dependency-major waiver
 
@@ -189,12 +117,11 @@ wrapper Action that absorbs its CLI's major. Applied by a trusted user, it
 clears the [title check](checks/title.md#waiving-a-dependency-major)'s
 dependency-major rule, so the PR releases without `!`. It waives nothing else.
 
-## `do not merge`, `dnm`, `blocked`, and `escalation needed`: the blocking labels
+## `do not merge`, `dnm`, and `blocked`: the blocking labels
 
 Read-only here. **This package never applies or removes them.** While any one is
 on the PR, the [merge-block check](checks/merge-block.md) holds `pr-policy`
-pending. Other parties key off the same names: the coordinator's `/merge`
-dispatch skips them, and pr-lifecycle writes `escalation needed`.
+pending.
 
 ## `epic`: the accumulator label
 

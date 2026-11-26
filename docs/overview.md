@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: What pr-policy is
-description: The suite of read-only PR content classifiers behind the single required pr-policy check-run — what each check judges, what it may write, and where it sits relative to merge-safety and pr-lifecycle.
+description: The suite of read-only PR content classifiers behind the single required pr-policy check-run — what each check judges, what it may write, and where it sits relative to merge-safety.
 tags: [pr-policy, overview, merge-gate]
 ---
 
@@ -42,8 +42,7 @@ run it through the `rmartz/pr-policy-action` Action: see
 | --------------- | ------------------------------------------------ | -------------------------------------------------------- |
 | `merge-safety`  | Is this PR safe to merge against _current_ base? | Classifier of the PR's **freshness against its base**    |
 | **`pr-policy`** | Is this PR's **own content** acceptable?         | Classifier. Reports only; never overrides another party. |
-| `pr-lifecycle`  | Where is this PR in its review lifecycle?        | Reconciler of lifecycle labels; arms auto-merge          |
 
-The three are independent. None imports another or reads another's outputs.
+The two are independent. None imports another or reads another's outputs.
 They meet only in the consumer's ruleset, where each is a required check. The
 boundary reasoning is in [decisions.md](decisions.md).

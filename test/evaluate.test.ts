@@ -111,68 +111,56 @@ describe('selectChecks', () => {
   });
 });
 
-describe('selectChecks — sign-off status creators', () => {
-  const fromApp = (description: string): PullRequestFacts => ({
+describe('evaluatePolicy — Dependabot PRs with the UAT gate on', () => {
+  // bot-automerge merges these unreviewed, and nothing labels them, so each has
+  // to pass every check, `uat` included, with no labels at all.
+  const manifest = (dependencies: Record<string, string>) =>
+    JSON.stringify({ name: 'app', scripts: { dev: 'next dev' }, dependencies });
+  const workflow = (checkout: string) =>
+    `on: pull_request\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@${checkout}\n      - run: pnpm test\n`;
+  const dependabot = (facts: Partial<PullRequestFacts>): PullRequestFacts => ({
     ...pr,
-    signOffStatus: {
-      state: 'success',
-      description,
-      creator: { login: 'rmartz-merge-bot[bot]', type: 'Bot', permission: 'none' },
-    },
-  });
-  const creators = { signOffStatusCreators: ['rmartz-merge-bot[bot]'] };
-
-  it('lets the UAT check trust a status from a named App', async () => {
-    const report = await evaluatePolicy(fromApp('v1 requirement=none'), selectChecks(creators));
-    expect(report.outcome).toBe('success');
+    author: { login: 'dependabot[bot]', type: 'Bot' },
+    labels: [],
+    ...facts,
   });
 
-  it('lets the CI-change check trust a status from a named App', async () => {
-    const report = await evaluatePolicy(fromApp('v1 requirement=ci'), selectChecks(creators));
-    expect(report.findings.map((finding) => `${finding.check}:${finding.effect}`)).toContain(
-      'ci-change:hold',
-    );
-    expect(report.findings.map((finding) => finding.check)).not.toContain('title');
-  });
-
-  it('ignores the same App status when the caller names no App, and falls back', async () => {
-    // A code change the fallback holds stays held; the status can't open the gate.
-    const report = await evaluatePolicy(fromApp('v1 requirement=none'), selectChecks());
-    expect(report.outcome).toBe('pending');
-    expect(report.findings.map((finding) => finding.message).join('\n')).toContain(
-      'Ignored the `pr-lifecycle/sign-off` status on this head, because it was posted by `rmartz-merge-bot[bot]`',
-    );
-  });
-
-  it('passes a trivial PR on the fallback despite an untrusted App status', async () => {
-    const trivial = { ...fromApp('v1 requirement=uat waiver=absent'), changedFiles: ['docs/a.md'] };
-    expect((await evaluatePolicy(trivial, selectChecks())).outcome).toBe('success');
-  });
-
-  it('keeps human sign-off labels on people only, whatever Apps are named', async () => {
-    const facts: PullRequestFacts = {
-      ...fromApp('v1 requirement=uat waiver=current'),
-      labels: ['no UAT needed'],
-      signOffs: [
+  it('passes an npm production bump', async () => {
+    const facts = dependabot({
+      title: 'fix(deps): bump next from 16.0.1 to 16.0.2',
+      body: 'Bumps [next](https://github.com/vercel/next.js) from 16.0.1 to 16.0.2.',
+      changedFiles: ['package.json', 'pnpm-lock.yaml'],
+      manifestChanges: [
         {
-          label: 'no UAT needed',
-          appliedBy: { login: 'rmartz-merge-bot[bot]', type: 'Bot', permission: 'none' },
+          path: 'package.json',
+          baseText: manifest({ next: '^16.0.1' }),
+          headText: manifest({ next: '^16.0.2' }),
         },
       ],
-    };
-    const report = await evaluatePolicy(facts, selectChecks(creators));
-    expect(report.outcome).toBe('pending');
-  });
-
-  it('refuses github-actions[bot] as a creator', () => {
-    expect(() => selectChecks({ signOffStatusCreators: ['github-actions[bot]'] })).toThrow(
-      'any workflow in the repo can post as it',
+    });
+    const report = await evaluatePolicy(facts, selectChecks());
+    expect(report.outcome).toBe('success');
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({
+        check: 'uat',
+        message: 'No UAT needed: the PR changes only dependencies.',
+      }),
     );
   });
 
-  it('keeps skipUat working alongside named creators', () => {
-    const names = selectChecks({ ...creators, skipUat: true }).map((check) => check.name);
-    expect(names).not.toContain('uat');
-    expect(names).toContain('ci-change');
+  it('passes a GitHub Actions pin bump', async () => {
+    const facts = dependabot({
+      title: 'chore(deps): bump actions/checkout from 4 to 5',
+      body: 'Bumps [actions/checkout](https://github.com/actions/checkout) from 4 to 5.',
+      changedFiles: ['.github/workflows/ci.yml'],
+      workflowChanges: [
+        { path: '.github/workflows/ci.yml', baseText: workflow('v4'), headText: workflow('v5') },
+      ],
+    });
+    const report = await evaluatePolicy(facts, selectChecks());
+    expect(report.outcome).toBe('success');
+    expect(report.findings).toContainEqual(
+      expect.objectContaining({ check: 'uat', message: 'No UAT needed: the PR changes only ci.' }),
+    );
   });
 });

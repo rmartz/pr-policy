@@ -41,30 +41,6 @@ describe('parseFacts', () => {
     expect(parseFacts(raw)).not.toHaveProperty('headPushedAt');
   });
 
-  it('accepts pr-lifecycle sign-off status, and leaves it absent otherwise', () => {
-    const signOffStatus = {
-      state: 'success',
-      description: 'v1 requirement=none',
-      creator: { login: 'reed', type: 'User', permission: 'admin' },
-    };
-    const raw = JSON.stringify({ title: 't', labels: [], changedFiles: [], signOffStatus });
-    expect(parseFacts(raw).signOffStatus).toEqual(signOffStatus);
-    const plain = JSON.stringify({ title: 't', labels: [], changedFiles: [] });
-    expect(parseFacts(plain)).not.toHaveProperty('signOffStatus');
-  });
-
-  it('rejects a sign-off status without a description', () => {
-    const raw = JSON.stringify({
-      title: 't',
-      labels: [],
-      changedFiles: [],
-      signOffStatus: { state: 'success' },
-    });
-    expect(() => parseFacts(raw)).toThrow(
-      'facts.signOffStatus.state / description must be strings',
-    );
-  });
-
   it('accepts the description and author when present', () => {
     const author = { login: 'dependabot[bot]', type: 'Bot' };
     const raw = JSON.stringify({
@@ -153,12 +129,12 @@ describe('parseFacts', () => {
     ],
     [
       'a sign-off with an unknown permission',
-      '{"title":"t","labels":[],"changedFiles":[],"signOffs":[{"label":"tested","appliedBy":{"login":"a","type":"User","permission":"owner"}}]}',
+      '{"title":"t","labels":[],"changedFiles":[],"signOffs":[{"label":"UAT passed","appliedBy":{"login":"a","type":"User","permission":"owner"}}]}',
       'facts.signOffs[0].appliedBy.permission',
     ],
     [
       'a non-string sign-off time',
-      '{"title":"t","labels":[],"changedFiles":[],"signOffs":[{"label":"tested","appliedAt":1}]}',
+      '{"title":"t","labels":[],"changedFiles":[],"signOffs":[{"label":"UAT passed","appliedAt":1}]}',
       'facts.signOffs[0].appliedAt must be a string',
     ],
     [
