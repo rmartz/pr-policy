@@ -444,3 +444,21 @@ describe('round-6 regressions on a shipped workflow', () => {
     expect(judge(shipped('./lint.sh'), head).holds).toEqual(['failure-ignored']);
   });
 });
+
+describe('round-7 fixes on a shipped workflow', () => {
+  const shipped = (command: string) =>
+    `on: workflow_call\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    steps:\n      - name: Lint\n        run: ${command}\n`;
+
+  it('keeps a removed bound the walk found before an edit it cannot classify', () => {
+    const base = shipped(
+      '|\n          eslint a --max-warnings 0\n          eslint b --max-warnings 0',
+    );
+    const head = shipped('|\n          eslint a\n          eslint b --max-warnings 0 --fix');
+    expect(judge(base, head).holds).toEqual(['threshold-loosened']);
+  });
+
+  it('holds a new || even when an exit 0 was dropped in the same edit', () => {
+    const base = shipped('|\n          if [ -z "$X" ]; then exit 0; fi\n          pnpm test');
+    expect(judge(base, shipped('pnpm test || echo failed')).holds).toEqual(['failure-ignored']);
+  });
+});

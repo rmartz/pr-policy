@@ -103,6 +103,11 @@ only when a user with write, maintain, or admin permission applied it (see
 [who can sign off](checks/uat.md#who-can-sign-off)). The check re-runs on
 `labeled`, so applying it clears the finding.
 
+When a person expressly asks an agent session for a targeted CI change, that
+session may apply the label itself, quoting the request. It still counts only
+under the same write-permission rule, and pr-policy itself still never applies
+it.
+
 ## `UAT passed` and `no UAT needed`: the UAT sign-offs
 
 Read-only here. **This package never applies or removes them.** Either one,

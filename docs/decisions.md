@@ -140,8 +140,15 @@ hold, which accepts a gap: a loosening seen only as ambiguous, like an `if:`
 rewritten to match less, passes there. Holding them would gate every product
 edit to the workflow. Every loosening the classifier can read still holds.
 
-An expressly requested CI change needs nothing from pr-policy: the session that
-was asked applies `CI change approved`, quoting the request.
+An expressly requested CI change needs nothing from pr-policy (see
+[`CI change approved`](check-run-contract.md#ci-change-approved-the-human-sign-off)).
+
+The command comparison has known limits that only matter on a shipped
+workflow, where `check-changed` passes: a repeated or commented-out flag, a
+removed `set -e`, a new pipe under the default shell, and the identity of a
+multi-line script that starts with `set …`. They are tracked in
+rmartz/pr-policy#136. Each one only holds less on a shipped workflow, so they
+were accepted, documented, rather than holding the whole change back.
 
 ### Waiting on a sign-off is pending, not red
 

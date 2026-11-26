@@ -35,8 +35,10 @@ const SWALLOWS_FAILURE = [
   /\bset\s+\+o\s+errexit\b/gm,
 ];
 
-function swallowCount(command: string): number {
-  return SWALLOWS_FAILURE.reduce((total, idiom) => total + (command.match(idiom)?.length ?? 0), 0);
+/** Whether any one swallowing form occurs more often in `head` than in `base`. */
+function swallowAdded(base: string, head: string): boolean {
+  const count = (command: string, form: RegExp) => command.match(form)?.length ?? 0;
+  return SWALLOWS_FAILURE.some((form) => count(head, form) > count(base, form));
 }
 
 /**
@@ -181,8 +183,18 @@ function judgeRun(base: string, head: string): Verdict[] {
     }
     // A loosening it can read still holds as one, even on a shipped workflow,
     // wherever it sits relative to the edit the walk couldn't classify.
-    return [
+    const loosenings = [
+      ...verdicts.filter((verdict) => 'looser' in verdict),
       ...knownLoosenings(before, after),
+    ];
+    const seen = new Set<string>();
+    return [
+      ...loosenings.filter((verdict) => {
+        const detail = 'detail' in verdict ? verdict.detail : '';
+        if (seen.has(detail)) return false;
+        seen.add(detail);
+        return true;
+      }),
       { changed: "The command changed in a way that isn't known to be stricter." },
     ];
   }
@@ -198,7 +210,7 @@ export function runIndicators(file: string, location: string, base: Node, head: 
       ambiguousIndicator('check-changed', file, at, 'The `run:` command was added or removed.'),
     ];
   }
-  if (swallowCount(head) > swallowCount(base)) {
+  if (swallowAdded(base, head)) {
     return [
       looseningIndicator(
         'failure-ignored',

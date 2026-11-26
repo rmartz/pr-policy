@@ -145,7 +145,8 @@ substitution after it could decide the step's status instead, because under
 `bash -e` a failure inside an `&&` list doesn't stop the script. A newly added
 swallowing form (`||`, `exit 0`, `set +e`; see `failure-ignored`) is a
 loosening. A known bound raised or removed, or a strict switch removed, is
-found by flag wherever it sits, even beside an edit the walk can't classify.
+found by flag even beside an edit the walk can't classify (one value per
+flag; repeated and commented-out flags are a known limit, rmartz/pr-policy#136).
 Any other edit is
 `check-changed`. A swallow merely moved onto another command, with none added,
 is `check-changed` too, so it passes on a shipped workflow.
@@ -180,8 +181,11 @@ product change to it, which is the case this rule exists to stop. A loosening
 it can read (a removed step, a raised cap, a swallowed failure, a `strict` or
 bound input default loosened under `on.workflow_call.inputs`) still holds.
 
-Two edits hold on a shipped workflow on purpose, though they are often
-product changes there, because a miss would skip the sign-off. Any newly added
+Every loosening indicator holds on a shipped workflow, including ones that
+are often product changes there: `if-added`, a named step removed
+(`step-removed`), `job-removed`, `needs-reduced`, and `failure-ignored` (a new
+`||`, `exit 0`, or `set +e`). Two of these were chosen on purpose, though they
+are often product changes there, because a miss would skip the sign-off. Any newly added
 swallowing `||` is `failure-ignored`, since it can hide any failure, so
 product shell like `[ -n "$X" ] || X=default` holds. And an unnamed step whose
 executable or subcommand changes (`./deploy.sh` → `bash ./deploy.sh`) reads as
@@ -226,7 +230,8 @@ edit, and on a shipped workflow it passes. Any other change together with a new
 starts with the same executable and subcommand (`pnpm lint`; `pnpm run lint`
 reads the same) and their commands are compared,
 so tightening a bound on an unnamed step isn't read as removing it. Replacing
-`pnpm test` with `pnpm build` is still `step-removed`.
+`pnpm test` with `pnpm build` is still `step-removed`, except in a multi-line
+script that starts with `set …`, whose identity is `set` (rmartz/pr-policy#136).
 
 ## The containment backstop
 
