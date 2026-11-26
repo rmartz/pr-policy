@@ -7,6 +7,7 @@
  * reliably. These helpers are the narrow vocabulary the rules use to walk that
  * tree without reaching for `any`.
  */
+import { parse } from 'yaml';
 
 /** A parsed YAML document node of unknown shape. */
 export type Node = unknown;
@@ -127,4 +128,30 @@ export function normalizeUses(node: Node): Node {
       key === 'uses' && typeof value === 'string' ? stripActionRef(value) : normalizeUses(value);
   }
   return out;
+}
+
+/** Package-runner words skipped when naming a command (`pnpm run test` → `pnpm test`). */
+const RUNNER_WORDS = new Set(['run', 'exec', 'x', 'dlx', '--']);
+
+/**
+ * The executable and subcommand a `run:` command starts with (`pnpm lint`), the
+ * identity a command-keyed step keeps when its arguments are edited.
+ */
+export function commandIdentity(command: string): string {
+  const [executable = '', ...rest] = command.trim().split(/\s+/);
+  // The subcommand directly follows the executable (past runner words); a flag
+  // ends the search, so a flag's value (`--max-warnings 5`) is never taken.
+  const subcommand = rest.find((word) => !RUNNER_WORDS.has(word));
+  return subcommand === undefined || subcommand.startsWith('-')
+    ? executable
+    : `${executable} ${subcommand}`;
+}
+
+/** The parsed document, or `null` when the text isn't YAML. */
+export function parses(text: string): { doc: unknown } | null {
+  try {
+    return { doc: parse(text) };
+  } catch {
+    return null;
+  }
 }

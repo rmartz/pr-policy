@@ -40,11 +40,9 @@ describe('checkStatuses', () => {
   });
 
   it('describes a passing check by its headline', () => {
-    const findings = [
-      { ...finding('ci-change', 'info', 'CI loosening signed off'), headline: true },
-    ];
+    const findings = [{ ...finding('ci-change', 'info', 'CI change signed off'), headline: true }];
     expect(checkStatuses([{ name: 'ci-change' }], findings)[0]?.description).toBe(
-      'CI loosening signed off',
+      'CI change signed off',
     );
   });
 

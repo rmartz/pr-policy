@@ -1,4 +1,7 @@
-import { classifyWorkflowFile } from '../../../../src/checks/ci-change/classify.js';
+import {
+  classifyWorkflowChanges,
+  classifyWorkflowFile,
+} from '../../../../src/checks/ci-change/classify.js';
 import type { Indicator } from '../../../../src/checks/ci-change/indicators.js';
 
 /**
@@ -56,4 +59,12 @@ export function edited(find: string, replace: string): string {
     throw new Error(`fixture does not contain: ${find}`);
   }
   return BASE_WORKFLOW.replace(find, replace);
+}
+
+/** The non-holding evidence for an edit of {@link BASE_WORKFLOW}: its strictly-stricter edits. */
+export function strengtheningFor(headText: string): string[] {
+  const { strengthening } = classifyWorkflowChanges([
+    { path: WORKFLOW_PATH, baseText: BASE_WORKFLOW, headText },
+  ]);
+  return (strengthening ?? []).map((indicator: Indicator) => indicator.kind);
 }

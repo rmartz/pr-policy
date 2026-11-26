@@ -121,7 +121,7 @@ export interface Finding {
   effect: FindingEffect;
   /**
    * A short line that can stand as the check-run title when nothing gates —
-   * e.g. "CI loosening signed off". The first headline wins.
+   * e.g. "CI change signed off". The first headline wins.
    */
   headline?: boolean;
 }

@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety, how the CI approval label is reconciled, why a PR waiting on sign-off is pending rather than red, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here and classifies on its own since pr-lifecycle was retired, why the uat-label check and the tested alias were dropped, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why both UAT sign-offs are bound to the head, why pr-policy writes a UAT needed label, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety, how the CI approval label is reconciled, why CI sign-off is needed only for a loosened or changed check and how strictly-stricter edits and shipped reusable workflows are judged, why a PR waiting on sign-off is pending rather than red, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here and classifies on its own since pr-lifecycle was retired, why the uat-label check and the tested alias were dropped, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why both UAT sign-offs are bound to the head, why pr-policy writes a UAT needed label, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -75,6 +75,80 @@ The [`ci-change` check](checks/ci-change.md) follows two policies:
   typing too (the title check owns `ci`-typing and the breaking-marker rules).
   The composition judgment that a loosening must stand alone stays with the
   review.
+
+### CI sign-off only for a loosened or changed check
+
+The fleet's CI sign-off rule asks for `CI change approved` only when a change
+loosens CI or changes what an existing check enforces. A new check, or an
+existing one made strictly stricter, is a strengthening and needs none, even in
+a PR that also changes product code. So
+the [`ci-change` check](checks/ci-change.md) holds on a loosening or ambiguous
+indicator and passes a strengthening, whatever else the PR touches.
+
+Telling "stricter" from "different" is the hard part, and the check only claims
+what a workflow diff can show:
+
+- **Additions are structural.** A new workflow, job, step, or matrix entry adds
+  a check; the containment backstop proves it. Containment also passes a field
+  an existing job or step gained, such as `working-directory:`, which is a gap
+  (rmartz/pr-policy#134).
+- **Stricter edits come from a closed vocabulary.** A lowered `max-warnings`,
+  a raised `fail-under`, `strict` turned on, a lowered `timeout-minutes`. The
+  list is explicit because names lie: `--min-severity` raised reports fewer
+  issues, and `--max-depth` lowered scans less. A bound outside the list holds,
+  whichever way it moved. So does a known bound added where there was none:
+  the value in force before (a tool default or config file) is unknown.
+- **A known direction names a loosening.** The same vocabulary that proves a
+  bound tightened proves one loosened or removed (`threshold-loosened`), a
+  strict switch turned off (`strict-disabled`), and a timeout raised
+  (`timeout-raised`). These are loosening indicators, not ambiguous ones.
+- **A swallowed failure is a loosening.** A command that gains an `||`, an
+  `exit 0` (anywhere, including `then exit 0`), or a `set +e` /
+  `set +o errexit` can now succeed when a check in it fails, so it is
+  `failure-ignored` and holds even on a shipped workflow. Any `||` counts, not
+  only `|| true` (`|| /bin/true` swallows just as well), except one whose right
+  side still fails: `|| exit N` or `|| return N` with N from 1 to 9, or
+  `|| false`.
+- **A pure append adds a check.** A command that is exactly the base, then
+  `&&` and one simple command, still runs the base and still fails the step,
+  so it passes as `check-appended`. Anything after that command (a new line,
+  `;`, `&`, grouping) may decide the status instead, and holds.
+- **Anything else holds.** A rewritten command, a swapped action, or a changed
+  or removed input may tighten or loosen, and a diff can't say which. A false
+  hold costs one label; a false pass skips the sign-off.
+- **A command is compared word by word.** A `run:` value is opaque shell with
+  no tree to compare, so after the YAML is parsed it is split into words (a
+  line break is a word). That is why only the base plus vocabulary edits, or a
+  pure `&&` append, pass: it is a parsed value, not diff text.
+
+A `with:` input an existing step gains passes, like every other field an
+existing step gains, unless it is a known bound: a new `max-lines` may raise
+the value the action defaulted to, so it holds. Holding every gained input
+would cost a label on maintenance such as `cache: pnpm` on
+`actions/setup-node`, while a gained `working-directory:` still passed, so
+gained inputs are treated like every other gained field. The remaining gap for
+all of them is rmartz/pr-policy#134.
+
+Thresholds outside `.github/workflows/**`, such as a repo-hygiene file cap, are
+outside this check's input, so a change to them is never gated here. Widening
+the input would mean reading and comparing each tool's config format.
+
+A shipped reusable workflow (`workflow_call` only, on every side that exists)
+is product code, so only its loosening holds: loosening it still needs the
+sign-off unless the change was expressly requested. Its ambiguous edits don't
+hold, which accepts a gap: a loosening seen only as ambiguous, like an `if:`
+rewritten to match less, passes there. Holding them would gate every product
+edit to the workflow. Every loosening the classifier can read still holds.
+
+An expressly requested CI change needs nothing from pr-policy (see
+[`CI change approved`](check-run-contract.md#ci-change-approved-the-human-sign-off)).
+
+The command comparison has known limits that only matter on a shipped
+workflow, where `check-changed` passes: a repeated or commented-out flag, a
+removed `set -e`, a new pipe under the default shell, and the identity of a
+multi-line script that starts with `set …`. They are tracked in
+rmartz/pr-policy#136. Each one only holds less on a shipped workflow, so they
+were accepted, documented, rather than holding the whole change back.
 
 ### Waiting on a sign-off is pending, not red
 
@@ -167,7 +241,8 @@ workflow change to `ci` would suppress its release, and requiring
 `breaking change` would cut a spurious major. So:
 
 - A `workflow_call`-only workflow is shipped product code, and the title check
-  ignores it. The trigger alone decides this. See
+  ignores it. The `ci-change` check holds only on its loosening. The trigger
+  alone decides this. See
   [checks/title.md](checks/title.md).
 - The coordinator's sibling-rebase signal is path-based, so the `ci` type
   doesn't need to carry it. An own-CI change on a non-release type gets an

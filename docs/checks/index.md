@@ -7,8 +7,10 @@ One page per registered check, each bound to its module under `src/checks/`.
   its `contained break` waiver, the paths a `docs`,
   `refactor`, or `test` PR may change, and why a shipped reusable
   workflow is product code.
-- [CI-change classification](ci-change.md): structural loosening detection over
-  a PR's workflow diff, and the `CI approval needed` merge gate.
+- [CI-change classification](ci-change.md): structural detection of a
+  loosened or changed check in a PR's workflow diff, which strictly-stricter
+  edits pass, how a shipped reusable workflow is judged, and the
+  `CI approval needed` merge gate.
 - [Dependabot claim verification](dependabot.md): for a PR opened by
   Dependabot, the check that its content changes only the updates its
   description claims, per ecosystem, and what is allowed but not yet verified.

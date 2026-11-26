@@ -3,6 +3,7 @@
  * `permissions` and `env` blocks the CI directive calls out as ambiguous.
  */
 import { ambiguousIndicator, looseningIndicator, type Indicator } from './indicators.js';
+import { judgeChanged, judgeRemoved, toIndicator } from './stricter.js';
 import { asArray, asRecord, deepEqual, missingEntries, type Node } from './structure.js';
 
 /**
@@ -161,4 +162,30 @@ export function topLevelIndicators(file: string, base: Node, head: Node): Indica
     );
   }
   return found;
+}
+
+/** The `inputs` a reusable workflow declares under `on.workflow_call`. */
+function callInputsOf(doc: Node): Record<string, Node> {
+  return asRecord(asRecord(triggersOf(doc)?.workflow_call)?.inputs) ?? {};
+}
+
+/**
+ * A reusable workflow's input defaults, read with the stricter vocabulary by
+ * input name: a `strict` default turned off or a `max-warnings` default raised
+ * is a loosening its callers inherit. Only a loosening is reported here; any
+ * other default change is left to the containment backstop.
+ */
+export function callInputIndicators(file: string, base: Node, head: Node): Indicator[] {
+  const before = callInputsOf(base);
+  const after = callInputsOf(head);
+  return Object.entries(before).flatMap(([name, input]) => {
+    const from = asRecord(input)?.default;
+    if (from === undefined) return [];
+    const to = asRecord(after[name])?.default;
+    if (deepEqual(from, to)) return [];
+    const verdict = to === undefined ? judgeRemoved(name, from) : judgeChanged(name, from, to);
+    return verdict && 'looser' in verdict
+      ? [toIndicator(verdict, file, `on.workflow_call.inputs.${name}.default`)]
+      : [];
+  });
 }
