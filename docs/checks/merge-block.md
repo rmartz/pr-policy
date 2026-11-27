@@ -19,8 +19,8 @@ while the PR carries any of these labels:
 
 Because `pr-policy` is a required check, the label stops every merge path: a
 person pressing merge, native auto-merge, and bot-automerge.
-`escalation needed` was a blocking label until its only writer, the retired PR
-automation, went away.
+`escalation needed` was a blocking label until its only writer, the PR
+automation, was retired.
 
 Matching ignores case and treats `-`, `_`, and spaces alike, so `Do Not Merge`,
 `do-not-merge`, and `DO_NOT_MERGE` all count. The finding names each label as
