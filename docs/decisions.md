@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety, how the CI approval label is reconciled, why CI sign-off is needed only for a loosened or changed check and how strictly-stricter edits and shipped reusable workflows are judged, why a PR waiting on sign-off is pending rather than red, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here and classifies on its own since pr-lifecycle was retired, why the uat-label check and the tested alias were dropped, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why both UAT sign-offs are bound to the head, why pr-policy writes a UAT needed label, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety, how the CI approval label is reconciled, why CI sign-off is needed only for a loosened or changed check and how strictly-stricter edits and shipped reusable workflows are judged, why a PR waiting on sign-off is pending rather than red, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here and classifies on its own since the retired PR automation went away, why the uat-label check and the tested alias were dropped, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why both UAT sign-offs are bound to the head, why pr-policy writes a UAT needed label, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -262,10 +262,10 @@ a judgment the session driving the PR makes and expresses through the labels.
 
 ### pr-policy classifies on its own
 
-Until pr-policy v3 dropped it, pr-lifecycle decided which sign-off each head needed
-and posted it as a `pr-lifecycle/sign-off` commit status, which the `uat` and
+Until pr-policy v3 dropped it, the retired PR automation decided which sign-off
+each head needed and posted it as a sign-off commit status, which the `uat` and
 `ci-change` checks trusted over their own classification (rmartz/pr-policy#89,
-rmartz/pr-policy#109). The fleet retired pr-lifecycle: each PR is now driven by the agent
+rmartz/pr-policy#109). The fleet retired that automation: each PR is now driven by the agent
 session that opened it, which self-reviews, tests, and applies the UAT label
 itself. So the status path, and the `--sign-off-status-creators` trust list it
 needed, were removed, and the checks' own classification is the only path.
@@ -276,9 +276,10 @@ and made the status mandatory. It was closed in favour of this.
 Two things went with it:
 
 - **The `uat-label` check.** It held a PR with no UAT label, which only worked
-  while pr-lifecycle kept exactly one on every PR. Nothing does now, and the
-  `uat` gate already holds a PR that needs a sign-off and lacks one.
-- **`escalation needed` as a blocking label.** pr-lifecycle was its only writer.
+  while the retired PR automation kept exactly one on every PR. Nothing does
+  now, and the `uat` gate already holds a PR that needs a sign-off and lacks one.
+- **`escalation needed` as a blocking label.** The retired PR automation was its
+  only writer.
 
 `CI approval needed` is unchanged: this package always wrote it while no status
 was present, and now always does.
@@ -407,7 +408,7 @@ when applied after the current head was pushed (rmartz/pr-policy#87 for
 but UAT judges the running code, and a rebase changes the code it runs with.
 
 `no UAT needed` was first left unbound, as a judgment of what kind of change the
-PR is. pr-lifecycle stripped a stale waiver, and once it was retired the session
+PR is. The retired PR automation stripped a stale waiver, and without it the session
 had to remember to remove one. Under the session-driven process the waiver
 means the session tested a minor change's current head and recorded the
 evidence, which is a statement about the code, like `UAT passed`. Binding it
@@ -429,7 +430,7 @@ label on the PR now, so the rule stays inside "content, not history". See
 
 ### pr-policy labels PRs waiting for UAT
 
-pr-lifecycle kept a visible UAT label on every PR. With it retired, `uat` applies
+The retired PR automation kept a visible UAT label on every PR. Without it, `uat` applies
 `UAT needed` while it holds a PR for a sign-off and removes it when the gate
 passes, so a person can filter for PRs waiting on them. It is reconciled the way
 `CI approval needed` is: a label this package owns outright, computed from the
@@ -441,10 +442,10 @@ re-runs on the draft flip, so skipping drafts costs one condition. The gate stil
 holds a draft; only the label waits. See
 [checks/uat.md](checks/uat.md#uat-needed-marks-prs-waiting-for-a-sign-off).
 
-### `tested` was dropped with pr-lifecycle
+### `tested` was dropped with the retired PR automation
 
-`tested` was read as an alias of `UAT passed` while pr-lifecycle renamed it
-across the fleet. With pr-lifecycle retired nothing writes it, and the session
+`tested` was read as an alias of `UAT passed` while the retired PR automation
+renamed it across the fleet. With that automation gone nothing writes it, and the session
 applies `UAT passed` directly. The major release that removed the status path
 was the cheapest point to drop it: a PR that still carries only `tested` waits
 for `UAT passed`, which a head-bound sign-off needs after any push anyway.

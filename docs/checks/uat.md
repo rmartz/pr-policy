@@ -205,8 +205,8 @@ removes the label.
 
 ## `tested` no longer counts
 
-`tested` was the old name of `UAT passed`, read while pr-lifecycle renamed it
-across the fleet. With pr-lifecycle retired nothing writes it, and the session
+`tested` was the old name of `UAT passed`, read while the retired PR automation
+renamed it across the fleet. With that automation gone nothing writes it, and the session
 that drives each PR applies `UAT passed` directly, so the same major release
 dropped it. An open PR that carries only `tested` holds until `UAT passed` is applied,
 which a head-bound sign-off needs after any push anyway.
