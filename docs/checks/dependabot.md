@@ -87,5 +87,5 @@ The check was replayed read-only over the 100 most recent Dependabot PRs across
 the rmartz fleet, open and merged: npm (pnpm and npm lockfiles), grouped and
 single updates, github-actions, and reusable-workflow bumps. All 100 pass. The
 replay found both truncation cases above: a 19-update group with only its table
-intact (pr-shepherd#423) and a 4-update group that lost its last `Updates` line
-(pr-shepherd#406). The table and group-header forms were added for them.
+intact and a 4-update group that lost its last `Updates` line. The table and
+group-header forms were added for them.
