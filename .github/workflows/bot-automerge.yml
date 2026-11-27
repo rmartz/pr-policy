@@ -49,5 +49,5 @@ jobs:
           # reach main with no push-triggered CI, release, or merge-safety run
           # (rmartz/bot-automerge-action#31). App-authored events do trigger push
           # workflows, and the App has its own rate-limit pool, separate from the
-          # user's (rmartz/scripts#22).
+          # user's.
           token: ${{ steps.app-token.outputs.token }}
