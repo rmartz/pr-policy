@@ -22,3 +22,7 @@ One page per registered check, each bound to its module under `src/checks/`.
   base to merge.
 - [Blocking labels](merge-block.md): the hold `do not merge`, `dnm`, and
   `blocked` put on a PR, and why any actor's label counts.
+- [Auto-merge guard](auto-merge.md): fails `pr-policy` when native auto-merge
+  would merge a change other than the one it was armed on, how a clean branch
+  update or rebase still passes, the arm marker it records, the bot exemption,
+  and the caller triggers it needs.

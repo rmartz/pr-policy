@@ -41,6 +41,35 @@ describe('parseFacts', () => {
     expect(parseFacts(raw)).not.toHaveProperty('headPushedAt');
   });
 
+  it('accepts an auto-merge request, and leaves it absent otherwise', () => {
+    const autoMerge = {
+      enabledBy: { login: 'reed', type: 'User' },
+      enabledAt: '2026-11-01T11:00:00Z',
+      headSha: 'b',
+      headPushedAt: '2026-11-01T10:00:00Z',
+      commits: [{ login: 'dependabot[bot]', verified: true }, { verified: false }],
+      armed: { sha: 'a', at: '2026-11-01T11:00:05Z' },
+      armedChange: 'x',
+      headChange: 'y',
+    };
+    const doc = { title: 't', labels: [], changedFiles: [] };
+    expect(parseFacts(JSON.stringify({ ...doc, autoMerge })).autoMerge).toEqual(autoMerge);
+    expect(parseFacts(JSON.stringify(doc))).not.toHaveProperty('autoMerge');
+  });
+
+  it('rejects a malformed auto-merge request', () => {
+    const doc = { title: 't', labels: [], changedFiles: [] };
+    const bad = (autoMerge: unknown) => () => parseFacts(JSON.stringify({ ...doc, autoMerge }));
+    expect(bad('on')).toThrow('facts.autoMerge must be an object');
+    expect(bad({ headSha: 'b' })).toThrow('facts.autoMerge.enabledBy must be an object');
+    expect(bad({ enabledBy: { login: 'r', type: 'User' } })).toThrow(
+      'facts.autoMerge.headSha must be a string',
+    );
+    expect(bad({ enabledBy: { login: 'r', type: 'User' }, headSha: 'b', armed: {} })).toThrow(
+      'facts.autoMerge.armed.sha / at must be strings',
+    );
+  });
+
   it('accepts the description and author when present', () => {
     const author = { login: 'dependabot[bot]', type: 'Bot' };
     const raw = JSON.stringify({

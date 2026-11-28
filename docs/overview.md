@@ -1,7 +1,7 @@
 ---
 type: Reference
 title: What pr-policy is
-description: The suite of read-only PR content classifiers behind the single required pr-policy check-run — what each check judges, what it may write, and where it sits relative to merge-safety.
+description: The suite of read-only PR content classifiers behind the single required pr-policy check-run — what each check judges, what it may write (its own labels and auto-merge arm marker), and where it sits relative to merge-safety.
 tags: [pr-policy, overview, merge-gate]
 ---
 
@@ -10,7 +10,8 @@ tags: [pr-policy, overview, merge-gate]
 `@rmartz/pr-policy` answers one question about a pull request: **is its content
 acceptable under policy?** Each policy rule is a **check**: a read-only
 classifier over the PR's current title, description, author, labels, and
-changed files (and, for checks that need them, the changed files' contents). Every check's findings are
+changed files (and, for checks that need them, the changed files' contents and
+the PR's auto-merge request). Every check's findings are
 folded into **one** [`pr-policy` check-run](check-run-contract.md).
 
 ## How a PR is evaluated
@@ -18,8 +19,10 @@ folded into **one** [`pr-policy` check-run](check-run-contract.md).
 1. **Gather facts** about the PR's current state (`PullRequestFacts` in
    `src/policy.ts`): title, labels, base branch (and the open PRs that head it),
    changed paths, both sides of every changed
-   workflow file and dependency manifest, and who applied each sign-off label on
-   the PR (`src/github/sign-offs.ts`).
+   workflow file and dependency manifest, who applied each sign-off label on
+   the PR (`src/github/sign-offs.ts`), and, while auto-merge is enabled, when it
+   was enabled, pr-policy's arm record, and the change at both heads
+   (`src/github/auto-merge.ts`).
 2. **Run every registered check** (`CHECKS` in `src/checks/index.ts`). Each one
    returns zero or more findings, each a **block** (fixable problem), a
    **hold** (waiting on a human), or **info**.
@@ -27,7 +30,8 @@ folded into **one** [`pr-policy` check-run](check-run-contract.md).
    check-run `failure`; otherwise any hold makes it pending; otherwise it is
    `success`. See [check-run-contract.md](check-run-contract.md).
 4. **Post the check-run**, mirror it to the `pr-policy` commit status the merge
-   gate relies on, and write any labels a check owns outright. See
+   gate relies on, and write any labels a check owns outright and the
+   auto-merge arm marker comment. See
    [the commit status](check-run-contract.md#the-commit-status-is-what-the-gate-relies-on).
 
 `pr-policy evaluate --pr <n>` runs all four against a live PR (the plumbing

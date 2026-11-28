@@ -11,6 +11,8 @@ import type { PolicyEvaluation } from '../evaluate.js';
 import type { ClientTarget } from './client.js';
 import { clientOf } from './client.js';
 import type { FileChange, OpenPullRequest, PullRequestBase, PullRequestFacts } from '../policy.js';
+import { applyAutoMergeArm, gatherAutoMerge } from './auto-merge.js';
+import type { AutoMergeApi } from './auto-merge.js';
 import { gatherHeadPushedAt } from './head-push.js';
 import { gatherSignOffs } from './sign-offs.js';
 
@@ -25,8 +27,10 @@ interface PrApiShape {
   draft: boolean;
   user: { login: string; type: string };
   head: { sha: string };
-  base: { ref: string; repo: { default_branch: string } };
+  base: { ref: string; sha: string; repo: { default_branch: string } };
   labels: { name: string }[];
+  /** `null` while auto-merge is off. */
+  auto_merge?: AutoMergeApi | null;
 }
 
 interface ChangedFile {
@@ -141,6 +145,8 @@ export async function gatherFacts(
     manifestChanges,
     signOffs: await gatherSignOffs(target, labels),
   };
+  const autoMerge = await gatherAutoMerge(target, view);
+  if (autoMerge !== undefined) facts.autoMerge = autoMerge;
   // Only a head-bound sign-off needs the push time, so most PRs skip the reads.
   if (HEAD_BOUND_SIGN_OFFS.some((label) => labels.includes(label))) {
     const pushedAt = await gatherHeadPushedAt(target, headSha);
@@ -167,7 +173,10 @@ export async function openPullRequestsAtHead(
     .map((pull) => pull.number);
 }
 
-/** Apply the label edits the checks planned (labels this package owns). */
+/**
+ * Apply the edits the checks planned: the labels this package owns, and the
+ * `auto-merge` check's arm record (a marker comment this package owns).
+ */
 export async function applyLabelEdits(
   target: PullRequestTarget,
   evaluation: PolicyEvaluation,
@@ -178,5 +187,8 @@ export async function applyLabelEdits(
   }
   for (const label of evaluation.labelsToRemove) {
     await client.removeLabel(target.repo, target.pr, label);
+  }
+  if (evaluation.autoMergeArm !== undefined) {
+    await applyAutoMergeArm({ ...target, client }, evaluation.autoMergeArm);
   }
 }

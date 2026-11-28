@@ -63,6 +63,63 @@ export interface PullRequestBase {
 }
 
 /**
+ * pr-policy's own record of the head auto-merge was armed on: its latest
+ * unedited arm-marker comment on the PR, written by the same bot that posted
+ * pr-policy's commit status on the SHA it records.
+ */
+export interface ArmRecord {
+  /** The head SHA the marker records. */
+  sha: string;
+  /** When the marker was created (ISO 8601), as GitHub records it. */
+  at: string;
+}
+
+/** One PR commit's GitHub-resolved author and signature verification. */
+export interface CommitAuthorship {
+  /** The author's GitHub login, absent when GitHub can't link one. */
+  login?: string;
+  verified: boolean;
+}
+
+/**
+ * The PR's native auto-merge request, present only while auto-merge is
+ * enabled, plus what the `auto-merge` check needs to tell whether the change
+ * has moved since it was armed.
+ */
+export interface AutoMergeFacts {
+  /** Who enabled auto-merge, as `pull_request.auto_merge.enabled_by` reports it. */
+  enabledBy: PullRequestAuthor;
+  /**
+   * Who authored each of the PR's commits, and whether GitHub verified its
+   * signature. Gathered only when a bot enabled auto-merge, to tell whether
+   * the PR holds only that bot's work.
+   */
+  commits?: readonly CommitAuthorship[];
+  /**
+   * When auto-merge was last enabled (ISO 8601): the latest `auto_*_enabled`
+   * event on the PR. Absent when GitHub records none, so arming is unknown.
+   */
+  enabledAt?: string;
+  /** The head SHA that would merge now. */
+  headSha: string;
+  /**
+   * When the head was pushed, like `PullRequestFacts.headPushedAt` but absent
+   * until the head has a check suite of its own, so a force-push event from an
+   * older head can't date it. Auto-merge enabled after this armed on the head.
+   */
+  headPushedAt?: string;
+  /** pr-policy's latest arm record, if it has written one. */
+  armed?: ArmRecord;
+  /**
+   * The normalized net change at `armed.sha` and at `headSha` (a hash of each
+   * one's merge-base diff, without hunk offsets or blob SHAs). Set only
+   * when the record names a different head; absent when it couldn't be read.
+   */
+  armedChange?: string;
+  headChange?: string;
+}
+
+/**
  * The facts about a pull request that policy checks judge. Every field is a
  * property of the PR's current state — its content and the labels on it, never
  * its review history.
@@ -96,9 +153,12 @@ export interface PullRequestFacts {
    * When the current head was pushed (ISO 8601), from times the author can't
    * forge: the latest force-push event and the head commit's earliest check
    * suite, never a commit date. `gatherFacts` sets it whenever a head-bound
-   * sign-off (`UAT passed`, `no UAT needed`) is on the PR; absent, neither counts.
+   * sign-off (`UAT passed`, `no UAT needed`) is on the PR; absent, neither
+   * counts.
    */
   headPushedAt?: string;
+  /** The auto-merge request, present only while auto-merge is enabled. */
+  autoMerge?: AutoMergeFacts;
 }
 
 /**
@@ -134,6 +194,11 @@ export interface CheckResult {
   findings: readonly Finding[];
   labelsToAdd?: readonly string[];
   labelsToRemove?: readonly string[];
+  /**
+   * A head SHA to record as the one auto-merge is armed on, written as
+   * pr-policy's own marker comment (the `auto-merge` check only).
+   */
+  autoMergeArm?: string;
 }
 
 /**

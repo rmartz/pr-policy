@@ -2,7 +2,8 @@
 
 This repo is the home of `@rmartz/pr-policy`: a suite of **read-only
 classifiers**. Each one judges a fact about a pull request's **own content**
-(its diff, title, description, and changed paths) against policy. Every check
+(its diff, title, description, and changed paths, plus its auto-merge request)
+against policy. Every check
 reports into **one** `pr-policy` check-run, which the consumer's ruleset
 requires. See
 [README.md](README.md) and the [documentation](docs/index.md).
@@ -38,7 +39,7 @@ See [docs/okf-format.md](docs/okf-format.md).
 ## The external names are contracts
 
 `PR_POLICY_CHECK_NAME`, the CI gate labels, the UAT sign-off labels, the
-`UAT needed` label, the breaking-waiver label, the blocking labels, and the epic label (`src/contract.ts`) are read outside this repo. Treat them as frozen;
+`UAT needed` label, the breaking-waiver label, the blocking labels, the epic label, and the auto-merge arm marker tag (`src/contract.ts`) are read outside this repo. Treat them as frozen;
 `test/contract.test.ts` pins them. See
 [docs/check-run-contract.md](docs/check-run-contract.md).
 
@@ -49,13 +50,15 @@ Invariants that hold whatever a future change looks like:
   required-status migration.
 - **Read-only.** A check never renames the PR, edits its body, or overrides
   another party's labels. The only labels this package writes are ones it owns
-  outright (`CI approval needed`, `UAT needed`). A reconciler doesn't belong in this package.
+  outright (`CI approval needed`, `UAT needed`), and the only comment is its own
+  auto-merge arm marker. A reconciler doesn't belong in this package.
 - **Never `CI change approved`.** This package never applies it. That label is
   the human act the CI gate exists to require.
 - **Waiting on a human is a `hold`, never a `block`.** A human-gated finding
   leaves `pr-policy` pending; red is reserved for problems the author can fix.
 - **Content, not history.** A check's input is the PR's current state: its
-  content, and who applied each sign-off label on it. If a rule needs review
+  content, who applied each sign-off label on it, and its current auto-merge
+  request with the head pr-policy recorded it armed on. If a rule needs review
   history, it doesn't belong here.
 - **A sign-off counts only from someone who could merge.** Read every human
   sign-off label through `signOffState` (`src/sign-off.ts`).

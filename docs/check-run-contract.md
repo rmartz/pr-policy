@@ -44,6 +44,7 @@ event on the PR posts a fresh run.
 
 Findings come from these checks, in this order:
 [`merge-block`](checks/merge-block.md),
+[`auto-merge`](checks/auto-merge.md),
 [`base-branch`](checks/base-branch.md), [`title`](checks/title.md),
 [`ci-change`](checks/ci-change.md), [`uat`](checks/uat.md) (unless the
 repo [turns UAT off](checks/uat.md#repos-without-uat)), and
@@ -139,6 +140,13 @@ dependency-major rule, so the PR releases without `!`. It waives nothing else.
 Read-only here. **This package never applies or removes them.** While any one is
 on the PR, the [merge-block check](checks/merge-block.md) holds `pr-policy`
 pending.
+
+## `pr-policy:auto-merge-armed`: the arm marker tag
+
+The tag that opens the [auto-merge guard](checks/auto-merge.md)'s marker
+comment, `<!-- pr-policy:auto-merge-armed <sha> -->`. Only this package reads
+it, but one release writes what the next reads, so renaming it strands every
+armed PR, which then fails closed.
 
 ## `epic`: the accumulator label
 

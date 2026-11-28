@@ -20,8 +20,11 @@ export interface GitHubClient {
   list(path: string, key?: string): Promise<unknown[] | null>;
   /** GET a file's raw text from the contents API, or `null` on failure. */
   getRaw(path: string): Promise<string | null>;
-  /** POST or PATCH a JSON body, returning the response JSON, or `null` on failure. */
-  send(method: 'POST' | 'PATCH', path: string, body: unknown): Promise<unknown>;
+  /**
+   * POST or PATCH a JSON body, or DELETE (no body), returning the response JSON
+   * (`{}` for an empty response), or `null` on failure.
+   */
+  send(method: 'POST' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<unknown>;
   /** Add labels to an issue or PR. Soft-fails, like the vendored helper. */
   addLabels(repo: string, issue: number, labels: readonly string[]): Promise<void>;
   /** Remove one label from an issue or PR. Soft-fails, like the vendored helper. */
@@ -55,11 +58,14 @@ export function createGhClient(options: { cwd?: string } = {}): GitHubClient {
       );
     },
     async send(method, path, body) {
-      const out = await ghCall(
-        { argv: ['gh', 'api', '-X', method, path, '--input', '-'], stdin: JSON.stringify(body) },
-        null,
-        call,
-      );
+      const transport =
+        body === undefined
+          ? { argv: ['gh', 'api', '-X', method, path] }
+          : {
+              argv: ['gh', 'api', '-X', method, path, '--input', '-'],
+              stdin: JSON.stringify(body),
+            };
+      const out = await ghCall(transport, null, call);
       if (out === null) return null;
       return out.trim() === '' ? {} : (JSON.parse(out) as unknown);
     },

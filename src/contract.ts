@@ -75,6 +75,13 @@ export const BLOCKING_LABELS = [DO_NOT_MERGE_LABEL, DNM_LABEL, BLOCKED_LABEL] as
 export const EPIC_LABEL = 'epic';
 
 /**
+ * The tag that opens pr-policy's auto-merge arm marker comment
+ * (`<!-- pr-policy:auto-merge-armed <sha> -->`). One release writes it and the
+ * next reads it, so renaming it strands every armed PR, which then fails closed.
+ */
+export const AUTO_MERGE_ARM_MARKER = 'pr-policy:auto-merge-armed';
+
+/**
  * Labels the title check reads and never writes. They belong to the review and
  * release flow: `breaking change` must agree with the title's `!`, which is what
  * the release and merge-safety read; `hotfix` implies one; and release-please
