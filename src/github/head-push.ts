@@ -28,11 +28,15 @@ function times(stamps: readonly string[]): number[] {
 
 /**
  * When the head was pushed, or `undefined` when GitHub records neither a force
- * push nor a check suite for it. A failed read throws.
+ * push nor a check suite for it. With `requireSuite`, also `undefined` while
+ * the head has no check suite yet: a force-push event alone may belong to an
+ * older head, which would date a later normal push too early. A failed read
+ * throws.
  */
 export async function gatherHeadPushedAt(
   target: PullRequestTarget,
   headSha: string,
+  options: { requireSuite?: boolean } = {},
 ): Promise<string | undefined> {
   const events = (await list(target, `repos/${target.repo}/issues/${target.pr}/events`)) as {
     event: string;
@@ -47,6 +51,7 @@ export async function gatherHeadPushedAt(
     'check_suites',
   )) as { created_at: string }[];
   const suites = times(checkSuites.map((suite) => suite.created_at));
+  if (options.requireSuite === true && suites.length === 0) return undefined;
   const candidates = [...forcePushes];
   if (suites.length > 0) candidates.push(Math.min(...suites));
   if (candidates.length === 0) return undefined;

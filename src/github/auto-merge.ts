@@ -15,6 +15,7 @@ import { markerBody, parseMarker } from '../checks/auto-merge/marker.js';
 import { PR_POLICY_CHECK_NAME } from '../contract.js';
 import type { ArmRecord, AutoMergeFacts, CommitAuthorship, PullRequestAuthor } from '../policy.js';
 import { clientOf } from './client.js';
+import { gatherHeadPushedAt } from './head-push.js';
 import type { PullRequestTarget } from './pull-request.js';
 
 /** The REST `pull_request.auto_merge` object, reduced to what is read. */
@@ -172,6 +173,10 @@ export async function gatherAutoMerge(
   autoMerge.enabledAt = enabledAt;
   const armed = await gatherArmRecord(target, enabledAt);
   if (armed !== undefined) autoMerge.armed = armed;
+  if (armed === undefined) {
+    const pushedAt = await gatherHeadPushedAt(target, autoMerge.headSha, { requireSuite: true });
+    if (pushedAt !== undefined) autoMerge.headPushedAt = pushedAt;
+  }
 
   const record = currentRecord(autoMerge);
   if (record !== undefined && record.sha !== autoMerge.headSha) {
@@ -186,11 +191,14 @@ export async function gatherAutoMerge(
 }
 
 /**
- * Record `sha` as the armed head: post a new marker, then delete the markers
- * this same identity posted before. A new comment rather than an edit, because
- * an edited marker is never trusted. Another bot's comment is never touched. A
- * failed post leaves the old record, so a later moved head blocks rather than
- * passes; a failed delete leaves an older marker that the newer one outranks.
+ * Record `sha` as the armed head: post a new marker, then delete this same
+ * identity's older markers, keeping the newest one before it. A new marker is
+ * only trusted once pr-policy's status lands on its SHA (after this, in the
+ * same run), so the kept one is the fallback if that never happens: the next
+ * run still compares against it rather than finding no record. A new comment
+ * rather than an edit, because an edited marker is never trusted. Another
+ * bot's comment is never touched. A failed post leaves the old record; a
+ * failed delete leaves an older marker that the newer ones outrank.
  */
 export async function applyAutoMergeArm(target: PullRequestTarget, sha: string): Promise<void> {
   const client = clientOf(target);
@@ -206,8 +214,11 @@ export async function applyAutoMergeArm(target: PullRequestTarget, sha: string):
   }
   const self = posted.user?.login;
   if (self === undefined) return;
-  for (const marker of markers((previous ?? []) as IssueComment[])) {
-    if (marker.id === posted.id || marker.login !== self) continue;
+  const own = markers((previous ?? []) as IssueComment[]).filter(
+    (marker) => marker.login === self && marker.id !== posted.id,
+  );
+  // Newest first, so the first is the fallback to keep.
+  for (const marker of own.slice(1)) {
     await client.send('DELETE', `repos/${target.repo}/issues/comments/${marker.id}`);
   }
 }

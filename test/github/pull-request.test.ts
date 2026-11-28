@@ -146,7 +146,7 @@ describe.each(await transports())('gatherFacts over %s', (_name, makeClient) => 
     expect(facts.headPushedAt).toBeUndefined();
   });
 
-  it('gathers a person-enabled auto-merge, with the push time it arms against', async () => {
+  it('gathers a person-enabled auto-merge, with the head push time it arms against', async () => {
     github.responses.set('repos/o/r/pulls/7', {
       ...PR,
       auto_merge: { enabled_by: { login: 'reed', type: 'User' } },
@@ -164,8 +164,10 @@ describe.each(await transports())('gatherFacts over %s', (_name, makeClient) => 
       enabledBy: { login: 'reed', type: 'User' },
       enabledAt: '2026-10-01T13:00:00Z',
       headSha: 'head1',
+      headPushedAt: '2026-10-01T12:00:00.000Z',
     });
-    expect(facts.headPushedAt).toBe('2026-10-01T12:00:00.000Z');
+    // The UAT push time is a separate fact, read only for a head-bound sign-off.
+    expect(facts.headPushedAt).toBeUndefined();
   });
 
   it('skips the push-time reads for a bot PR a bot armed', async () => {
@@ -179,7 +181,7 @@ describe.each(await transports())('gatherFacts over %s', (_name, makeClient) => 
     ]);
     const { facts } = await gatherFacts(target());
     expect(facts.autoMerge?.enabledBy.type).toBe('Bot');
-    expect(facts.headPushedAt).toBeUndefined();
+    expect(facts.autoMerge?.headPushedAt).toBeUndefined();
   });
 
   it('gathers a default base without looking up the PRs it heads', async () => {

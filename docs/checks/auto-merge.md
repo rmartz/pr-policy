@@ -48,8 +48,10 @@ issue event. The check works from that time and its own record:
    wrote.
 2. **Enabled after the push.** With no current record, auto-merge enabled
    strictly after the current head was pushed was armed on that head. The push
-   time is the one the [UAT head binding](uat.md#sign-offs-are-bound-to-the-head)
-   uses, from records the author can't forge. The check arms on the head and
+   time comes from records the author can't forge, like the
+   [UAT head binding](uat.md#sign-offs-are-bound-to-the-head)'s, but stricter:
+   the head must have a check suite of its own, so a force-push event from an
+   older head can't date a later normal push. The check arms on the head and
    writes the record. A record, when there is one, wins over this rule, so a
    head moved to a commit pushed earlier elsewhere still compares.
 3. **Otherwise it blocks.** Auto-merge enabled before the head was pushed, with
@@ -59,6 +61,12 @@ issue event. The check works from that time and its own record:
    would merge an unreviewed head. Re-enable once CI has started on the head:
    its push time is read from its first check suite, which GitHub creates a
    moment after the push.
+
+Rule 2 knows when auto-merge was enabled, not what the person enabling it had
+reviewed: a push that lands just before arming is armed too. Arm against the
+reviewed SHA so GitHub refuses a moved head:
+`gh pr merge --auto --match-head-commit <sha>`, or GraphQL
+`enablePullRequestAutoMerge` with `expectedHeadOid`.
 
 ### Why a comment, and why it can't be forged
 
@@ -79,22 +87,31 @@ A marker is trusted only when all three hold:
   collaborator who edits a bot's comment moves its `updated_at`, which is why
   the check posts a new marker rather than editing the old one.
 - **Its author posted pr-policy's commit status on the SHA it records.** That
-  ties the marker to pr-policy's own identity (`github-actions[bot]` under the
-  Action, the App under a hosted caller) without configuration, so another bot
-  that echoes text a user wrote, such as an assistant App, can't plant one. A
+  ties the marker to pr-policy's identity (`github-actions[bot]` under the
+  Action, the App under a hosted caller) without configuration, so another
+  App, such as an assistant that echoes text a user wrote, can't plant one. A
   user can post a status, but not as that bot.
 
-Re-arming deletes only the markers the same identity posted. Deleting a marker
-only fails closed. The residual risk is another workflow in the repo posting a
-fake marker and a fake `pr-policy` status with `GITHUB_TOKEN`. That is a
-deliberate act visible in the repo's workflows, and such a workflow could fake
-the verdict itself just as easily.
+So the caller needs `statuses: write`: without it no marker is ever trusted,
+and every move after arming blocks. A new marker is trusted only once the same
+run posts the status after it, so re-arming keeps the previous marker as a
+fallback and deletes only older ones, and only the same identity's.
+
+**What it doesn't stop.** Under the Action, pr-policy's identity is
+`github-actions[bot]`, which every workflow in the repo shares, including a
+`pull_request` workflow added on the PR's own branch. Such a workflow can post
+a marker for its head, which pr-policy's own status on that head then
+vouches for. The `ci-change` check doesn't hold a new workflow, since adding
+one is a strengthening. The same workflow could already fake the verdict
+itself (a job named `pr-policy`), so this is no new exposure. The guard is
+against an agent's honest mistake, not a workflow written to defeat it.
 
 ## Same change: a patch-id over the merge-base diff
 
 When the head has moved past the record, the check reads both heads' net change
-from the compare API (`compare/<base tip>...<sha>`, from each head's merge base
-with the base branch's current tip) and reduces each one to a fingerprint
+from the compare API (`compare/<base>...<sha>`, against the base SHA GitHub
+reports for the PR, so each side's merge base with it) and reduces each one to
+a fingerprint
 (`src/checks/auto-merge/fingerprint.ts`), like `git patch-id`:
 
 - Each file contributes its status, path and old path, and every hunk line in
@@ -116,7 +133,12 @@ inside a hunk's context also blocks: a false block, failing closed.
 What the fingerprint can't see, and so lets through:
 
 - a file-mode-only change (the compare API reports no mode);
-- a conflict resolution that leaves every hunk line exactly as it was.
+- a conflict resolution that leaves every hunk line exactly as it was;
+- a hunk moved between two places whose context lines are identical, such as
+  repeated YAML blocks.
+
+If the PR's reported base SHA lags the branch, both sides compare against the
+same stale base, which can only make the hunks differ: a false block.
 
 The compare API lists at most 300 files, so a change that large can't be
 fingerprinted, and a failed compare read leaves the fingerprint absent. Both
@@ -145,7 +167,14 @@ auto-merge: bot-automerge trusts the PR by its author, so it would keep
 auto-merge on. Requiring a verified signature stops a commit that merely claims
 the bot's email. Dependabot's and bot-automerge's release-please commits are
 both signed by GitHub. The rule reads actor types, not a named App, so this
-package names no fleet identity.
+package names no fleet identity, and any bot may be the enabler: an assistant
+App arming a Dependabot PR is exempt too, while the commits stay the bot's own.
+
+While a PR is exempt, no record is written. So a person pressing "Update
+branch" on an armed Dependabot PR adds their own merge commit, ends the
+exemption, and blocks with no record to compare against. Recording on exempt
+PRs would put a marker comment on every bot PR; Dependabot rebases its own PRs,
+so this is left failing closed.
 
 ## Failing closed
 

@@ -17,6 +17,7 @@ const BASE = 'c'.repeat(40);
 const EVENTS = 'repos/o/r/issues/7/events';
 const COMMENTS = 'repos/o/r/issues/7/comments';
 const COMMITS = 'repos/o/r/pulls/7/commits';
+const SUITES = `repos/o/r/commits/${'b'.repeat(40)}/check-suites`;
 const SELF = 'github-actions[bot]';
 
 const person = { login: 'someone', type: 'User' };
@@ -65,6 +66,8 @@ const files = (line: string) => ({
 
 beforeEach(() => {
   github.reset();
+  // With no trusted record, rule 2 reads the head's own check suites.
+  github.responses.set(SUITES, { check_suites: [] });
 });
 
 describe.each(await transports())('gatherAutoMerge over %s', (_name, makeClient) => {
@@ -171,6 +174,19 @@ describe.each(await transports())('gatherAutoMerge over %s', (_name, makeClient)
     expect(facts?.headChange).toBeDefined();
   });
 
+  it('reads the head push time only from its own check suite, not an older force push', async () => {
+    github.responses.set(EVENTS, [
+      { event: 'head_ref_force_pushed', created_at: '2026-11-01T10:00:00Z' },
+      enabled('2026-11-01T11:00:00Z'),
+    ]);
+    github.responses.set(COMMENTS, []);
+    expect((await gatherAutoMerge(target(), view()))?.headPushedAt).toBeUndefined();
+    github.responses.set(SUITES, { check_suites: [{ created_at: '2026-11-01T12:00:00Z' }] });
+    expect((await gatherAutoMerge(target(), view()))?.headPushedAt).toBe(
+      '2026-11-01T12:00:00.000Z',
+    );
+  });
+
   it('ignores a record older than the latest enable, without comparing', async () => {
     github.responses.set(EVENTS, [enabled('2026-11-01T12:00:00Z')]);
     github.responses.set(COMMENTS, [comment(1, markerBody(ARMED), '2026-11-01T11:00:05Z')]);
@@ -195,8 +211,9 @@ describe.each(await transports())('gatherAutoMerge over %s', (_name, makeClient)
 describe.each(await transports())('applyAutoMergeArm over %s', (_name, makeClient) => {
   const target = () => ({ repo: 'o/r', pr: 7, client: makeClient() });
 
-  it('posts a new marker, then deletes only the markers it posted before', async () => {
+  it('posts a new marker, then deletes its own older markers but the newest', async () => {
     github.responses.set(COMMENTS, [
+      comment(0, markerBody(ARMED), '2026-11-01T10:00:05Z'),
       comment(1, markerBody(ARMED), '2026-11-01T11:00:05Z'),
       comment(2, markerBody(ARMED), '2026-11-01T11:10:00Z', { login: 'other[bot]' }),
       comment(3, markerBody(ARMED), '2026-11-01T11:15:00Z', { type: 'User' }),
@@ -206,8 +223,18 @@ describe.each(await transports())('applyAutoMergeArm over %s', (_name, makeClien
     await applyAutoMergeArm(target(), HEAD);
     expect(github.writes).toEqual([
       { method: 'POST', path: COMMENTS, body: { body: markerBody(HEAD) } },
-      { method: 'DELETE', path: 'repos/o/r/issues/comments/1', body: undefined },
+      { method: 'DELETE', path: 'repos/o/r/issues/comments/0', body: undefined },
     ]);
+  });
+
+  it('tolerates a failed delete', async () => {
+    github.responses.set(COMMENTS, [
+      comment(0, markerBody(ARMED), '2026-11-01T10:00:05Z'),
+      comment(1, markerBody(ARMED), '2026-11-01T11:00:05Z'),
+    ]);
+    github.writeResponse = { id: 9, user: { login: SELF } };
+    github.failingWrites.add('repos/o/r/issues/comments/0');
+    await expect(applyAutoMergeArm(target(), HEAD)).resolves.toBeUndefined();
   });
 
   it('deletes nothing when the new marker could not be posted', async () => {

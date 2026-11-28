@@ -102,6 +102,12 @@ export interface AutoMergeFacts {
   enabledAt?: string;
   /** The head SHA that would merge now. */
   headSha: string;
+  /**
+   * When the head was pushed, like `PullRequestFacts.headPushedAt` but absent
+   * until the head has a check suite of its own, so a force-push event from an
+   * older head can't date it. Auto-merge enabled after this armed on the head.
+   */
+  headPushedAt?: string;
   /** pr-policy's latest arm record, if it has written one. */
   armed?: ArmRecord;
   /**
@@ -147,8 +153,8 @@ export interface PullRequestFacts {
    * When the current head was pushed (ISO 8601), from times the author can't
    * forge: the latest force-push event and the head commit's earliest check
    * suite, never a commit date. `gatherFacts` sets it whenever a head-bound
-   * sign-off (`UAT passed`, `no UAT needed`) is on the PR, or auto-merge is
-   * enabled; absent, neither sign-off counts and auto-merge can't arm on it.
+   * sign-off (`UAT passed`, `no UAT needed`) is on the PR; absent, neither
+   * counts.
    */
   headPushedAt?: string;
   /** The auto-merge request, present only while auto-merge is enabled. */

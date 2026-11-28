@@ -2,7 +2,8 @@
 
 This repo is the home of `@rmartz/pr-policy`: a suite of **read-only
 classifiers**. Each one judges a fact about a pull request's **own content**
-(its diff, title, description, and changed paths) against policy. Every check
+(its diff, title, description, and changed paths, and for the auto-merge guard
+its auto-merge request) against policy. Every check
 reports into **one** `pr-policy` check-run, which the consumer's ruleset
 requires. See
 [README.md](README.md) and the [documentation](docs/index.md).
@@ -38,7 +39,7 @@ See [docs/okf-format.md](docs/okf-format.md).
 ## The external names are contracts
 
 `PR_POLICY_CHECK_NAME`, the CI gate labels, the UAT sign-off labels, the
-`UAT needed` label, the breaking-waiver label, the blocking labels, and the epic label (`src/contract.ts`) are read outside this repo. Treat them as frozen;
+`UAT needed` label, the breaking-waiver label, the blocking labels, the epic label, and the auto-merge arm marker tag (`src/contract.ts`) are read outside this repo. Treat them as frozen;
 `test/contract.test.ts` pins them. See
 [docs/check-run-contract.md](docs/check-run-contract.md).
 

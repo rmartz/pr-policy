@@ -4,7 +4,6 @@
  * Everything goes through the target's `GitHubClient` (./client.ts): the
  * vendored `gh` transport by default, or a token-backed fetch client.
  */
-import { isBotArmed } from '../checks/auto-merge/index.js';
 import { isWorkflowPath } from '../checks/ci-change/workflow-paths.js';
 import { HEAD_BOUND_SIGN_OFFS } from '../checks/uat/index.js';
 import { isManifestPath } from '../checks/title/sensitive-bump.js';
@@ -148,10 +147,8 @@ export async function gatherFacts(
   };
   const autoMerge = await gatherAutoMerge(target, view);
   if (autoMerge !== undefined) facts.autoMerge = autoMerge;
-  // Only a head-bound sign-off and a guarded auto-merge need the push time, so
-  // most PRs skip the reads.
-  const guardedAutoMerge = autoMerge !== undefined && !isBotArmed(autoMerge, facts.author);
-  if (guardedAutoMerge || HEAD_BOUND_SIGN_OFFS.some((label) => labels.includes(label))) {
+  // Only a head-bound sign-off needs the push time, so most PRs skip the reads.
+  if (HEAD_BOUND_SIGN_OFFS.some((label) => labels.includes(label))) {
     const pushedAt = await gatherHeadPushedAt(target, headSha);
     if (pushedAt !== undefined) facts.headPushedAt = pushedAt;
   }

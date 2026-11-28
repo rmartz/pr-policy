@@ -1,7 +1,7 @@
 # @rmartz/pr-policy
 
 **Is this pull request's content acceptable under policy?** `pr-policy` answers
-that on every PR, statically, from the PR's diff, title, description, and changed paths. It
+that on every PR, statically, from the PR's diff, title, description, and changed paths, plus its auto-merge request. It
 doesn't rely on a reviewer remembering to check.
 
 Each policy rule is a small read-only classifier. All of them report into **one**

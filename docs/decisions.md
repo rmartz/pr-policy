@@ -487,6 +487,8 @@ request was armed on is a fact about that request, as who applied a label is a
 fact about the label, so it stays inside "content, not history". The record is
 trusted only unedited and from the bot that posted pr-policy's commit status on
 the SHA it records, so neither a user's token nor another App can forge it. A
+workflow in the repo shares that identity under the Action and could, but it
+could fake the verdict too; the guard targets honest mistakes. A
 commit status was rejected because any write user can set one; a check-run
 because it can only be found from the very SHA it would record. Auto-merge
 enabled strictly after the head was pushed arms on that head without a record,

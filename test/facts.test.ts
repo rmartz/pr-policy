@@ -46,6 +46,8 @@ describe('parseFacts', () => {
       enabledBy: { login: 'reed', type: 'User' },
       enabledAt: '2026-11-01T11:00:00Z',
       headSha: 'b',
+      headPushedAt: '2026-11-01T10:00:00Z',
+      commits: [{ login: 'dependabot[bot]', verified: true }, { verified: false }],
       armed: { sha: 'a', at: '2026-11-01T11:00:05Z' },
       armedChange: 'x',
       headChange: 'y',

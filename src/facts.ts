@@ -132,7 +132,7 @@ function parseAutoMerge(value: unknown): AutoMergeFacts | undefined {
   if (typeof value !== 'object' || value === null) {
     throw new Error('facts.autoMerge must be an object');
   }
-  const { enabledBy, enabledAt, headSha, armed, armedChange, headChange, commits } =
+  const { enabledBy, enabledAt, headSha, headPushedAt, armed, armedChange, headChange, commits } =
     value as Record<string, unknown>;
   if (typeof enabledBy !== 'object' || enabledBy === null) {
     throw new Error('facts.autoMerge.enabledBy must be an object');
@@ -153,7 +153,11 @@ function parseAutoMerge(value: unknown): AutoMergeFacts | undefined {
   const record = parseArmRecord(armed);
   const parsedCommits = parseCommits(commits);
   if (parsedCommits !== undefined) autoMerge.commits = parsedCommits;
+  if (!isOptionalString(headPushedAt)) {
+    throw new Error('facts.autoMerge.headPushedAt must be a string');
+  }
   if (enabledAt !== undefined) autoMerge.enabledAt = enabledAt;
+  if (headPushedAt !== undefined) autoMerge.headPushedAt = headPushedAt;
   if (record !== undefined) autoMerge.armed = record;
   if (armedChange !== undefined) autoMerge.armedChange = armedChange;
   if (headChange !== undefined) autoMerge.headChange = headChange;
@@ -165,8 +169,8 @@ function parseAutoMerge(value: unknown): AutoMergeFacts | undefined {
  * `workflowChanges`, `manifestChanges`, and `signOffs` are optional and default
  * to none; `body`, `author`, `base`, `draft`, and `headPushedAt` are optional
  * and stay absent, as does `autoMerge` (auto-merge off). With no `signOffs`, no
- * sign-off label counts, and with no `headPushedAt`, no UAT sign-off does and
- * auto-merge can't arm on the head: trust fails closed.
+ * sign-off label counts, and with no `headPushedAt`, no UAT sign-off does:
+ * trust fails closed.
  */
 export function parseFacts(raw: string): PullRequestFacts {
   const parsed: unknown = JSON.parse(raw);

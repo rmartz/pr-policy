@@ -15,17 +15,18 @@ const base: PullRequestFacts = {
 };
 
 /** A PR whose head was pushed at 12:00 and whose auto-merge a person enabled at `enabledAt`. */
-function pr(autoMerge: Partial<AutoMergeFacts>, headPushedAt = '2026-11-01T12:00:00Z') {
-  return {
-    ...base,
-    headPushedAt,
-    autoMerge: {
-      enabledBy: { login: 'someone', type: 'User' },
-      enabledAt: '2026-11-01T11:00:00Z',
-      headSha: HEAD,
-      ...autoMerge,
-    },
+function pr(
+  autoMerge: Partial<AutoMergeFacts>,
+  headPushedAt = '2026-11-01T12:00:00Z',
+): PullRequestFacts {
+  const facts: AutoMergeFacts = {
+    enabledBy: { login: 'someone', type: 'User' },
+    enabledAt: '2026-11-01T11:00:00Z',
+    headSha: HEAD,
+    ...autoMerge,
   };
+  facts.headPushedAt ??= headPushedAt;
+  return { ...base, autoMerge: facts };
 }
 
 const person = { login: 'someone', type: 'User' };
@@ -90,7 +91,7 @@ describe('decideAutoMerge', () => {
 
   it('blocks when the push time is unknown and there is no arm record', () => {
     const facts = pr({ enabledAt: '2026-11-01T12:30:00Z' });
-    delete facts.headPushedAt;
+    delete facts.autoMerge?.headPushedAt;
     expect(effects(facts)).toEqual(['block']);
   });
 

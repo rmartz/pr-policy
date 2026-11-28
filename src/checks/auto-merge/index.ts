@@ -108,7 +108,7 @@ export function decideAutoMerge(pr: PullRequestFacts): CheckResult {
   const armedHere = finding('info', `Auto-merge is armed on the current head, ${short(headSha)}.`);
   const record = currentRecord(autoMerge);
   if (record === undefined) {
-    if (enabledAfterPush(enabledAt, pr.headPushedAt)) {
+    if (enabledAfterPush(enabledAt, autoMerge.headPushedAt)) {
       return { findings: [armedHere], autoMergeArm: headSha };
     }
     return {
