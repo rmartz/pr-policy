@@ -15,7 +15,8 @@ implementation.
 ## Before you start
 
 A rule belongs here only if it is a **fact about the PR's current state** (its
-content, or a sign-off label on it) that doesn't depend on review history.
+content, a sign-off label on it, or its current auto-merge request) that
+doesn't depend on review history.
 Rules about review state or approvals don't belong here; the
 UAT _gate_ does, as a hard gate over the labels (see
 [checks/uat.md](checks/uat.md)). Rules about whether the PR is safe
@@ -51,7 +52,9 @@ else owns, it is a reconciler and doesn't belong here.
   `hold` for anything that waits on a human act, so the PR shows as pending
   rather than broken; `info` for context. Say in the message exactly what clears
   it: a title edit, a human label, a code change.
-- **Deterministic.** The same content always yields the same findings. No LLM
+- **Deterministic.** The same facts always yield the same findings. (The
+  [auto-merge guard](checks/auto-merge.md) is why this says facts, not
+  content: its facts include when auto-merge was enabled.) No LLM
   judgment, and no network beyond reading the PR itself.
 - **Err toward gating when a miss is costly.** If a false positive costs a
   human one look and a false negative bypasses a gate, make the check

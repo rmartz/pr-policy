@@ -3,6 +3,7 @@ import { isRepoPermission } from './sign-off.js';
 import type {
   ArmRecord,
   AutoMergeFacts,
+  CommitAuthorship,
   FileChange,
   LabelActor,
   OpenPullRequest,
@@ -112,15 +113,27 @@ function parseArmRecord(value: unknown): ArmRecord | undefined {
   return { sha, at };
 }
 
+function parseCommits(value: unknown): CommitAuthorship[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new Error('facts.autoMerge.commits must be an array');
+  return value.map((item, index) => {
+    const where = `facts.autoMerge.commits[${index}]`;
+    if (typeof item !== 'object' || item === null) throw new Error(`${where} must be an object`);
+    const { login, verified } = item as Record<string, unknown>;
+    if (!isOptionalString(login) || typeof verified !== 'boolean') {
+      throw new Error(`${where}.login must be a string and verified a boolean`);
+    }
+    return login === undefined ? { verified } : { login, verified };
+  });
+}
+
 function parseAutoMerge(value: unknown): AutoMergeFacts | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== 'object' || value === null) {
     throw new Error('facts.autoMerge must be an object');
   }
-  const { enabledBy, enabledAt, headSha, armed, armedChange, headChange } = value as Record<
-    string,
-    unknown
-  >;
+  const { enabledBy, enabledAt, headSha, armed, armedChange, headChange, commits } =
+    value as Record<string, unknown>;
   if (typeof enabledBy !== 'object' || enabledBy === null) {
     throw new Error('facts.autoMerge.enabledBy must be an object');
   }
@@ -138,6 +151,8 @@ function parseAutoMerge(value: unknown): AutoMergeFacts | undefined {
   }
   const autoMerge: AutoMergeFacts = { enabledBy: { login, type }, headSha };
   const record = parseArmRecord(armed);
+  const parsedCommits = parseCommits(commits);
+  if (parsedCommits !== undefined) autoMerge.commits = parsedCommits;
   if (enabledAt !== undefined) autoMerge.enabledAt = enabledAt;
   if (record !== undefined) autoMerge.armed = record;
   if (armedChange !== undefined) autoMerge.armedChange = armedChange;

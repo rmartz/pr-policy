@@ -6,8 +6,9 @@
  * auto-merge was armed on.
  *
  * - Auto-merge off: nothing to judge, so manual merges are unaffected.
- * - Enabled by a bot (bot-automerge's App): exempt. A bot arms by rule and
- *   re-judges every head itself.
+ * - A bot's PR armed by a bot (bot-automerge's App on a Dependabot PR), with
+ *   only that bot's verified commits: exempt. A bot arms by rule and re-judges
+ *   every head itself.
  * - Armed on the current head: pass, and record it.
  * - The head moved since: compare the net change at the armed head and at the
  *   current one (src/checks/auto-merge/fingerprint.ts). The same change (a
@@ -25,6 +26,7 @@ import type {
   CheckResult,
   Finding,
   PolicyCheck,
+  PullRequestAuthor,
   PullRequestFacts,
 } from '../../policy.js';
 
@@ -41,9 +43,19 @@ function finding(effect: Finding['effect'], message: string): Finding {
   return { check: AUTO_MERGE_CHECK, effect, message };
 }
 
-/** Whether a bot enabled auto-merge, which exempts the PR from this guard. */
-export function isBotArmed(autoMerge: AutoMergeFacts): boolean {
-  return autoMerge.enabledBy.type === 'Bot';
+/**
+ * Whether the PR is a bot's PR armed by a bot, which exempts it from this
+ * guard: a bot enabled auto-merge, a bot opened the PR, and every commit is
+ * that bot's, with a signature GitHub verified. A person's commit pushed onto
+ * a bot's PR puts it back under the guard.
+ */
+export function isBotArmed(autoMerge: AutoMergeFacts, author?: PullRequestAuthor): boolean {
+  if (autoMerge.enabledBy.type !== 'Bot' || author?.type !== 'Bot') return false;
+  const commits = autoMerge.commits ?? [];
+  return (
+    commits.length > 0 &&
+    commits.every((commit) => commit.verified && commit.login === author.login)
+  );
 }
 
 /**
@@ -72,12 +84,12 @@ export function decideAutoMerge(pr: PullRequestFacts): CheckResult {
   if (autoMerge === undefined) return { findings: [] };
   const { enabledBy, enabledAt, headSha } = autoMerge;
 
-  if (isBotArmed(autoMerge)) {
+  if (isBotArmed(autoMerge, pr.author)) {
     return {
       findings: [
         finding(
           'info',
-          `Auto-merge was enabled by \`${enabledBy.login}\`, a bot that judges each head itself, so it isn't bound to an armed head.`,
+          `Auto-merge was enabled by \`${enabledBy.login}\` on a PR holding only a bot's verified commits, so it isn't bound to an armed head.`,
         ),
       ],
     };
@@ -103,7 +115,7 @@ export function decideAutoMerge(pr: PullRequestFacts): CheckResult {
       findings: [
         finding(
           'block',
-          `Auto-merge was enabled before the current head ${short(headSha)} was pushed, and pr-policy has no record of the head it was armed on (it was enabled before this check ran, or the run that records it didn't complete). ${REARM}`,
+          `Auto-merge was enabled before the current head ${short(headSha)} was pushed, and pr-policy has no record of the head it was armed on (it was enabled before this check ran, the caller doesn't run on \`auto_merge_enabled\`, or the run that records it didn't complete). ${REARM} Wait until CI has started on the head before re-enabling, so its push time is on record.`,
         ),
       ],
     };

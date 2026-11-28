@@ -9,12 +9,14 @@
  * neither can forge the record.
  */
 
-const MARKER = /^<!-- pr-policy:auto-merge-armed ([0-9a-f]{40}) -->/;
+import { AUTO_MERGE_ARM_MARKER } from '../../contract.js';
+
+const MARKER = new RegExp(`^<!-- ${AUTO_MERGE_ARM_MARKER} ([0-9a-f]{40}) -->`);
 
 /** The comment body that records `sha` as the armed head. */
 export function markerBody(sha: string): string {
   return [
-    `<!-- pr-policy:auto-merge-armed ${sha} -->`,
+    `<!-- ${AUTO_MERGE_ARM_MARKER} ${sha} -->`,
     `**pr-policy** recorded \`${sha.slice(0, 7)}\` as the head auto-merge was armed on.`,
     'If the change moves past a clean branch update or rebase, `pr-policy` fails until',
     'it is re-reviewed and auto-merge is disabled and re-enabled.',

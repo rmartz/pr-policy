@@ -464,24 +464,29 @@ consumer adds a required check.
 
 - **Same change, not same SHA.** Binding to the SHA would block every branch
   update, and merge-safety asks for those. So the check compares each head's
-  merge-base diff without context or hunk offsets, like a patch-id. A clean
-  update or rebase re-arms; anything that changes the PR's own lines blocks.
+  merge-base diff without hunk offsets, like a patch-id. Context lines stay in,
+  so a moved line counts as a change; a base edit inside a hunk's context then
+  blocks too, which fails closed. A clean update or rebase re-arms; anything
+  that changes the PR's hunks blocks.
 - **A block, not a hold.** The author clears it by disabling and re-enabling
   auto-merge after re-reviewing, so nothing waits only on someone else.
 - **Fail closed.** Auto-merge enabled before this check existed, with the head
   moved since, has no record and blocks. That strands nothing: one
   disable-and-re-enable re-arms it.
-- **A bot's auto-merge is exempt.** bot-automerge arms by rule with its App's
-  token and re-judges every head, and Dependabot rebases legitimately move a
-  lockfile. The exemption reads the enabler's type, `Bot`, so no fleet App is
-  named here. A user's token can't enable auto-merge as a bot.
+- **A bot's own PR, armed by a bot, is exempt.** bot-automerge arms by rule
+  with its App's token and re-judges every head, and Dependabot rebases
+  legitimately move a lockfile. The exemption needs a bot enabler, a bot
+  author, and only that bot's verified commits, so a person's fix pushed onto
+  a Dependabot PR is guarded. It reads actor types, so no fleet App is named
+  here. Commits are PR content, so this stays inside "content, not history".
 
 **The armed head is current state, recorded.** GitHub records when auto-merge
 was enabled but not on which head, so the check keeps its own record: a marker
 comment it owns, like the labels it owns. Which head the current auto-merge
 request was armed on is a fact about that request, as who applied a label is a
 fact about the label, so it stays inside "content, not history". The record is
-trusted only from a bot and unedited, so a user's token can't forge it. A
+trusted only unedited and from the bot that posted pr-policy's commit status on
+the SHA it records, so neither a user's token nor another App can forge it. A
 commit status was rejected because any write user can set one; a check-run
 because it can only be found from the very SHA it would record. Auto-merge
 enabled strictly after the head was pushed arms on that head without a record,
@@ -491,7 +496,15 @@ The caller needs `auto_merge_enabled` and `auto_merge_disabled` in its
 `pull_request_target` types (see
 [distribution.md](distribution.md#caller-triggers)). It ships as a `feat`: a
 caller without the new types fails closed, and nothing consumers rely on
-changes meaning.
+changes meaning. The one library-API change, `GitHubClient.send` also taking
+`DELETE`, widens a method the package's own clients implement; a caller's
+calls are unaffected, so it isn't the real break `!` is reserved for.
+
+The record makes findings depend on more than the diff: the same content can
+pass or block depending on when auto-merge was enabled and what pr-policy
+recorded. That is accepted for this check alone. Both inputs are current state
+of the PR's auto-merge request, and the same facts document still always yields
+the same findings.
 
 ## Open
 

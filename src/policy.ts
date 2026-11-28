@@ -64,13 +64,21 @@ export interface PullRequestBase {
 
 /**
  * pr-policy's own record of the head auto-merge was armed on: its latest
- * unedited arm-marker comment on the PR, authored by a bot.
+ * unedited arm-marker comment on the PR, written by the same bot that posted
+ * pr-policy's commit status on the SHA it records.
  */
 export interface ArmRecord {
   /** The head SHA the marker records. */
   sha: string;
   /** When the marker was created (ISO 8601), as GitHub records it. */
   at: string;
+}
+
+/** One PR commit's GitHub-resolved author and signature verification. */
+export interface CommitAuthorship {
+  /** The author's GitHub login, absent when GitHub can't link one. */
+  login?: string;
+  verified: boolean;
 }
 
 /**
@@ -82,6 +90,12 @@ export interface AutoMergeFacts {
   /** Who enabled auto-merge, as `pull_request.auto_merge.enabled_by` reports it. */
   enabledBy: PullRequestAuthor;
   /**
+   * Who authored each of the PR's commits, and whether GitHub verified its
+   * signature. Gathered only when a bot enabled auto-merge, to tell whether
+   * the PR holds only that bot's work.
+   */
+  commits?: readonly CommitAuthorship[];
+  /**
    * When auto-merge was last enabled (ISO 8601): the latest `auto_*_enabled`
    * event on the PR. Absent when GitHub records none, so arming is unknown.
    */
@@ -92,7 +106,7 @@ export interface AutoMergeFacts {
   armed?: ArmRecord;
   /**
    * The normalized net change at `armed.sha` and at `headSha` (a hash of each
-   * one's merge-base diff, without context lines or hunk offsets). Set only
+   * one's merge-base diff, without hunk offsets or blob SHAs). Set only
    * when the record names a different head; absent when it couldn't be read.
    */
   armedChange?: string;

@@ -17,10 +17,28 @@ const file = (patch: string, extra: Partial<CompareFile> = {}): CompareFile => (
 const PATCH = '@@ -10,3 +10,4 @@ function a() {\n context\n-old\n+new\n+added\n tail';
 
 describe('changeFingerprint', () => {
-  it('matches a clean rebase: new offsets, context, and blob, same changed lines', () => {
-    const rebased = '@@ -40,3 +40,4 @@ function b() {\n other\n-old\n+new\n+added\n end';
+  it('matches a clean rebase: new offsets, header, and blob, same hunk', () => {
+    const rebased = '@@ -40,3 +40,4 @@ function b() {\n context\n-old\n+new\n+added\n tail';
     expect(changeFingerprint([file(rebased, { sha: 'blob2' })])).toBe(
       changeFingerprint([file(PATCH)]),
+    );
+  });
+
+  it('differs when the same added line moves elsewhere, since its context moves too', () => {
+    const moved = '@@ -80,3 +80,4 @@\n elsewhere\n-old\n+new\n+added\n tail';
+    expect(changeFingerprint([file(moved)])).not.toBe(changeFingerprint([file(PATCH)]));
+  });
+
+  it('differs when hunks are split or joined, even with the same lines', () => {
+    const split = '@@ -1 +1 @@\n-a\n+b\n@@ -9 +9 @@\n-c\n+d';
+    const joined = '@@ -1 +1 @@\n-a\n+b\n-c\n+d';
+    expect(changeFingerprint([file(split)])).not.toBe(changeFingerprint([file(joined)]));
+  });
+
+  it('counts a trailing-newline marker', () => {
+    const plain = '@@ -1 +1 @@\n-a\n+b';
+    expect(changeFingerprint([file(`${plain}\n\\ No newline at end of file`)])).not.toBe(
+      changeFingerprint([file(plain)]),
     );
   });
 

@@ -12,13 +12,22 @@ import { currentRecord, isBotArmed } from '../checks/auto-merge/index.js';
 import { changeFingerprint } from '../checks/auto-merge/fingerprint.js';
 import type { CompareFile } from '../checks/auto-merge/fingerprint.js';
 import { markerBody, parseMarker } from '../checks/auto-merge/marker.js';
-import type { ArmRecord, AutoMergeFacts } from '../policy.js';
+import { PR_POLICY_CHECK_NAME } from '../contract.js';
+import type { ArmRecord, AutoMergeFacts, CommitAuthorship, PullRequestAuthor } from '../policy.js';
 import { clientOf } from './client.js';
 import type { PullRequestTarget } from './pull-request.js';
 
 /** The REST `pull_request.auto_merge` object, reduced to what is read. */
 export interface AutoMergeApi {
   enabled_by: { login: string; type: string } | null;
+}
+
+/** The parts of the REST pull request `gatherAutoMerge` reads. */
+export interface AutoMergeView {
+  auto_merge?: AutoMergeApi | null;
+  user: PullRequestAuthor;
+  head: { sha: string };
+  base: { sha: string };
 }
 
 /** The issue events GitHub records when auto-merge is enabled, one per merge method. */
@@ -34,6 +43,12 @@ interface IssueComment {
   user: { login: string; type: string } | null;
   created_at: string;
   updated_at: string;
+}
+
+interface Marker {
+  sha: string;
+  login: string;
+  at: string;
 }
 
 async function list(target: PullRequestTarget, endpoint: string): Promise<unknown[]> {
@@ -57,67 +72,112 @@ async function gatherEnabledAt(target: PullRequestTarget): Promise<string | unde
   return times.reduce((latest, at) => (Date.parse(at) > Date.parse(latest) ? at : latest));
 }
 
-/** Every marker comment a bot wrote, oldest first. */
-function markers(comments: readonly IssueComment[]): IssueComment[] {
-  return comments.filter((comment) => comment.user?.type === 'Bot' && parseMarker(comment.body));
+/** Who authored each PR commit, as GitHub resolves and verifies it. */
+async function gatherCommits(target: PullRequestTarget): Promise<CommitAuthorship[]> {
+  const commits = (await list(target, `repos/${target.repo}/pulls/${target.pr}/commits`)) as {
+    author: { login: string } | null;
+    commit: { verification?: { verified: boolean } | null };
+  }[];
+  return commits.map((commit) => {
+    const authorship: CommitAuthorship = {
+      verified: commit.commit.verification?.verified === true,
+    };
+    if (commit.author !== null) authorship.login = commit.author.login;
+    return authorship;
+  });
 }
 
 /**
- * pr-policy's latest trusted arm record: a bot-authored marker nobody has
- * edited. A user can't author a comment as a bot, and an edit by a write
- * collaborator moves `updated_at`, so an edited marker is never trusted.
+ * Every unedited marker comment a bot wrote, newest first. A user can't author
+ * a comment as a bot, and an edit by a write collaborator moves `updated_at`.
  */
-async function gatherArmRecord(target: PullRequestTarget): Promise<ArmRecord | undefined> {
+function markers(comments: readonly IssueComment[]): (Marker & { id: number })[] {
+  const found: (Marker & { id: number })[] = [];
+  for (const comment of comments) {
+    const sha = parseMarker(comment.body);
+    if (sha === undefined || comment.user?.type !== 'Bot') continue;
+    if (comment.updated_at !== comment.created_at) continue;
+    found.push({ id: comment.id, sha, login: comment.user.login, at: comment.created_at });
+  }
+  return found.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+}
+
+/** The bots that posted a `pr-policy` commit status on `sha`. */
+async function statusPosters(target: PullRequestTarget, sha: string): Promise<Set<string>> {
+  const statuses = (await list(target, `repos/${target.repo}/commits/${sha}/statuses`)) as {
+    context: string;
+    creator: { login: string; type: string } | null;
+  }[];
+  return new Set(
+    statuses
+      .filter((status) => status.context.startsWith(PR_POLICY_CHECK_NAME))
+      .flatMap((status) => (status.creator?.type === 'Bot' ? [status.creator.login] : [])),
+  );
+}
+
+/**
+ * pr-policy's latest trusted arm record for the current auto-merge request: an
+ * unedited marker written at or after `enabledAt`, by the same bot that posted
+ * pr-policy's commit status on the SHA it records. Matching the status poster
+ * ties the marker to pr-policy's own identity, so another bot (one that echoes
+ * text a user wrote, say) can't plant one.
+ */
+async function gatherArmRecord(
+  target: PullRequestTarget,
+  enabledAt: string,
+): Promise<ArmRecord | undefined> {
   const comments = (await list(
     target,
     `repos/${target.repo}/issues/${target.pr}/comments`,
   )) as IssueComment[];
-  let latest: ArmRecord | undefined;
-  for (const comment of markers(comments)) {
-    if (comment.updated_at !== comment.created_at) continue;
-    const sha = parseMarker(comment.body);
-    if (sha === undefined) continue;
-    if (latest === undefined || Date.parse(comment.created_at) >= Date.parse(latest.at)) {
-      latest = { sha, at: comment.created_at };
+  const since = Date.parse(enabledAt);
+  for (const marker of markers(comments)) {
+    if (Date.parse(marker.at) < since) break;
+    if ((await statusPosters(target, marker.sha)).has(marker.login)) {
+      return { sha: marker.sha, at: marker.at };
     }
   }
-  return latest;
+  return undefined;
 }
 
-/** The fingerprint of `sha`'s net change from its merge base with `base`. */
+/** The fingerprint of `sha`'s net change from its merge base with the base tip. */
 async function gatherChange(
   target: PullRequestTarget,
-  base: string,
+  baseSha: string,
   sha: string,
 ): Promise<string | undefined> {
-  const out = await clientOf(target).getJson(`repos/${target.repo}/compare/${base}...${sha}`);
+  const out = await clientOf(target).getJson(`repos/${target.repo}/compare/${baseSha}...${sha}`);
   const files = (out as { files?: CompareFile[] } | null)?.files;
   return files === undefined ? undefined : changeFingerprint(files);
 }
 
 /**
  * The auto-merge facts for a PR, or `undefined` while auto-merge is off. A
- * bot-enabled request is exempt, so nothing more is read for it.
+ * bot's PR armed by a bot is exempt, so nothing more is read for it.
  */
 export async function gatherAutoMerge(
   target: PullRequestTarget,
-  view: { auto_merge?: AutoMergeApi | null; head: { sha: string }; base: { ref: string } },
+  view: AutoMergeView,
 ): Promise<AutoMergeFacts | undefined> {
   if (view.auto_merge === undefined || view.auto_merge === null) return undefined;
   const enabledBy = view.auto_merge.enabled_by ?? { login: 'unknown', type: 'unknown' };
   const autoMerge: AutoMergeFacts = { enabledBy, headSha: view.head.sha };
-  if (isBotArmed(autoMerge)) return autoMerge;
+  if (enabledBy.type === 'Bot' && view.user.type === 'Bot') {
+    autoMerge.commits = await gatherCommits(target);
+    if (isBotArmed(autoMerge, view.user)) return autoMerge;
+  }
 
   const enabledAt = await gatherEnabledAt(target);
-  if (enabledAt !== undefined) autoMerge.enabledAt = enabledAt;
-  const armed = await gatherArmRecord(target);
+  if (enabledAt === undefined) return autoMerge;
+  autoMerge.enabledAt = enabledAt;
+  const armed = await gatherArmRecord(target, enabledAt);
   if (armed !== undefined) autoMerge.armed = armed;
 
   const record = currentRecord(autoMerge);
   if (record !== undefined && record.sha !== autoMerge.headSha) {
     const [armedChange, headChange] = await Promise.all([
-      gatherChange(target, view.base.ref, record.sha),
-      gatherChange(target, view.base.ref, autoMerge.headSha),
+      gatherChange(target, view.base.sha, record.sha),
+      gatherChange(target, view.base.sha, autoMerge.headSha),
     ]);
     if (armedChange !== undefined) autoMerge.armedChange = armedChange;
     if (headChange !== undefined) autoMerge.headChange = headChange;
@@ -126,11 +186,11 @@ export async function gatherAutoMerge(
 }
 
 /**
- * Record `sha` as the armed head: post a new marker, then delete the bot
- * markers it supersedes. A new comment rather than an edit, because an edited
- * marker is never trusted. A failed post leaves the old record, so a later
- * moved head blocks rather than passes; a failed delete leaves an older marker
- * that the newer one outranks.
+ * Record `sha` as the armed head: post a new marker, then delete the markers
+ * this same identity posted before. A new comment rather than an edit, because
+ * an edited marker is never trusted. Another bot's comment is never touched. A
+ * failed post leaves the old record, so a later moved head blocks rather than
+ * passes; a failed delete leaves an older marker that the newer one outranks.
  */
 export async function applyAutoMergeArm(target: PullRequestTarget, sha: string): Promise<void> {
   const client = clientOf(target);
@@ -138,13 +198,16 @@ export async function applyAutoMergeArm(target: PullRequestTarget, sha: string):
   const previous = await client.list(endpoint);
   const posted = (await client.send('POST', endpoint, { body: markerBody(sha) })) as {
     id?: number;
+    user?: { login: string } | null;
   } | null;
   if (posted === null) {
     console.warn(`${target.repo}#${target.pr}: could not record the auto-merge arm on ${sha}`);
     return;
   }
-  for (const comment of markers((previous ?? []) as IssueComment[])) {
-    if (comment.id === posted.id) continue;
-    await client.send('DELETE', `repos/${target.repo}/issues/comments/${comment.id}`);
+  const self = posted.user?.login;
+  if (self === undefined) return;
+  for (const marker of markers((previous ?? []) as IssueComment[])) {
+    if (marker.id === posted.id || marker.login !== self) continue;
+    await client.send('DELETE', `repos/${target.repo}/issues/comments/${marker.id}`);
   }
 }

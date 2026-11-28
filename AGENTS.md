@@ -56,7 +56,8 @@ Invariants that hold whatever a future change looks like:
 - **Waiting on a human is a `hold`, never a `block`.** A human-gated finding
   leaves `pr-policy` pending; red is reserved for problems the author can fix.
 - **Content, not history.** A check's input is the PR's current state: its
-  content, and who applied each sign-off label on it. If a rule needs review
+  content, who applied each sign-off label on it, and its current auto-merge
+  request with the head pr-policy recorded it armed on. If a rule needs review
   history, it doesn't belong here.
 - **A sign-off counts only from someone who could merge.** Read every human
   sign-off label through `signOffState` (`src/sign-off.ts`).

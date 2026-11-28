@@ -28,6 +28,8 @@ function pr(autoMerge: Partial<AutoMergeFacts>, headPushedAt = '2026-11-01T12:00
   };
 }
 
+const person = { login: 'someone', type: 'User' };
+
 const effects = (facts: PullRequestFacts) =>
   decideAutoMerge(facts).findings.map((finding) => finding.effect);
 
@@ -36,12 +38,37 @@ describe('decideAutoMerge', () => {
     expect(decideAutoMerge(base)).toEqual({ findings: [] });
   });
 
-  it('exempts auto-merge a bot enabled, such as bot-automerge on a Dependabot PR', () => {
-    const result = decideAutoMerge(
-      pr({ enabledBy: { login: 'merge-bot[bot]', type: 'Bot' }, enabledAt: undefined }),
-    );
-    expect(result.findings.map((finding) => finding.effect)).toEqual(['info']);
-    expect(result.autoMergeArm).toBeUndefined();
+  describe('a bot PR armed by a bot, such as bot-automerge on a Dependabot PR', () => {
+    const bot = (commits: AutoMergeFacts['commits']) => ({
+      ...pr({ enabledBy: { login: 'merge-bot[bot]', type: 'Bot' }, enabledAt: undefined, commits }),
+      author: { login: 'dependabot[bot]', type: 'Bot' },
+    });
+
+    it('is exempt while every commit is that bot’s verified work', () => {
+      const result = decideAutoMerge(bot([{ login: 'dependabot[bot]', verified: true }]));
+      expect(result.findings.map((finding) => finding.effect)).toEqual(['info']);
+      expect(result.autoMergeArm).toBeUndefined();
+    });
+
+    it('is guarded once someone else’s commit is on it', () => {
+      expect(
+        effects(
+          bot([
+            { login: 'dependabot[bot]', verified: true },
+            { login: 'someone', verified: true },
+          ]),
+        ),
+      ).toEqual(['block']);
+    });
+
+    it('is guarded when a commit claiming the bot is unverified', () => {
+      expect(effects(bot([{ login: 'dependabot[bot]', verified: false }]))).toEqual(['block']);
+    });
+
+    it('is guarded when a person opened the PR, even if a bot armed it', () => {
+      const facts = { ...bot([{ login: 'dependabot[bot]', verified: true }]), author: person };
+      expect(effects(facts)).toEqual(['block']);
+    });
   });
 
   it('arms on the current head when auto-merge was enabled after the head was pushed', () => {

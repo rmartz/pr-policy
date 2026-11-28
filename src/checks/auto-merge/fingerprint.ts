@@ -1,14 +1,16 @@
 /**
  * A PR's net change, reduced to what a clean branch update or rebase leaves
- * alone, in the spirit of `git patch-id`.
+ * alone, like `git patch-id`.
  *
  * The input is the compare API's file list from the merge base to a head. Each
- * file contributes its status, path (and old path), and its added and removed
- * lines in order. Context lines, hunk headers (with their line offsets), and
- * blob SHAs are dropped: a base change merged around the PR's lines moves the
- * offsets and the context and changes the blobs, but not the lines the PR
- * itself adds or removes. A conflict resolution, a review fix, or a new commit
- * changes those lines, so it changes the fingerprint.
+ * file contributes its status, path (and old path), and every patch line in
+ * order: added, removed, context, and `\ No newline` markers. Hunk line
+ * offsets (and the header's function name) and blob SHAs are dropped: a base change merged
+ * elsewhere in the file moves the offsets and changes the blob, but not the
+ * PR's hunks. The context lines anchor each change in place, so a line moved
+ * to another function changes the fingerprint even with the same text. A base
+ * change within a hunk's context changes it too, which fails closed. A
+ * conflict resolution, a review fix, or a new commit changes the hunks.
  *
  * A file GitHub serves without a patch (binary, or too large) is identified by
  * its head blob instead, which is stricter: it differs whenever the content
@@ -31,11 +33,13 @@ export interface CompareFile {
  */
 export const COMPARE_FILE_LIMIT = 300;
 
-function changedLines(patch: string): string[] {
-  // A hunk header starts with `@@` and a context line with a space, so neither
-  // survives. GitHub's per-file patch has no `---`/`+++` file header, so a line
-  // that starts `---` is a removed line and counts.
-  return patch.split('\n').filter((line) => line.startsWith('+') || line.startsWith('-'));
+/**
+ * Every patch line, with each hunk header reduced to a bare `@@` so the hunk
+ * boundaries count but their line offsets don't. GitHub's per-file patch has
+ * no `---`/`+++` file header, so a line that starts `---` is a removed line.
+ */
+function hunkLines(patch: string): string[] {
+  return patch.split('\n').map((line) => (line.startsWith('@@') ? '@@' : line));
 }
 
 /**
@@ -54,7 +58,7 @@ export function changeFingerprint(files: readonly CompareFile[]): string | undef
       hash.update(`blob ${file.sha ?? ''}\n`);
       continue;
     }
-    for (const line of changedLines(file.patch)) hash.update(`${line}\n`);
+    for (const line of hunkLines(file.patch)) hash.update(`${line}\n`);
   }
   return hash.digest('hex');
 }

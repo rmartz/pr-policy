@@ -168,12 +168,15 @@ describe.each(await transports())('gatherFacts over %s', (_name, makeClient) => 
     expect(facts.headPushedAt).toBe('2026-10-01T12:00:00.000Z');
   });
 
-  it('skips the push-time reads for a bot-enabled auto-merge', async () => {
+  it('skips the push-time reads for a bot PR a bot armed', async () => {
     github.responses.set('repos/o/r/pulls/7', {
       ...PR,
       auto_merge: { enabled_by: { login: 'merge-bot[bot]', type: 'Bot' } },
     });
     github.responses.set('repos/o/r/pulls/7/files', []);
+    github.responses.set('repos/o/r/pulls/7/commits', [
+      { author: { login: 'dependabot[bot]' }, commit: { verification: { verified: true } } },
+    ]);
     const { facts } = await gatherFacts(target());
     expect(facts.autoMerge?.enabledBy.type).toBe('Bot');
     expect(facts.headPushedAt).toBeUndefined();

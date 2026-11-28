@@ -141,6 +141,13 @@ Read-only here. **This package never applies or removes them.** While any one is
 on the PR, the [merge-block check](checks/merge-block.md) holds `pr-policy`
 pending.
 
+## `pr-policy:auto-merge-armed`: the arm marker tag
+
+The tag that opens the [auto-merge guard](checks/auto-merge.md)'s marker
+comment, `<!-- pr-policy:auto-merge-armed <sha> -->`. Only this package reads
+it, but one release writes what the next reads, so renaming it strands every
+armed PR, which then fails closed.
+
 ## `epic`: the accumulator label
 
 Read-only here. **This package never applies or removes it.** It marks a PR

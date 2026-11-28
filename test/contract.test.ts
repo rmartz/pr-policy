@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AUTO_MERGE_ARM_MARKER,
   BLOCKED_LABEL,
   BLOCKING_LABELS,
   CI_APPROVAL_NEEDED_LABEL,
@@ -20,6 +21,10 @@ import {
 describe('external contract names', () => {
   it('pins the check-run name', () => {
     expect(PR_POLICY_CHECK_NAME).toBe('pr-policy');
+  });
+
+  it('pins the auto-merge arm marker tag, which later releases read back', () => {
+    expect(AUTO_MERGE_ARM_MARKER).toBe('pr-policy:auto-merge-armed');
   });
 
   it('pins the CI merge-gate labels', () => {

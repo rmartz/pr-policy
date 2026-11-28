@@ -28,7 +28,7 @@ interface PrApiShape {
   draft: boolean;
   user: { login: string; type: string };
   head: { sha: string };
-  base: { ref: string; repo: { default_branch: string } };
+  base: { ref: string; sha: string; repo: { default_branch: string } };
   labels: { name: string }[];
   /** `null` while auto-merge is off. */
   auto_merge?: AutoMergeApi | null;
@@ -150,7 +150,7 @@ export async function gatherFacts(
   if (autoMerge !== undefined) facts.autoMerge = autoMerge;
   // Only a head-bound sign-off and a guarded auto-merge need the push time, so
   // most PRs skip the reads.
-  const guardedAutoMerge = autoMerge !== undefined && !isBotArmed(autoMerge);
+  const guardedAutoMerge = autoMerge !== undefined && !isBotArmed(autoMerge, facts.author);
   if (guardedAutoMerge || HEAD_BOUND_SIGN_OFFS.some((label) => labels.includes(label))) {
     const pushedAt = await gatherHeadPushedAt(target, headSha);
     if (pushedAt !== undefined) facts.headPushedAt = pushedAt;

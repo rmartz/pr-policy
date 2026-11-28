@@ -25,6 +25,10 @@ workflow, pins the Action by SHA, and requires the `pr-policy` status. The calle
 its permissions, and why `pull_request_target` is safe here are in the Action's
 [consumer guide](https://github.com/rmartz/pr-policy-action/blob/main/docs/consuming.md).
 
+So a change here reaches consumers in three hops: a release of this package, a
+Dependabot bump and release of the Action, then each consumer's Dependabot bump
+of its Action pin.
+
 ### Caller triggers
 
 The caller's `pull_request_target` types decide when the suite runs. Besides
@@ -32,13 +36,11 @@ the PR events every check needs (`opened`, `synchronize`, `reopened`, `edited`,
 `labeled`, `unlabeled`, and the draft flips), the
 [auto-merge guard](checks/auto-merge.md) needs `auto_merge_enabled` and
 `auto_merge_disabled`: the first records the head auto-merge was armed on, and
-the second re-evaluates a PR whose guard no longer applies. A caller without
-them fails closed, never open. A hosted caller subscribes to the same
+the second re-evaluates a PR whose guard no longer applies. Without them the
+guard is effectively bound to the SHA, blocking even a clean branch update,
+and one narrow gap opens (see
+[the check's known gaps](checks/auto-merge.md#failing-closed)). A hosted caller subscribes to the same
 `pull_request` webhook actions.
-
-So a change here reaches consumers in three hops: a release of this package, a
-Dependabot bump and release of the Action, then each consumer's Dependabot bump
-of its Action pin.
 
 ## Self-consumption
 
@@ -62,6 +64,8 @@ implementations:
 
 The I/O functions (`gatherFacts`, `openPullRequestsAtHead`, `applyLabelEdits`,
 `postVerdict`) take a target whose optional `client` selects the transport.
+`applyLabelEdits` applies every edit the checks planned: the labels, and the
+auto-merge arm marker comment.
 Without one they use `gh` in the target's `cwd`, so the CLI is unchanged:
 
 ```ts
