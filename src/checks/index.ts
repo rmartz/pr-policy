@@ -1,4 +1,5 @@
 import type { PolicyCheck } from '../policy.js';
+import { autoMergeCheck } from './auto-merge/index.js';
 import { baseBranchCheck } from './base-branch.js';
 import { ciChangeCheck } from './ci-change/index.js';
 import { dependabotCheck } from './dependabot/index.js';
@@ -13,6 +14,7 @@ import { uatCheck } from './uat/index.js';
  */
 export const CHECKS: readonly PolicyCheck[] = [
   mergeBlockCheck,
+  autoMergeCheck,
   baseBranchCheck,
   titleCheck,
   ciChangeCheck,

@@ -25,6 +25,17 @@ workflow, pins the Action by SHA, and requires the `pr-policy` status. The calle
 its permissions, and why `pull_request_target` is safe here are in the Action's
 [consumer guide](https://github.com/rmartz/pr-policy-action/blob/main/docs/consuming.md).
 
+### Caller triggers
+
+The caller's `pull_request_target` types decide when the suite runs. Besides
+the PR events every check needs (`opened`, `synchronize`, `reopened`, `edited`,
+`labeled`, `unlabeled`, and the draft flips), the
+[auto-merge guard](checks/auto-merge.md) needs `auto_merge_enabled` and
+`auto_merge_disabled`: the first records the head auto-merge was armed on, and
+the second re-evaluates a PR whose guard no longer applies. A caller without
+them fails closed, never open. A hosted caller subscribes to the same
+`pull_request` webhook actions.
+
 So a change here reaches consumers in three hops: a release of this package, a
 Dependabot bump and release of the Action, then each consumer's Dependabot bump
 of its Action pin.

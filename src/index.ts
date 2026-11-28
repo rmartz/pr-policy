@@ -1,4 +1,13 @@
 export { CHECKS, selectChecks, type PolicyOptions } from './checks/index.js';
+export {
+  AUTO_MERGE_CHECK,
+  autoMergeCheck,
+  currentRecord,
+  decideAutoMerge,
+  isBotArmed,
+} from './checks/auto-merge/index.js';
+export { changeFingerprint, type CompareFile } from './checks/auto-merge/fingerprint.js';
+export { markerBody, parseMarker } from './checks/auto-merge/marker.js';
 export { CI_CHANGE_CHECK, ciChangeCheck, decideCiChange } from './checks/ci-change/index.js';
 export {
   classifyWorkflowChanges,
@@ -75,12 +84,19 @@ export { ciRetitle } from './checks/title/ci-retitle.js';
 export { clientOf, createGhClient, type ClientTarget, type GitHubClient } from './github/client.js';
 export { createFetchClient, type FetchClientOptions } from './github/fetch-client.js';
 export {
+  AUTO_MERGE_ENABLED_EVENTS,
+  applyAutoMergeArm,
+  gatherAutoMerge,
+} from './github/auto-merge.js';
+export {
   applyLabelEdits,
   gatherFacts,
   openPullRequestsAtHead,
   type PullRequestTarget,
 } from './github/pull-request.js';
 export type {
+  ArmRecord,
+  AutoMergeFacts,
   CheckResult,
   FileChange,
   Finding,

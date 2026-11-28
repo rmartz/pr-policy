@@ -10,6 +10,7 @@ vi.mock('../../src/lib/github.js', async () => {
 
 const { applyLabelEdits, gatherFacts, openPullRequestsAtHead } =
   await import('../../src/github/pull-request.js');
+const { markerBody } = await import('../../src/checks/auto-merge/marker.js');
 
 const PR = {
   title: 'ci: tweak',
@@ -145,6 +146,39 @@ describe.each(await transports())('gatherFacts over %s', (_name, makeClient) => 
     expect(facts.headPushedAt).toBeUndefined();
   });
 
+  it('gathers a person-enabled auto-merge, with the push time it arms against', async () => {
+    github.responses.set('repos/o/r/pulls/7', {
+      ...PR,
+      auto_merge: { enabled_by: { login: 'reed', type: 'User' } },
+    });
+    github.responses.set('repos/o/r/pulls/7/files', []);
+    github.responses.set('repos/o/r/issues/7/events', [
+      { event: 'auto_squash_enabled', created_at: '2026-10-01T13:00:00Z' },
+    ]);
+    github.responses.set('repos/o/r/issues/7/comments', []);
+    github.responses.set('repos/o/r/commits/head1/check-suites', {
+      check_suites: [{ created_at: '2026-10-01T12:00:00Z' }],
+    });
+    const { facts } = await gatherFacts(target());
+    expect(facts.autoMerge).toEqual({
+      enabledBy: { login: 'reed', type: 'User' },
+      enabledAt: '2026-10-01T13:00:00Z',
+      headSha: 'head1',
+    });
+    expect(facts.headPushedAt).toBe('2026-10-01T12:00:00.000Z');
+  });
+
+  it('skips the push-time reads for a bot-enabled auto-merge', async () => {
+    github.responses.set('repos/o/r/pulls/7', {
+      ...PR,
+      auto_merge: { enabled_by: { login: 'merge-bot[bot]', type: 'Bot' } },
+    });
+    github.responses.set('repos/o/r/pulls/7/files', []);
+    const { facts } = await gatherFacts(target());
+    expect(facts.autoMerge?.enabledBy.type).toBe('Bot');
+    expect(facts.headPushedAt).toBeUndefined();
+  });
+
   it('gathers a default base without looking up the PRs it heads', async () => {
     github.responses.set('repos/o/r/pulls/7/files', []);
     const { facts } = await gatherFacts(target());
@@ -224,6 +258,26 @@ describe.each(await transports())('applyLabelEdits over %s', (_name, makeClient)
         body: { labels: ['CI approval needed'] },
       },
       { method: 'DELETE', path: 'repos/o/r/issues/7/labels/old%20label', body: undefined },
+    ]);
+  });
+
+  it('records the auto-merge arm a check asked for', async () => {
+    const sha = 'f'.repeat(40);
+    github.responses.set('repos/o/r/issues/7/comments', []);
+    await applyLabelEdits(
+      { repo: 'o/r', pr: 7, client: makeClient() },
+      {
+        outcome: 'success',
+        title: 't',
+        summary: 's',
+        findings: [],
+        labelsToAdd: [],
+        labelsToRemove: [],
+        autoMergeArm: sha,
+      },
+    );
+    expect(github.writes).toEqual([
+      { method: 'POST', path: 'repos/o/r/issues/7/comments', body: { body: markerBody(sha) } },
     ]);
   });
 });

@@ -49,7 +49,8 @@ Invariants that hold whatever a future change looks like:
   required-status migration.
 - **Read-only.** A check never renames the PR, edits its body, or overrides
   another party's labels. The only labels this package writes are ones it owns
-  outright (`CI approval needed`, `UAT needed`). A reconciler doesn't belong in this package.
+  outright (`CI approval needed`, `UAT needed`), and the only comment is its own
+  auto-merge arm marker. A reconciler doesn't belong in this package.
 - **Never `CI change approved`.** This package never applies it. That label is
   the human act the CI gate exists to require.
 - **Waiting on a human is a `hold`, never a `block`.** A human-gated finding

@@ -44,6 +44,7 @@ event on the PR posts a fresh run.
 
 Findings come from these checks, in this order:
 [`merge-block`](checks/merge-block.md),
+[`auto-merge`](checks/auto-merge.md),
 [`base-branch`](checks/base-branch.md), [`title`](checks/title.md),
 [`ci-change`](checks/ci-change.md), [`uat`](checks/uat.md) (unless the
 repo [turns UAT off](checks/uat.md#repos-without-uat)), and

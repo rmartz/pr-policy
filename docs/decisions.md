@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Design decisions
-description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety, how the CI approval label is reconciled, why CI sign-off is needed only for a loosened or changed check and how strictly-stricter edits and shipped reusable workflows are judged, why a PR waiting on sign-off is pending rather than red, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here and classifies on its own since the PR automation was retired, why the uat-label check and the tested alias were dropped, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why both UAT sign-offs are bound to the head, why pr-policy writes a UAT needed label, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, and the questions still open.
+description: Why pr-policy is a suite behind one check-run, why the verdict is mirrored to a commit status, why it is read-only and separate from merge-safety, how the CI approval label is reconciled, why CI sign-off is needed only for a loosened or changed check and how strictly-stricter edits and shipped reusable workflows are judged, why a PR waiting on sign-off is pending rather than red, how the title rules treat `!`, labels, and CI changes, why a dependency major is breaking unless a person waives it, why an own-CI change is never forced to ci, why the UAT gate lives here and classifies on its own since the PR automation was retired, why the uat-label check and the tested alias were dropped, why tests and refactors are UAT-exempt, how a repo turns it off, who can sign off, why both UAT sign-offs are bound to the head, why pr-policy writes a UAT needed label, why a blocking label holds from any actor, why the merge target is policy, why Dependabot PRs are checked against their own description, why auto-merge is bound to the change it was armed on and recorded in a marker comment, and the questions still open.
 tags: [pr-policy, design, decisions]
 ---
 
@@ -26,7 +26,9 @@ Overwriting labels another party owns (verdict labels, UAT labels) is a larger
 trust grant than reporting. Reading a UAT label to gate the merge is not; see
 [the UAT gate](#uat-is-a-hard-gate-here). This package writes only the two
 labels it owns outright, `CI approval needed` and
-[`UAT needed`](#pr-policy-labels-prs-waiting-for-uat).
+[`UAT needed`](#pr-policy-labels-prs-waiting-for-uat), and its own
+[auto-merge arm marker](#auto-merge-is-bound-to-the-change-it-was-armed-on)
+comment.
 
 ### Title rules block; they never rename
 
@@ -449,6 +451,47 @@ renamed it across the fleet. With that automation gone nothing writes it, and
 the session applies `UAT passed` directly. The major release that removed the
 status path was the cheapest point to drop it: a PR that still carries only `tested` waits
 for `UAT passed`, which a head-bound sign-off needs after any push anyway.
+
+### Auto-merge is bound to the change it was armed on
+
+GitHub keeps auto-merge enabled across new pushes, so a review fix or conflict
+resolution pushed after arming would merge with no new review. The
+[`auto-merge` check](checks/auto-merge.md) fails `pr-policy` when the head that
+would merge carries a different change from the head auto-merge was armed on.
+It lives here, not in merge-safety, because it judges the PR's own change, not
+its safety as the base moves. It sits inside the one required verdict, so no
+consumer adds a required check.
+
+- **Same change, not same SHA.** Binding to the SHA would block every branch
+  update, and merge-safety asks for those. So the check compares each head's
+  merge-base diff without context or hunk offsets, like a patch-id. A clean
+  update or rebase re-arms; anything that changes the PR's own lines blocks.
+- **A block, not a hold.** The author clears it by disabling and re-enabling
+  auto-merge after re-reviewing, so nothing waits only on someone else.
+- **Fail closed.** Auto-merge enabled before this check existed, with the head
+  moved since, has no record and blocks. That strands nothing: one
+  disable-and-re-enable re-arms it.
+- **A bot's auto-merge is exempt.** bot-automerge arms by rule with its App's
+  token and re-judges every head, and Dependabot rebases legitimately move a
+  lockfile. The exemption reads the enabler's type, `Bot`, so no fleet App is
+  named here. A user's token can't enable auto-merge as a bot.
+
+**The armed head is current state, recorded.** GitHub records when auto-merge
+was enabled but not on which head, so the check keeps its own record: a marker
+comment it owns, like the labels it owns. Which head the current auto-merge
+request was armed on is a fact about that request, as who applied a label is a
+fact about the label, so it stays inside "content, not history". The record is
+trusted only from a bot and unedited, so a user's token can't forge it. A
+commit status was rejected because any write user can set one; a check-run
+because it can only be found from the very SHA it would record. Auto-merge
+enabled strictly after the head was pushed arms on that head without a record,
+so a cancelled run rarely matters.
+
+The caller needs `auto_merge_enabled` and `auto_merge_disabled` in its
+`pull_request_target` types (see
+[distribution.md](distribution.md#caller-triggers)). It ships as a `feat`: a
+caller without the new types fails closed, and nothing consumers rely on
+changes meaning.
 
 ## Open
 

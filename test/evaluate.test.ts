@@ -87,6 +87,15 @@ describe('evaluatePolicy', () => {
     expect(report.labelsToAdd).toEqual(['owned label']);
     expect(report.labelsToRemove).toEqual([]);
   });
+
+  it('carries the auto-merge arm a check asked for, and none otherwise', async () => {
+    const arming: PolicyCheck = {
+      name: 'arming',
+      evaluate: async () => ({ findings: [], autoMergeArm: 'abc' }),
+    };
+    expect((await evaluatePolicy(pr, [stubCheck('first', []), arming])).autoMergeArm).toBe('abc');
+    expect(await evaluatePolicy(pr, [stubCheck('first', [])])).not.toHaveProperty('autoMergeArm');
+  });
 });
 
 describe('selectChecks', () => {
@@ -98,6 +107,7 @@ describe('selectChecks', () => {
   it('drops only the UAT gate when skipUat is set', () => {
     expect(selectChecks({ skipUat: true }).map((check) => check.name)).toEqual([
       'merge-block',
+      'auto-merge',
       'base-branch',
       'title',
       'ci-change',

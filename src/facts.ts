@@ -1,6 +1,8 @@
 import { REPO_PERMISSIONS } from './policy.js';
 import { isRepoPermission } from './sign-off.js';
 import type {
+  ArmRecord,
+  AutoMergeFacts,
   FileChange,
   LabelActor,
   OpenPullRequest,
@@ -98,12 +100,58 @@ function parseBase(value: unknown): PullRequestBase | undefined {
   return { branch, defaultBranch, headOf: (headOf ?? []).map(parseOpenPullRequest) };
 }
 
+function parseArmRecord(value: unknown): ArmRecord | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'object' || value === null) {
+    throw new Error('facts.autoMerge.armed must be an object');
+  }
+  const { sha, at } = value as Record<string, unknown>;
+  if (typeof sha !== 'string' || typeof at !== 'string') {
+    throw new Error('facts.autoMerge.armed.sha / at must be strings');
+  }
+  return { sha, at };
+}
+
+function parseAutoMerge(value: unknown): AutoMergeFacts | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'object' || value === null) {
+    throw new Error('facts.autoMerge must be an object');
+  }
+  const { enabledBy, enabledAt, headSha, armed, armedChange, headChange } = value as Record<
+    string,
+    unknown
+  >;
+  if (typeof enabledBy !== 'object' || enabledBy === null) {
+    throw new Error('facts.autoMerge.enabledBy must be an object');
+  }
+  const { login, type } = enabledBy as Record<string, unknown>;
+  if (typeof login !== 'string' || typeof type !== 'string') {
+    throw new Error('facts.autoMerge.enabledBy.login / type must be strings');
+  }
+  if (typeof headSha !== 'string') throw new Error('facts.autoMerge.headSha must be a string');
+  if (
+    !isOptionalString(enabledAt) ||
+    !isOptionalString(armedChange) ||
+    !isOptionalString(headChange)
+  ) {
+    throw new Error('facts.autoMerge.enabledAt / armedChange / headChange must be strings');
+  }
+  const autoMerge: AutoMergeFacts = { enabledBy: { login, type }, headSha };
+  const record = parseArmRecord(armed);
+  if (enabledAt !== undefined) autoMerge.enabledAt = enabledAt;
+  if (record !== undefined) autoMerge.armed = record;
+  if (armedChange !== undefined) autoMerge.armedChange = armedChange;
+  if (headChange !== undefined) autoMerge.headChange = headChange;
+  return autoMerge;
+}
+
 /**
  * Parse and validate a JSON facts document into `PullRequestFacts`.
  * `workflowChanges`, `manifestChanges`, and `signOffs` are optional and default
  * to none; `body`, `author`, `base`, `draft`, and `headPushedAt` are optional
- * and stay absent. With no `signOffs`, no sign-off label counts, and with no
- * `headPushedAt`, no UAT sign-off does: trust fails closed.
+ * and stay absent, as does `autoMerge` (auto-merge off). With no `signOffs`, no
+ * sign-off label counts, and with no `headPushedAt`, no UAT sign-off does and
+ * auto-merge can't arm on the head: trust fails closed.
  */
 export function parseFacts(raw: string): PullRequestFacts {
   const parsed: unknown = JSON.parse(raw);
@@ -122,6 +170,7 @@ export function parseFacts(raw: string): PullRequestFacts {
     manifestChanges,
     signOffs,
     headPushedAt,
+    autoMerge,
   } = parsed as Record<string, unknown>;
   if (typeof title !== 'string') throw new Error('facts.title must be a string');
   if (!isOptionalString(body)) throw new Error('facts.body must be a string');
@@ -146,5 +195,7 @@ export function parseFacts(raw: string): PullRequestFacts {
   if (parsedBase !== undefined) pr.base = parsedBase;
   if (draft !== undefined) pr.draft = draft;
   if (headPushedAt !== undefined) pr.headPushedAt = headPushedAt;
+  const parsedAutoMerge = parseAutoMerge(autoMerge);
+  if (parsedAutoMerge !== undefined) pr.autoMerge = parsedAutoMerge;
   return pr;
 }

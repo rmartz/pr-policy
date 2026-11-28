@@ -63,6 +63,43 @@ export interface PullRequestBase {
 }
 
 /**
+ * pr-policy's own record of the head auto-merge was armed on: its latest
+ * unedited arm-marker comment on the PR, authored by a bot.
+ */
+export interface ArmRecord {
+  /** The head SHA the marker records. */
+  sha: string;
+  /** When the marker was created (ISO 8601), as GitHub records it. */
+  at: string;
+}
+
+/**
+ * The PR's native auto-merge request, present only while auto-merge is
+ * enabled, plus what the `auto-merge` check needs to tell whether the change
+ * has moved since it was armed.
+ */
+export interface AutoMergeFacts {
+  /** Who enabled auto-merge, as `pull_request.auto_merge.enabled_by` reports it. */
+  enabledBy: PullRequestAuthor;
+  /**
+   * When auto-merge was last enabled (ISO 8601): the latest `auto_*_enabled`
+   * event on the PR. Absent when GitHub records none, so arming is unknown.
+   */
+  enabledAt?: string;
+  /** The head SHA that would merge now. */
+  headSha: string;
+  /** pr-policy's latest arm record, if it has written one. */
+  armed?: ArmRecord;
+  /**
+   * The normalized net change at `armed.sha` and at `headSha` (a hash of each
+   * one's merge-base diff, without context lines or hunk offsets). Set only
+   * when the record names a different head; absent when it couldn't be read.
+   */
+  armedChange?: string;
+  headChange?: string;
+}
+
+/**
  * The facts about a pull request that policy checks judge. Every field is a
  * property of the PR's current state — its content and the labels on it, never
  * its review history.
@@ -96,9 +133,12 @@ export interface PullRequestFacts {
    * When the current head was pushed (ISO 8601), from times the author can't
    * forge: the latest force-push event and the head commit's earliest check
    * suite, never a commit date. `gatherFacts` sets it whenever a head-bound
-   * sign-off (`UAT passed`, `no UAT needed`) is on the PR; absent, neither counts.
+   * sign-off (`UAT passed`, `no UAT needed`) is on the PR, or auto-merge is
+   * enabled; absent, neither sign-off counts and auto-merge can't arm on it.
    */
   headPushedAt?: string;
+  /** The auto-merge request, present only while auto-merge is enabled. */
+  autoMerge?: AutoMergeFacts;
 }
 
 /**
@@ -134,6 +174,11 @@ export interface CheckResult {
   findings: readonly Finding[];
   labelsToAdd?: readonly string[];
   labelsToRemove?: readonly string[];
+  /**
+   * A head SHA to record as the one auto-merge is armed on, written as
+   * pr-policy's own marker comment (the `auto-merge` check only).
+   */
+  autoMergeArm?: string;
 }
 
 /**
