@@ -33,7 +33,7 @@ import type {
 export const AUTO_MERGE_CHECK = 'auto-merge';
 
 const REARM =
-  'Re-review the change, then disable and re-enable auto-merge to arm it on the current head.';
+  'Re-review the change, then disable and re-enable auto-merge to arm it on the current head (`gh pr merge --auto --match-head-commit <sha>` arms only the head you reviewed).';
 
 function short(sha: string): string {
   return `\`${sha.slice(0, 7)}\``;

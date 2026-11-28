@@ -143,6 +143,31 @@ describe.each(await transports())('gatherAutoMerge over %s', (_name, makeClient)
     expect(github.reads.some((path) => path.includes('/compare/'))).toBe(false);
   });
 
+  it('falls back past a newer marker with no status to the newest trusted one', async () => {
+    github.responses.set(EVENTS, [enabled('2026-11-01T11:00:00Z')]);
+    github.responses.set(COMMENTS, [
+      comment(1, markerBody(ARMED), '2026-11-01T11:00:05Z'),
+      comment(2, markerBody(HEAD), '2026-11-01T11:30:00Z'),
+    ]);
+    github.responses.set(`repos/o/r/commits/${HEAD}/statuses`, []);
+    postedBy(ARMED);
+    github.responses.set(`repos/o/r/compare/${BASE}...${ARMED}`, files('+one'));
+    github.responses.set(`repos/o/r/compare/${BASE}...${HEAD}`, files('+one'));
+    const facts = await gatherAutoMerge(target(), view());
+    expect(facts?.armed).toEqual({ sha: ARMED, at: '2026-11-01T11:00:05Z' });
+    expect(facts?.armedChange).toBe(facts?.headChange);
+  });
+
+  it('withholds the exemption when the commit list may be truncated at 250', async () => {
+    github.responses.set(
+      COMMITS,
+      Array.from({ length: 250 }, () => commit('dependabot[bot]')),
+    );
+    github.responses.set(EVENTS, []);
+    const facts = await gatherAutoMerge(target(), view(mergeBot, dependabot));
+    expect(facts?.commits?.at(-1)).toEqual({ verified: false });
+  });
+
   it('ignores a marker whose SHA has no pr-policy status from its author', async () => {
     github.responses.set(EVENTS, [enabled('2026-11-01T11:00:00Z')]);
     github.responses.set(COMMENTS, [comment(1, markerBody(ARMED), '2026-11-01T11:00:05Z')]);
@@ -211,29 +236,46 @@ describe.each(await transports())('gatherAutoMerge over %s', (_name, makeClient)
 describe.each(await transports())('applyAutoMergeArm over %s', (_name, makeClient) => {
   const target = () => ({ repo: 'o/r', pr: 7, client: makeClient() });
 
-  it('posts a new marker, then deletes its own older markers but the newest', async () => {
+  it('posts a new marker, then deletes its own older markers but the newest trusted one', async () => {
+    const OLDEST = 'd'.repeat(40);
+    const UNTRUSTED = 'e'.repeat(40);
     github.responses.set(COMMENTS, [
-      comment(0, markerBody(ARMED), '2026-11-01T10:00:05Z'),
-      comment(1, markerBody(ARMED), '2026-11-01T11:00:05Z'),
-      comment(2, markerBody(ARMED), '2026-11-01T11:10:00Z', { login: 'other[bot]' }),
-      comment(3, markerBody(ARMED), '2026-11-01T11:15:00Z', { type: 'User' }),
-      comment(4, 'LGTM', '2026-11-01T11:20:00Z'),
+      comment(0, markerBody(OLDEST), '2026-11-01T09:00:05Z'),
+      comment(1, markerBody(ARMED), '2026-11-01T10:00:05Z'),
+      // Newest, but its run never posted a status, so it can't be the fallback.
+      comment(2, markerBody(UNTRUSTED), '2026-11-01T11:00:05Z'),
+      comment(3, markerBody(ARMED), '2026-11-01T11:10:00Z', { login: 'other[bot]' }),
+      comment(4, markerBody(ARMED), '2026-11-01T11:15:00Z', { type: 'User' }),
+      comment(5, 'LGTM', '2026-11-01T11:20:00Z'),
     ]);
+    github.responses.set(`repos/o/r/commits/${UNTRUSTED}/statuses`, []);
+    postedBy(ARMED);
     github.writeResponse = { id: 9, user: { login: SELF } };
     await applyAutoMergeArm(target(), HEAD);
     expect(github.writes).toEqual([
       { method: 'POST', path: COMMENTS, body: { body: markerBody(HEAD) } },
+      { method: 'DELETE', path: 'repos/o/r/issues/comments/2', body: undefined },
       { method: 'DELETE', path: 'repos/o/r/issues/comments/0', body: undefined },
     ]);
   });
 
+  it('skips the clean-up when a status read fails, rather than risk the fallback', async () => {
+    github.responses.set(COMMENTS, [comment(1, markerBody(ARMED), '2026-11-01T10:00:05Z')]);
+    github.writeResponse = { id: 9, user: { login: SELF } };
+    await applyAutoMergeArm(target(), HEAD);
+    expect(github.writes.map((write) => write.method)).toEqual(['POST']);
+  });
+
   it('tolerates a failed delete', async () => {
+    const UNTRUSTED = 'e'.repeat(40);
     github.responses.set(COMMENTS, [
       comment(0, markerBody(ARMED), '2026-11-01T10:00:05Z'),
-      comment(1, markerBody(ARMED), '2026-11-01T11:00:05Z'),
+      comment(1, markerBody(UNTRUSTED), '2026-11-01T11:00:05Z'),
     ]);
+    github.responses.set(`repos/o/r/commits/${UNTRUSTED}/statuses`, []);
+    postedBy(ARMED);
     github.writeResponse = { id: 9, user: { login: SELF } };
-    github.failingWrites.add('repos/o/r/issues/comments/0');
+    github.failingWrites.add('repos/o/r/issues/comments/1');
     await expect(applyAutoMergeArm(target(), HEAD)).resolves.toBeUndefined();
   });
 

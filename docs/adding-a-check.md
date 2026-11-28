@@ -55,8 +55,8 @@ else owns, it is a reconciler and doesn't belong here.
 - **Deterministic.** The same facts always yield the same findings. (The
   [auto-merge guard](checks/auto-merge.md) is why this says facts, not
   content: its facts include when auto-merge was enabled.) No LLM
-  judgment, and no network beyond reading the PR itself (its commits, their
-  statuses, and compares against its base count).
+  judgment, and no network beyond reading the PR itself. Reading its commits,
+  their statuses, and compares against its base counts as reading the PR.
 - **Err toward gating when a miss is costly.** If a false positive costs a
   human one look and a false negative bypasses a gate, make the check
   trigger-happy, and fix false positives by adding a named rule.

@@ -479,6 +479,11 @@ consumer adds a required check.
   author, and only that bot's verified commits, so a person's fix pushed onto
   a Dependabot PR is guarded. It reads actor types, so no fleet App is named
   here. Commits are PR content, so this stays inside "content, not history".
+  The stated limit: it assumes a bot that arms its own PR re-judges every head.
+  An agent running as a GitHub App would be exempt; agents that act with the
+  user's token are not. A consumer-listed allow-list of enablers was rejected
+  for now: empty by default it would guard bot-automerge, whose Dependabot
+  rebases legitimately move the change.
 
 **The armed head is current state, recorded.** GitHub records when auto-merge
 was enabled but not on which head, so the check keeps its own record: a marker

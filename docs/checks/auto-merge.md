@@ -94,8 +94,11 @@ A marker is trusted only when all three hold:
 
 So the caller needs `statuses: write`: without it no marker is ever trusted,
 and every move after arming blocks. A new marker is trusted only once the same
-run posts the status after it, so re-arming keeps the previous marker as a
-fallback and deletes only older ones, and only the same identity's.
+run posts the status after it, so re-arming keeps the newest trusted marker
+as a fallback and deletes the same identity's others; it never touches another
+bot's. A status the run posts under a custom name must start with `pr-policy`
+(as `pr-policy (app)` does), or no marker is ever trusted. Each re-arm is a new
+comment, so subscribers are notified of every clean branch update.
 
 **What it doesn't stop.** Under the Action, pr-policy's identity is
 `github-actions[bot]`, which every workflow in the repo shares, including a
@@ -189,12 +192,22 @@ Known gaps, all narrow:
 - **Rule 2 and an older commit.** With no record, a head moved by a plain
   (not force) push to a commit first pushed elsewhere before auto-merge was
   enabled has an early push time, so rule 2 arms on it. A record prevents this,
-  so it needs the record to be missing: a cancelled run, or a caller without
-  `auto_merge_enabled` (below).
+  so it needs the record to be missing: a cancelled run, a write collaborator
+  deleting the marker, or a caller without `auto_merge_enabled` (below).
 - **One-second timestamps.** GitHub's times have second resolution, so a marker
   posted in the same second auto-merge is re-enabled counts for the new
   request. A late marker from a stale run can only name an older head, which
   blocks rather than passes.
+- **A retargeted base.** The record names the head, not the base. It relies on
+  GitHub disabling auto-merge when a PR's base branch changes; re-enabling then
+  starts a new request, and the old record no longer counts.
+- **App-backed agents.** The bot exemption assumes a bot that arms auto-merge
+  on its own PR re-judges every head by rule, as bot-automerge does. An agent
+  that runs as a GitHub App, opening, committing to, and arming its own PR,
+  would be exempt too. Agents here act with the user's token, so they are
+  guarded.
+- **Over 250 commits.** The PR commits list stops at 250, so a bot PR that
+  long is never exempt.
 
 ## The caller triggers it needs
 

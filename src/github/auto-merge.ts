@@ -73,19 +73,30 @@ async function gatherEnabledAt(target: PullRequestTarget): Promise<string | unde
   return times.reduce((latest, at) => (Date.parse(at) > Date.parse(latest) ? at : latest));
 }
 
-/** Who authored each PR commit, as GitHub resolves and verifies it. */
+/**
+ * The PR commits list returns at most this many. A list that long may hide a
+ * later commit, so the bot exemption can't rest on it.
+ */
+const PR_COMMIT_LIMIT = 250;
+
+/**
+ * Who authored each PR commit, as GitHub resolves and verifies it. A list at
+ * the API's cap gets an unattributed entry, so it can never prove the PR holds
+ * only the bot's commits.
+ */
 async function gatherCommits(target: PullRequestTarget): Promise<CommitAuthorship[]> {
   const commits = (await list(target, `repos/${target.repo}/pulls/${target.pr}/commits`)) as {
     author: { login: string } | null;
     commit: { verification?: { verified: boolean } | null };
   }[];
-  return commits.map((commit) => {
+  const authorships = commits.map((commit) => {
     const authorship: CommitAuthorship = {
       verified: commit.commit.verification?.verified === true,
     };
     if (commit.author !== null) authorship.login = commit.author.login;
     return authorship;
   });
+  return commits.length >= PR_COMMIT_LIMIT ? [...authorships, { verified: false }] : authorships;
 }
 
 /**
@@ -192,13 +203,13 @@ export async function gatherAutoMerge(
 
 /**
  * Record `sha` as the armed head: post a new marker, then delete this same
- * identity's older markers, keeping the newest one before it. A new marker is
- * only trusted once pr-policy's status lands on its SHA (after this, in the
- * same run), so the kept one is the fallback if that never happens: the next
- * run still compares against it rather than finding no record. A new comment
- * rather than an edit, because an edited marker is never trusted. Another
- * bot's comment is never touched. A failed post leaves the old record; a
- * failed delete leaves an older marker that the newer ones outrank.
+ * identity's older markers except the newest trusted one (its SHA carries
+ * pr-policy's status from this identity). The new marker is only trusted once
+ * this run posts its status, so the kept one is the fallback if that never
+ * happens. A new comment rather than an edit, because an edited marker is
+ * never trusted. Another bot's comment is never touched. A failed post leaves
+ * the old record; a failed status read skips the clean-up; a failed delete
+ * leaves an older marker that the newer ones outrank.
  */
 export async function applyAutoMergeArm(target: PullRequestTarget, sha: string): Promise<void> {
   const client = clientOf(target);
@@ -217,8 +228,21 @@ export async function applyAutoMergeArm(target: PullRequestTarget, sha: string):
   const own = markers((previous ?? []) as IssueComment[]).filter(
     (marker) => marker.login === self && marker.id !== posted.id,
   );
-  // Newest first, so the first is the fallback to keep.
-  for (const marker of own.slice(1)) {
+  let kept: number | undefined;
+  for (const marker of own) {
+    let posters: Set<string>;
+    try {
+      posters = await statusPosters(target, marker.sha);
+    } catch {
+      return;
+    }
+    if (posters.has(self)) {
+      kept = marker.id;
+      break;
+    }
+  }
+  for (const marker of own) {
+    if (marker.id === kept) continue;
     await client.send('DELETE', `repos/${target.repo}/issues/comments/${marker.id}`);
   }
 }
